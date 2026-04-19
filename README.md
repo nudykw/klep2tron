@@ -17,6 +17,9 @@
 ### Description
 **Klep2tron** is a cross-platform 2.5D client-server game developed in Rust using the Bevy game engine. The game world is built on a multi-layered 3D grid (tile system) with an authoritative server that manages physics and world state.
 
+### 🛠 Documentation
+- [Level Editor Guide](docs/EDITOR_GUIDE.md)
+
 ### Project Structure
 The project is organized as a Cargo Workspace and divided into the following components:
 - `crates/shared` — Shared data structures (maps, tiles, protocols).
@@ -92,6 +95,9 @@ cargo run --bin server
 
 ### Опис
 **Klep2tron** — це кросплатформна 2.5D клієнт-серверна гра, що розробляється мовою Rust з використанням ігрового рушія Bevy. Ігровий світ побудований на основі багаторівневої 3D-сітки (тайлової системи) з авторитарним сервером, який контролює фізику та стан світу.
+
+### 🛠 Документація
+- [Посібник редактора рівнів](docs/EDITOR_GUIDE.md)
 
 ### Структура проєкту
 Проєкт організований як Cargo Workspace та розділений на наступні компоненти:
