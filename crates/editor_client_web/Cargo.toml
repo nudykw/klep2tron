@@ -1,0 +1,18 @@
+[package]
+name = "editor_client_web"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+editor_client = { path = "../editor_client" }
+bevy = { version = "0.14", features = ["webgl2"] }
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+getrandom = { version = "0.2", features = ["js"] }
+# Some dependencies might use 0.3
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+uuid = { version = "1", features = ["js", "v4"] }
+
+[profile.release]
+lto = true
+opt-level = 's'

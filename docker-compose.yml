@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  server:
+    build: .
+    ports:
+      - "5000:5000/udp" # Порт для UDP сервера игры (bevy_renet)
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://klepto:password@db:5432/kleptotron
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: klepto
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: kleptotron
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U klepto"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

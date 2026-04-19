@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/editor_client",
+    "crates/server",
+    "crates/shared",
+    "crates/admin_web",
+    "crates/editor_client_web",
+]
+resolver = "2"
