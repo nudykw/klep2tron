@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klep2Tron | Performance Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #0a0a0c;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            margin: 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #16161a;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #222;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .chart-container {
+            background: #16161a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #222;
+        }
+        .instructions {
+            background: #1a1a20;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #00ffff;
+        }
+        .instructions h2 { margin-top: 0; color: #00ffff; font-size: 18px; }
+        .instructions ul { margin-bottom: 0; padding-left: 20px; }
+        .instructions li { margin-bottom: 8px; color: #aaa; }
+        .status-tag {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-ok { background: #004400; color: #00ff00; }
+        .status-warn { background: #444400; color: #ffff00; }
+        .status-crit { background: #440000; color: #ff0000; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 PERFORMANCE DASHBOARD</h1>
+            <div id="file-info">Source: perf_metrics.json</div>
+        </header>
+
+        <div class="instructions">
+            <h2>🚀 How to use:</h2>
+            <ul>
+                <li><b>Step 1:</b> Close the Klep2Tron application to generate/update <code>perf_metrics.json</code>.</li>
+                <li><b>Step 2:</b> Click the "Choose File" button at the bottom of this page.</li>
+                <li><b>Step 3:</b> Select the <code>perf_metrics.json</code> file from your project root.</li>
+                <li><b>Step 4:</b> Analyze the trends: 
+                    <span style="color:#00ff00">Green (FPS)</span>, 
+                    <span style="color:#ffaa00">Orange (CPU %)</span>, 
+                    <span style="color:#00ffff">Cyan (RAM MB)</span>.
+                </li>
+            </ul>
+        </div>
+
+        <div class="stats-grid" id="summary-stats">
+            <!-- Summary will be injected here -->
+        </div>
+
+        <div class="chart-container">
+            <canvas id="perfChart"></canvas>
+        </div>
+
+        <div style="text-align: center; color: #666; font-size: 14px;">
+            Note: Load the perf_metrics.json file to see data.
+            <br>
+            <input type="file" id="fileInput" style="margin-top: 10px;">
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const data = JSON.parse(event.target.result);
+                renderDashboard(data);
+            };
+            
+            reader.readAsText(file);
+        });
+
+        function renderDashboard(data) {
+            const labels = data.entries.map(e => e.timestamp.toFixed(1) + 's');
+            const fpsData = data.entries.map(e => e.fps);
+            const cpuData = data.entries.map(e => e.cpu);
+            const memData = data.entries.map(e => e.mem);
+
+            // Summary Stats
+            const avgFps = (fpsData.reduce((a, b) => a + b, 0) / fpsData.length).toFixed(1);
+            const maxCpu = Math.max(...cpuData).toFixed(1);
+            const avgMem = (memData.reduce((a, b) => a + b, 0) / memData.length).toFixed(1);
+
+            document.getElementById('summary-stats').innerHTML = `
+                <div class="stat-card">
+                    <h3>AVG FPS</h3>
+                    <div style="font-size: 32px; color: ${avgFps > 30 ? '#00ff00' : '#ff0000'}">${avgFps}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>MAX CPU</h3>
+                    <div style="font-size: 32px; color: ${maxCpu < 80 ? '#00ff00' : '#ffaa00'}">${maxCpu}%</div>
+                </div>
+                <div class="stat-card">
+                    <h3>AVG MEMORY</h3>
+                    <div style="font-size: 32px; color: #00ffff">${avgMem} MB</div>
+                </div>
+            `;
+
+            // Chart
+            const ctx = document.getElementById('perfChart').getContext('2d');
+            if (window.myChart) window.myChart.destroy();
+            
+            window.myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'FPS',
+                            data: fpsData,
+                            borderColor: '#00ff00',
+                            backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                            yAxisID: 'y',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'CPU %',
+                            data: cpuData,
+                            borderColor: '#ffaa00',
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Memory (MB)',
+                            data: memData,
+                            borderColor: '#00ffff',
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            type: 'linear', display: true, position: 'left',
+                            title: { display: true, text: 'Frames Per Second', color: '#00ff00' },
+                            grid: { color: '#333' }
+                        },
+                        y1: {
+                            type: 'linear', display: true, position: 'right',
+                            title: { display: true, text: 'Usage % / MB', color: '#ffaa00' },
+                            grid: { drawOnChartArea: false }
+                        },
+                        x: { grid: { color: '#333' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#ccc' } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
