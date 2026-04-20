@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory};
+pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -45,6 +45,9 @@ impl Default for EditorState {
 #[derive(Component)] pub struct CameraDebugText;
 #[derive(Component)] pub struct PersistentCamera2d;
 #[derive(Component)] pub struct TileTypeButton(pub TileType);
+#[derive(Component)] pub struct TooltipText(pub String);
+#[derive(Component)] pub struct TooltipUi;
+#[derive(Component)] pub struct HelpButton;
 
 #[derive(Resource)]
 pub struct LoadingTimer(pub Timer);
@@ -96,6 +99,7 @@ pub fn run_game() {
             room_switching_system,
             auto_save_system,
             undo_redo_system,
+            editor_tooltip_system,
         ).run_if(in_state(GameState::InGame)))
         // System for forced window title update (in case of Bevy lags in Wasm)
         .add_systems(Update, update_window_title)
@@ -112,8 +116,15 @@ pub fn update_window_title(mut windows: Query<&mut Window>) {
     }
 }
 
-pub fn handle_menu_input(keyboard: Res<ButtonInput<KeyCode>>, mut state: ResMut<NextState<GameState>>) {
-    if keyboard.just_pressed(KeyCode::Enter) { state.set(GameState::Loading); }
+pub fn handle_menu_input(
+    keyboard: Res<ButtonInput<KeyCode>>, 
+    mut state: ResMut<NextState<GameState>>,
+    help_state: Res<HelpState>,
+) {
+    // HOTKEY_SYNC: Esc to return to menu
+    if keyboard.just_pressed(KeyCode::Escape) && !help_state.is_open { 
+        state.set(GameState::Menu); 
+    }
 }
 
 pub fn setup_editor(
@@ -275,12 +286,20 @@ pub fn setup_editor(
         background_color: Color::srgba(0.05, 0.05, 0.05, 0.95).into(), ..default()
     }, MapEntity)).with_children(|p| {
         for (idx, (tt, _)) in types.iter().enumerate() {
+            let label = match tt {
+                TileType::Cube => "Cube",
+                TileType::WedgeN => "Wedge N",
+                TileType::WedgeE => "Wedge E",
+                TileType::WedgeS => "Wedge S",
+                TileType::WedgeW => "Wedge W",
+                _ => "Tile",
+            };
             p.spawn((ButtonBundle {
                 style: Style { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
                 background_color: Color::srgb(0.2, 0.2, 0.2).into(),
                 border_color: Color::srgb(0.4, 0.4, 0.4).into(),
                 ..default()
-            }, TileTypeButton(*tt))).with_children(|p| {
+            }, TileTypeButton(*tt), TooltipText(label.to_string()))).with_children(|p| {
                 p.spawn(ImageBundle {
                     image: UiImage::new(preview_handles[idx].clone()),
                     style: Style { width: Val::Px(60.0), height: Val::Px(60.0), ..default() },
@@ -288,6 +307,33 @@ pub fn setup_editor(
                 });
             });
         }
+        
+        // Help Button
+        p.spawn((ButtonBundle {
+            style: Style { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
+            background_color: Color::srgb(0.1, 0.3, 0.3).into(),
+            border_color: Color::srgb(0.0, 0.8, 0.8).into(),
+            ..default()
+        }, HelpButton, TooltipText("Help (F1)".to_string()))).with_children(|p| {
+            p.spawn(TextBundle::from_section("?", TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE }));
+        });
+    });
+
+    // Tooltip Node (Global for editor)
+    commands.spawn((NodeBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            display: Display::None,
+            padding: UiRect::all(Val::Px(5.0)),
+            border: UiRect::all(Val::Px(1.0)),
+            ..default()
+        },
+        background_color: Color::srgba(0.0, 0.0, 0.0, 0.9).into(),
+        border_color: Color::WHITE.into(),
+        z_index: ZIndex::Global(200),
+        ..default()
+    }, TooltipUi)).with_children(|p| {
+        p.spawn(TextBundle::from_section("", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }));
     });
 
     commands.spawn(DirectionalLightBundle {
@@ -371,6 +417,7 @@ pub fn selection_system(
     mut selection: ResMut<Selection>,
     mut project: ResMut<Project>,
     mut history: ResMut<CommandHistory>,
+    // HOTKEY_SYNC: selection_system uses Arrows, Q/A, F
     editor_state: Res<EditorState>,
     camera_query: Query<&Transform, With<OrbitCamera>>,
 ) {
@@ -741,43 +788,87 @@ fn draw_dashed_cuboid_generic<T: GizmoConfigGroup>(gizmos: &mut Gizmos<T>, trans
 }
 
 pub fn editor_ui_system(
-    mut interaction_query: Query<(&Interaction, &TileTypeButton, &mut BackgroundColor, &mut BorderColor)>,
+    mut interaction_query: Query<(&Interaction, Option<&TileTypeButton>, Option<&HelpButton>, &mut BackgroundColor, &mut BorderColor)>,
     mut editor_state: ResMut<EditorState>,
     mut project: ResMut<Project>,
     mut history: ResMut<CommandHistory>,
+    mut help_state: ResMut<HelpState>,
     selection: Res<Selection>,
     mut dirty: ResMut<DirtyTiles>,
 ) {
-    for (interaction, tt_btn, mut color, mut border) in interaction_query.iter_mut() {
-        let is_selected = editor_state.current_type == tt_btn.0;
+    for (interaction, tt_btn, help_btn, mut color, mut border) in interaction_query.iter_mut() {
+        let is_selected = tt_btn.map_or(false, |b| editor_state.current_type == b.0);
         match *interaction {
             Interaction::Pressed => {
-                let mut changed = false;
-                if !is_selected { editor_state.current_type = tt_btn.0; changed = true; }
-                let room_idx = project.current_room_idx;
-                let cell = project.rooms[room_idx].cells[selection.x][selection.z];
-                if cell.h >= 0 && cell.tt != tt_btn.0 { 
-                    history.push_undo(&project);
-                    let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
-                    cell.tt = tt_btn.0; 
-                    changed = true; 
-                    dirty.tiles.push((selection.x, selection.z));
+                if let Some(tt_btn) = tt_btn {
+                    let mut changed = false;
+                    if !is_selected { editor_state.current_type = tt_btn.0; changed = true; }
+                    let room_idx = project.current_room_idx;
+                    let cell = project.rooms[room_idx].cells[selection.x][selection.z];
+                    if cell.h >= 0 && cell.tt != tt_btn.0 { 
+                        history.push_undo(&project);
+                        let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
+                        cell.tt = tt_btn.0; 
+                        changed = true; 
+                        dirty.tiles.push((selection.x, selection.z));
+                    }
+                    if changed { *color = Color::srgb(0.0, 1.0, 1.0).into(); }
                 }
-                if changed { *color = Color::srgb(0.0, 1.0, 1.0).into(); }
+                if help_btn.is_some() {
+                    help_state.is_open = !help_state.is_open;
+                }
             }
             Interaction::Hovered => {
                 if is_selected { *color = Color::srgb(0.0, 0.8, 0.8).into(); }
+                else if help_btn.is_some() { *color = Color::srgb(0.0, 0.5, 0.5).into(); }
                 else { *color = Color::srgb(0.4, 0.4, 0.4).into(); }
             }
             Interaction::None => {
                 if is_selected { 
                     *color = Color::srgb(0.0, 0.6, 0.6).into(); 
                     *border = Color::srgb(1.0, 1.0, 1.0).into();
+                } else if help_btn.is_some() {
+                    *color = Color::srgb(0.1, 0.3, 0.3).into();
+                    *border = Color::srgb(0.0, 0.8, 0.8).into();
                 } else { 
                     *color = Color::srgb(0.2, 0.2, 0.2).into(); 
                     *border = Color::srgb(0.4, 0.4, 0.4).into();
                 }
             }
+        }
+    }
+}
+
+pub fn editor_tooltip_system(
+    windows: Query<&Window>,
+    mut tooltip_query: Query<(&mut Style, &mut Visibility, &Children), With<TooltipUi>>,
+    mut text_query: Query<&mut Text>,
+    interaction_query: Query<(&Interaction, &TooltipText)>,
+) {
+    let window = windows.single();
+    let mut tooltip_active = false;
+
+    if let Ok((mut style, mut visibility, children)) = tooltip_query.get_single_mut() {
+        for (interaction, tooltip) in interaction_query.iter() {
+            if *interaction == Interaction::Hovered {
+                tooltip_active = true;
+                if let Some(mut text) = text_query.get_mut(children[0]).ok() {
+                    text.sections[0].value = tooltip.0.clone();
+                }
+                
+                if let Some(cursor_pos) = window.cursor_position() {
+                    style.left = Val::Px(cursor_pos.x + 15.0);
+                    style.top = Val::Px(cursor_pos.y + 15.0);
+                    style.display = Display::Flex;
+                    *visibility = Visibility::Visible;
+                }
+                break;
+            }
+        }
+
+        if !tooltip_active {
+            style.display = Display::None;
+            *visibility = Visibility::Hidden;
         }
     }
 }
@@ -817,6 +908,7 @@ pub fn undo_redo_system(
     mut history: ResMut<CommandHistory>,
     mut dirty: ResMut<DirtyTiles>,
 ) {
+    // HOTKEY_SYNC: undo_redo_system uses Ctrl+Z, Ctrl+U
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
     
     if ctrl && keyboard.just_pressed(KeyCode::KeyZ) {
