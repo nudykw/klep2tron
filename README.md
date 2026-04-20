@@ -45,13 +45,14 @@ cd klep2tron
 2. Install **C++ Build Tools**: Download and run [Visual Studio Installer](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
 
 ##### **macOS**
-1. Install **Rust**:
-   - **Command Line**:
-     ```bash
-     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-     ```
+1. Install **Homebrew**:
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+2. Install **Rust**:
+   - **Command Line**: `brew install rustup-init && rustup-init`
    - **Manual**: Follow instructions on [rustup.rs](https://rustup.rs/).
-2. Install Xcode Command Line Tools: `xcode-select --install`.
+3. Install Xcode Command Line Tools: `xcode-select --install`.
 
 ##### **Linux**
 1. Install **Rust**:
@@ -142,13 +143,14 @@ cd klep2tron
 2. Встановіть **C++ Build Tools**: Завантажте та запустіть [Visual Studio Installer](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
 
 ##### **macOS**
-1. Встановіть **Rust**:
-   - **Командний рядок**:
-     ```bash
-     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-     ```
+1. Встановіть **Homebrew**:
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+2. Встановіть **Rust**:
+   - **Командний рядок**: `brew install rustup-init && rustup-init`
    - **Вручну**: Дотримуйтесь інструкцій на [rustup.rs](https://rustup.rs/).
-2. Встановіть Xcode Command Line Tools: `xcode-select --install`.
+3. Встановіть Xcode Command Line Tools: `xcode-select --install`.
 
 ##### **Linux**
 1. Встановіть **Rust**:
