@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::input::gamepad::GamepadEvent;
-use crate::{GameState, GraphicsSettings, save_settings, MyWindowMode, UpscalingMode, QualityLevel, EditorMode, ExitConfirmationActive};
+use crate::{GameState, GraphicsSettings, save_settings, MyWindowMode, UpscalingMode, QualityLevel, EditorMode, ExitConfirmationActive, ConfirmationOverlay, MenuEntity};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MenuItemType {
@@ -142,9 +142,9 @@ impl Plugin for MenuPlugin {
 
         app.add_systems(Update, (
                 device_detection_system,
-                menu_input_system,
                 menu_item_system,
                 apply_deferred,
+                menu_input_system,
                 menu_navigation_system,
                 menu_scrolling_system,
                 menu_visual_system,
@@ -193,7 +193,9 @@ pub struct MenuInputParams<'w, 's> {
     pub keyboard: Res<'w, ButtonInput<KeyCode>>,
     pub gamepads: Res<'w, Gamepads>,
     pub gamepad_buttons: Res<'w, ButtonInput<GamepadButton>>,
-    pub query: Query<'w, 's, &'static mut MenuContainer>,
+    pub query: Query<'w, 's, (Entity, &'static mut MenuContainer)>,
+    pub overlay_query: Query<'w, 's, Entity, With<ConfirmationOverlay>>,
+    pub focused_query_with_entity: Query<'w, 's, (Entity, &'static MenuItem), With<MenuFocus>>,
     pub focused_query: Query<'w, 's, &'static MenuItem, With<MenuFocus>>,
     pub input_device: Res<'w, InputDevice>,
     pub next_state: ResMut<'w, NextState<GameState>>,
@@ -211,11 +213,64 @@ pub struct MenuInputParams<'w, 's> {
     pub item_query: Query<'w, 's, &'static MenuItem>,
     pub gpu_list: ResMut<'w, crate::settings::GpuList>,
     pub instance_adapter: Option<Res<'w, bevy::render::renderer::RenderAdapterInfo>>,
+    pub parent_query: Query<'w, 's, &'static Parent>,
+}
+
+fn is_child_of_any(
+    entity: Entity,
+    targets: &Query<Entity, With<ConfirmationOverlay>>,
+    parent_query: &Query<&Parent>,
+) -> bool {
+    let mut current = entity;
+    loop {
+        if targets.get(current).is_ok() {
+            return true;
+        }
+        if let Ok(parent) = parent_query.get(current) {
+            current = parent.get();
+        } else {
+            break;
+        }
+    }
+    false
+}
+
+fn update_container_logic(
+    container: &mut MenuContainer,
+    move_dir: i32,
+    item_query: &Query<&MenuItem>,
+) {
+    let mut next_idx = container.current_selection;
+    let start_idx = next_idx;
+    loop {
+        next_idx = (next_idx as i32 + move_dir).rem_euclid(container.items_count as i32) as usize;
+        
+        let mut is_disabled = false;
+        for item in item_query.iter() {
+            if item.index == next_idx && item.is_disabled {
+                is_disabled = true;
+                break;
+            }
+        }
+        
+        if !is_disabled || next_idx == start_idx {
+            break;
+        }
+    }
+    container.current_selection = next_idx;
 }
 
 pub fn menu_input_system(
     mut params: MenuInputParams,
 ) {
+    let is_confirmation = *params.menu_state.get() == MenuSubState::Confirmation;
+    let has_overlay = !params.overlay_query.is_empty();
+    
+    // Hard block: if we are in confirmation state but overlay isn't ready, skip input entirely
+    if is_confirmation && !has_overlay {
+        return;
+    }
+
     let mut move_dir = 0;
     
     let mut up_pressed = params.keyboard.pressed(KeyCode::ArrowUp);
@@ -253,33 +308,26 @@ pub fn menu_input_system(
     }
 
     if move_dir != 0 {
-        for mut container in params.query.iter_mut() {
-            let mut next_idx = container.current_selection;
-            let start_idx = next_idx;
-            loop {
-                next_idx = (next_idx as i32 + move_dir).rem_euclid(container.items_count as i32) as usize;
-                
-                let mut is_disabled = false;
-                for item in params.item_query.iter() {
-                    if item.index == next_idx && item.is_disabled {
-                        is_disabled = true;
-                        break;
-                    }
-                }
-                
-                if !is_disabled || next_idx == start_idx {
-                    break;
+        // If there's an overlay, ONLY process the container that is part of the overlay
+        if has_overlay {
+            for (entity, mut container) in params.query.iter_mut() {
+                if params.overlay_query.get(entity).is_ok() {
+                    update_container_logic(&mut container, move_dir, &params.item_query);
                 }
             }
-            container.current_selection = next_idx;
-            params.selection_memory.selections.insert(*params.menu_state.get(), container.current_selection);
+        } else if !is_confirmation {
+            // Only process normal containers if we are NOT in confirmation state
+            for (_entity, mut container) in params.query.iter_mut() {
+                update_container_logic(&mut container, move_dir, &params.item_query);
+                params.selection_memory.selections.insert(*params.menu_state.get(), container.current_selection);
+            }
         }
     }
 
     if back_pressed {
-
+        let action = if is_confirmation { MenuAction::ConfirmCancel } else { MenuAction::Back };
         handle_menu_action(
-            MenuAction::Back, 
+            action, 
             &mut params.next_state, 
             &mut params.editor_mode, 
             &mut params.next_menu_state, 
@@ -295,9 +343,20 @@ pub fn menu_input_system(
     }
 
     if select_pressed {
-        if let Ok(item) = params.focused_query.get_single() {
+        let has_overlay = !params.overlay_query.is_empty();
+        
+        // Find focused item, prioritizing overlay
+        let mut target_item = None;
+        for (item_entity, item) in params.focused_query_with_entity.iter() {
+            let is_in_overlay = is_child_of_any(item_entity, &params.overlay_query, &params.parent_query);
+            if has_overlay && !is_in_overlay { continue; }
+            target_item = Some(item.action.clone());
+            break;
+        }
+
+        if let Some(action) = target_item {
             handle_menu_action(
-                item.action.clone(), 
+                action, 
                 &mut params.next_state, 
                 &mut params.editor_mode, 
                 &mut params.next_menu_state, 
@@ -326,38 +385,41 @@ pub fn menu_input_system(
     if right_just { horizontal_dir = 1; }
 
     if horizontal_dir != 0 {
-        if let Ok(item) = params.focused_query.get_single() {
-            if item.item_type == MenuItemType::Toggle || item.item_type == MenuItemType::Slider {
-                let action = match item.action {
-                    MenuAction::NextQuality | MenuAction::PrevQuality => if horizontal_dir > 0 { MenuAction::NextQuality } else { MenuAction::PrevQuality },
-                    MenuAction::NextUpscaling | MenuAction::PrevUpscaling => if horizontal_dir > 0 { MenuAction::NextUpscaling } else { MenuAction::PrevUpscaling },
-                    MenuAction::NextWindowMode | MenuAction::PrevWindowMode => if horizontal_dir > 0 { MenuAction::NextWindowMode } else { MenuAction::PrevWindowMode },
-                    MenuAction::NextGpu | MenuAction::PrevGpu => if horizontal_dir > 0 { MenuAction::NextGpu } else { MenuAction::PrevGpu },
-                    MenuAction::NextSsao | MenuAction::PrevSsao => if horizontal_dir > 0 { MenuAction::NextSsao } else { MenuAction::PrevSsao },
-                    MenuAction::NextFog | MenuAction::PrevFog => if horizontal_dir > 0 { MenuAction::NextFog } else { MenuAction::PrevFog },
-                    MenuAction::NextShadowRes | MenuAction::PrevShadowRes => if horizontal_dir > 0 { MenuAction::NextShadowRes } else { MenuAction::PrevShadowRes },
-                    MenuAction::NextShadowQuality | MenuAction::PrevShadowQuality => if horizontal_dir > 0 { MenuAction::NextShadowQuality } else { MenuAction::PrevShadowQuality },
-                    MenuAction::NextFpsLimit | MenuAction::PrevFpsLimit => if horizontal_dir > 0 { MenuAction::NextFpsLimit } else { MenuAction::PrevFpsLimit },
-                    MenuAction::ToggleVSync => MenuAction::ToggleVSync,
-                    MenuAction::ToggleBloom => MenuAction::ToggleBloom,
-                    MenuAction::ToggleFpsLimit => MenuAction::ToggleFpsLimit,
-                    _ => MenuAction::None,
-                };
-                if action != MenuAction::None {
-                    handle_menu_action(
-                        action, 
-                        &mut params.next_state, 
-                        &mut params.editor_mode, 
-                        &mut params.next_menu_state, 
-                        &mut params.settings, 
-                        &mut params.pending, 
-                        &mut params.confirmation, 
-                        &params.game_state,
-                        &mut params.exit_confirm,
-                        &mut params.gpu_list,
-                        &params.instance_adapter,
-                        &params.menu_state,
-                    );
+        // Only process horizontal input for non-confirmation states
+        if !is_confirmation {
+            if let Ok(item) = params.focused_query.get_single() {
+                if item.item_type == MenuItemType::Toggle || item.item_type == MenuItemType::Slider {
+                    let action = match item.action {
+                        MenuAction::NextQuality | MenuAction::PrevQuality => if horizontal_dir > 0 { MenuAction::NextQuality } else { MenuAction::PrevQuality },
+                        MenuAction::NextUpscaling | MenuAction::PrevUpscaling => if horizontal_dir > 0 { MenuAction::NextUpscaling } else { MenuAction::PrevUpscaling },
+                        MenuAction::NextWindowMode | MenuAction::PrevWindowMode => if horizontal_dir > 0 { MenuAction::NextWindowMode } else { MenuAction::PrevWindowMode },
+                        MenuAction::NextGpu | MenuAction::PrevGpu => if horizontal_dir > 0 { MenuAction::NextGpu } else { MenuAction::PrevGpu },
+                        MenuAction::NextSsao | MenuAction::PrevSsao => if horizontal_dir > 0 { MenuAction::NextSsao } else { MenuAction::PrevSsao },
+                        MenuAction::NextFog | MenuAction::PrevFog => if horizontal_dir > 0 { MenuAction::NextFog } else { MenuAction::PrevFog },
+                        MenuAction::NextShadowRes | MenuAction::PrevShadowRes => if horizontal_dir > 0 { MenuAction::NextShadowRes } else { MenuAction::PrevShadowRes },
+                        MenuAction::NextShadowQuality | MenuAction::PrevShadowQuality => if horizontal_dir > 0 { MenuAction::NextShadowQuality } else { MenuAction::PrevShadowQuality },
+                        MenuAction::NextFpsLimit | MenuAction::PrevFpsLimit => if horizontal_dir > 0 { MenuAction::NextFpsLimit } else { MenuAction::PrevFpsLimit },
+                        MenuAction::ToggleVSync => MenuAction::ToggleVSync,
+                        MenuAction::ToggleBloom => MenuAction::ToggleBloom,
+                        MenuAction::ToggleFpsLimit => MenuAction::ToggleFpsLimit,
+                        _ => MenuAction::None,
+                    };
+                    if action != MenuAction::None {
+                        handle_menu_action(
+                            action, 
+                            &mut params.next_state, 
+                            &mut params.editor_mode, 
+                            &mut params.next_menu_state, 
+                            &mut params.settings, 
+                            &mut params.pending, 
+                            &mut params.confirmation, 
+                            &params.game_state,
+                            &mut params.exit_confirm,
+                            &mut params.gpu_list,
+                            &params.instance_adapter,
+                            &params.menu_state,
+                        );
+                    }
                 }
             }
         }
@@ -665,13 +727,26 @@ pub fn handle_menu_action(
 
 fn menu_navigation_system(
     mut commands: Commands,
-    container_query: Query<&MenuContainer, Changed<MenuContainer>>,
-    item_query: Query<(Entity, &MenuItem)>,
-    _menu_state: Res<State<MenuSubState>>,
-    _settings: Res<GraphicsSettings>,
+    container_query: Query<(Entity, &MenuContainer), Changed<MenuContainer>>,
+    item_query: Query<(Entity, &MenuItem, &Parent)>,
+    children_query: Query<&Children>,
 ) {
-    for container in container_query.iter() {
-        for (entity, item) in item_query.iter() {
+    for (container_entity, container) in container_query.iter() {
+        // Collect all descendants of this container to restrict focus
+        let mut descendants = Vec::new();
+        let mut stack = vec![container_entity];
+        while let Some(current) = stack.pop() {
+            if let Ok(children) = children_query.get(current) {
+                for child in children.iter() {
+                    descendants.push(*child);
+                    stack.push(*child);
+                }
+            }
+        }
+
+        for (entity, item, _parent) in item_query.iter() {
+            if !descendants.contains(&entity) { continue; }
+
             if let Some(mut e) = commands.get_entity(entity) {
                 if item.index == container.current_selection {
                     e.insert(MenuFocus);
@@ -685,10 +760,13 @@ fn menu_navigation_system(
 
 fn menu_scrolling_system(
     container_query: Query<&MenuContainer, With<MenuItemRoot>>,
-    mut scroll_query: Query<&mut Style, With<MenuScrollContainer>>,
+    mut scroll_query: Query<(Entity, &mut Style), With<MenuScrollContainer>>,
+    mut commands: Commands,
 ) {
     let Ok(container) = container_query.get_single() else { return; };
-    for mut style in scroll_query.iter_mut() {
+    for (entity, mut style) in scroll_query.iter_mut() {
+        if commands.get_entity(entity).is_none() { continue; }
+        
         let item_height = 60.0; 
         let viewport_height = 420.0;
         // Center the selected item in the viewport
@@ -745,15 +823,19 @@ fn input_hint_system(
 }
 
 fn menu_visual_system(
+    mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(&MenuItem, &mut BackgroundColor, &mut BorderColor, &mut Transform, Option<&MenuFocus>)>,
+    mut query: Query<(Entity, &MenuItem, &mut BackgroundColor, &mut BorderColor, &mut Transform, Option<&MenuFocus>)>,
     settings: Res<GraphicsSettings>,
     pending: Res<PendingGraphicsSettings>,
 ) {
     let has_changes = **pending != *settings;
     let t = (time.elapsed_seconds() * 3.0).sin() * 0.5 + 0.5;
 
-    for (item, mut bg, mut border, mut transform, focus) in query.iter_mut() {
+    for (entity, item, mut bg, mut border, mut transform, focus) in query.iter_mut() {
+        // Safety check: skip entities that are being despawned
+        if commands.get_entity(entity).is_none() { continue; }
+
         let is_apply = item.action == MenuAction::ApplySettings;
         let is_dimmed = item.is_disabled || (is_apply && !has_changes);
 
@@ -961,6 +1043,8 @@ fn menu_item_system(
     viewport_query: Query<Entity, With<MenuViewport>>,
     viewport_children_query: Query<&Children, With<MenuViewport>>,
     selection_memory: Res<MenuSelectionMemory>,
+    overlay_query: Query<Entity, With<ConfirmationOverlay>>,
+    focus_query: Query<Entity, With<MenuFocus>>,
 ) {
     let Ok((root, _root_children)) = root_query.get_single() else { return; };
     let viewport_entity = viewport_query.get_single().ok();
@@ -981,109 +1065,171 @@ fn menu_item_system(
         info!("Advanced menu: indices 0-9 being spawned");
     }
     
-    // Update title text
-    if let Ok(mut text) = title_query.get_single_mut() {
-        text.sections[0].value = match *menu_state.get() {
-            MenuSubState::Main => "Klep2tron".to_string(),
-            MenuSubState::Settings => "Settings".to_string(),
-            MenuSubState::Confirmation => "Confirmation".to_string(),
-            MenuSubState::Advanced => "Advanced".to_string(),
-        };
+    let is_confirmation = *menu_state.get() == MenuSubState::Confirmation;
+
+    // Update title text (Skip if in confirmation to keep previous title)
+    if !is_confirmation {
+        if let Ok(mut text) = title_query.get_single_mut() {
+            text.sections[0].value = match *menu_state.get() {
+                MenuSubState::Main => "Klep2tron".to_string(),
+                MenuSubState::Settings => "Settings".to_string(),
+                MenuSubState::Advanced => "Advanced".to_string(),
+                _ => text.sections[0].value.clone(),
+            };
+        }
     }
     
-    // Clear viewport children (the scroll container)
-    if let Some(v) = viewport_entity {
-        commands.entity(v).despawn_descendants();
+    // Handle Confirmation Overlay separately
+    
+    // Despawn existing overlays if we left Confirmation state
+    if !is_confirmation {
+        for entity in overlay_query.iter() {
+            if commands.get_entity(entity).is_some() {
+                commands.entity(entity).despawn_recursive();
+            }
+        }
+    } else {
+        // If we ARE in confirmation, remove the container from root to avoid duplicate input
+        if commands.get_entity(root).is_some() {
+            commands.entity(root).remove::<MenuContainer>();
+        }
+        // Force clear focus from background items so they don't pulse
+        for focus_entity in focus_query.iter() {
+            commands.entity(focus_entity).remove::<MenuFocus>();
+        }
     }
 
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
-    let mut new_container = None;
-
-    // Spawn items in viewport
+    let mut new_container: Option<MenuContainer> = None;
+    
+    // Spawn items in viewport (for non-confirmation states)
     if let Some(v) = viewport_entity {
-        commands.entity(v).with_children(|parent| {
-            parent.spawn((NodeBundle {
+        if !is_confirmation {
+            // Simplified cleanup to avoid SIGSEGV - let Bevy handle it via despawn_descendants
+            // with a safety check for the entity itself
+            if commands.get_entity(v).is_some() {
+                commands.entity(v).despawn_descendants();
+            }
+            
+            commands.entity(v).with_children(|parent| {
+                parent.spawn((NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        row_gap: Val::Px(20.0),
+                        position_type: PositionType::Relative,
+                        ..default()
+                    },
+                    ..default()
+                }, MenuScrollContainer)).with_children(|scroll_p| {
+                    match *menu_state.get() {
+                        MenuSubState::Main => {
+                            spawn_menu_button(scroll_p, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()), false);
+                            
+                            let mut count = 1;
+                            for (_i, (name, action)) in extra_buttons.buttons.iter().enumerate() {
+                                spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), None, false);
+                                count += 1;
+                            }
+
+                            spawn_menu_button(scroll_p, &font, "SETTINGS", None, count, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Configure graphics and input".to_string()), false);
+                            count += 1;
+
+                            spawn_menu_button(scroll_p, &font, "EXIT", None, count, MenuItemType::Action, MenuAction::Exit, Some("Quit to desktop".to_string()), false);
+                            count += 1;
+
+                            new_container = Some(MenuContainer { current_selection: 0, items_count: count });
+                        },
+                        MenuSubState::Settings => {
+                            spawn_menu_button(scroll_p, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None, false);
+                            spawn_menu_button(scroll_p, &font, "QUALITY", Some(format!("{:?}", pending.quality_level)), 1, MenuItemType::Toggle, MenuAction::NextQuality, Some("Global quality preset".to_string()), false);
+                            spawn_menu_button(scroll_p, &font, "UPSCALING", Some(format!("{:?}", pending.upscaling)), 2, MenuItemType::Toggle, MenuAction::NextUpscaling, Some("FSR 1.0 or TAA".to_string()), false);
+                            spawn_menu_button(scroll_p, &font, "VSYNC", Some(if pending.vsync { "ON" } else { "OFF" }.to_string()), 3, MenuItemType::Toggle, MenuAction::ToggleVSync, None, false);
+
+                            #[cfg(not(target_arch = "wasm32"))]
+                            {
+                                spawn_menu_button(scroll_p, &font, "MODE", Some(format!("{:?}", pending.window_mode)), 4, MenuItemType::Toggle, MenuAction::NextWindowMode, None, false);
+                                spawn_menu_button(scroll_p, &font, "ADVANCED", None, 5, MenuItemType::Submenu, MenuAction::OpenAdvanced, Some("GPU selection and more".to_string()), false);
+                                spawn_menu_button(scroll_p, &font, "APPLY", None, 6, MenuItemType::Action, MenuAction::ApplySettings, None, false);
+                            }
+                            
+                            let count = if cfg!(target_arch = "wasm32") { 4 } else { 7 };
+                            new_container = Some(MenuContainer { current_selection: 0, items_count: count });
+                        },
+                        MenuSubState::Advanced => {
+                            spawn_menu_button(scroll_p, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None, false);
+                            spawn_menu_button(scroll_p, &font, "RUN BENCHMARK", None, 1, MenuItemType::Action, MenuAction::RunBenchmark, Some("Test hardware performance".to_string()), false);
+                            
+                            let gpu_val = pending.selected_gpu.clone().unwrap_or_else(|| {
+                                if gpu_list.names.is_empty() { "Detecting...".to_string() } else { gpu_list.names[0].clone() }
+                            });
+                            spawn_menu_button(scroll_p, &font, "GPU", Some(gpu_val), 2, MenuItemType::Toggle, MenuAction::NextGpu, Some("Select graphics hardware".to_string()), false);
+                            spawn_menu_button(scroll_p, &font, "SHADOWS", Some(format!("{:?}", pending.shadow_quality)), 3, MenuItemType::Toggle, MenuAction::NextShadowQuality, None, false);
+                            spawn_menu_button(scroll_p, &font, "FOG", Some(format!("{:?}", pending.fog_quality)), 4, MenuItemType::Toggle, MenuAction::NextFog, None, false);
+                            spawn_menu_button(scroll_p, &font, "BLOOM", Some(if pending.bloom { "ON" } else { "OFF" }.to_string()), 5, MenuItemType::Toggle, MenuAction::ToggleBloom, None, false);
+                            spawn_menu_button(scroll_p, &font, "SSAO", Some(format!("{:?}", pending.ssao)), 6, MenuItemType::Toggle, MenuAction::NextSsao, None, false);
+                            spawn_menu_button(scroll_p, &font, "SHADOW RES", Some(pending.shadow_resolution.to_string()), 7, MenuItemType::Toggle, MenuAction::NextShadowRes, None, false);
+                            spawn_menu_button(scroll_p, &font, "FPS LIMIT", Some(if pending.fps_limit_enabled { "ON" } else { "OFF" }.to_string()), 8, MenuItemType::Toggle, MenuAction::ToggleFpsLimit, None, false);
+                            spawn_menu_button(scroll_p, &font, "FPS VALUE", Some(pending.fps_limit.to_string()), 9, MenuItemType::Toggle, MenuAction::NextFpsLimit, None, !pending.fps_limit_enabled);
+
+                            new_container = Some(MenuContainer { current_selection: 0, items_count: 10 });
+                        },
+                        _ => {}
+                    }
+                });
+            });
+        }
+    }
+
+    // Spawn Confirmation Overlay
+    if is_confirmation {
+        let mut count = 2;
+        if confirmation.has_cancel {
+            count = 3;
+        }
+
+        let overlay_id = commands.spawn((NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0), height: Val::Percent(100.0),
+                align_items: AlignItems::Center, justify_content: JustifyContent::Center,
+                ..default()
+            },
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.7).into(),
+            z_index: ZIndex::Global(1000),
+            ..default()
+        }, MenuEntity, ConfirmationOverlay)).with_children(|p| {
+            p.spawn((NodeBundle {
                 style: Style {
+                    width: Val::Px(550.0), height: Val::Auto,
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
-                    row_gap: Val::Px(20.0),
-                    position_type: PositionType::Relative,
+                    padding: UiRect::all(Val::Px(30.0)),
+                    border: UiRect::all(Val::Px(1.5)),
                     ..default()
                 },
+                background_color: Color::srgba(0.05, 0.08, 0.15, 0.95).into(),
+                border_color: Color::srgba(0.3, 0.5, 1.0, 0.5).into(),
+                border_radius: BorderRadius::all(Val::Px(15.0)),
                 ..default()
-            }, MenuScrollContainer)).with_children(|scroll_p| {
-                match *menu_state.get() {
-                    MenuSubState::Main => {
-                        spawn_menu_button(scroll_p, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()), false);
-                        
-                        let mut count = 1;
-                        for (_i, (name, action)) in extra_buttons.buttons.iter().enumerate() {
-                            spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), None, false);
-                            count += 1;
-                        }
+            },)).with_children(|inner| {
+                inner.spawn(TextBundle::from_section(
+                    &confirmation.message,
+                    TextStyle { font: font.clone(), font_size: 32.0, color: Color::WHITE },
+                ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }).with_text_justify(JustifyText::Center));
 
-                        spawn_menu_button(scroll_p, &font, "SETTINGS", None, count, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Configure graphics and input".to_string()), false);
-                        count += 1;
-
-                        spawn_menu_button(scroll_p, &font, "EXIT", None, count, MenuItemType::Action, MenuAction::Exit, Some("Quit to desktop".to_string()), false);
-                        count += 1;
-
-                        new_container = Some(MenuContainer { current_selection: 0, items_count: count });
-                    },
-                    MenuSubState::Settings => {
-                        spawn_menu_button(scroll_p, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None, false);
-                        spawn_menu_button(scroll_p, &font, "QUALITY", Some(format!("{:?}", pending.quality_level)), 1, MenuItemType::Toggle, MenuAction::NextQuality, Some("Global quality preset".to_string()), false);
-                        spawn_menu_button(scroll_p, &font, "UPSCALING", Some(format!("{:?}", pending.upscaling)), 2, MenuItemType::Toggle, MenuAction::NextUpscaling, Some("FSR 1.0 or TAA".to_string()), false);
-                        spawn_menu_button(scroll_p, &font, "VSYNC", Some(if pending.vsync { "ON" } else { "OFF" }.to_string()), 3, MenuItemType::Toggle, MenuAction::ToggleVSync, None, false);
-
-                        #[cfg(not(target_arch = "wasm32"))]
-                        {
-                            spawn_menu_button(scroll_p, &font, "MODE", Some(format!("{:?}", pending.window_mode)), 4, MenuItemType::Toggle, MenuAction::NextWindowMode, None, false);
-                            spawn_menu_button(scroll_p, &font, "ADVANCED", None, 5, MenuItemType::Submenu, MenuAction::OpenAdvanced, Some("GPU selection and more".to_string()), false);
-                            spawn_menu_button(scroll_p, &font, "APPLY", None, 6, MenuItemType::Action, MenuAction::ApplySettings, None, false);
-                        }
-                        
-                        let count = if cfg!(target_arch = "wasm32") { 4 } else { 7 };
-                        new_container = Some(MenuContainer { current_selection: 0, items_count: count });
-                    },
-                    MenuSubState::Confirmation => {
-                        scroll_p.spawn(TextBundle::from_section(
-                            &confirmation.message,
-                            TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE },
-                        ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }));
-
-                        spawn_menu_button(scroll_p, &font, "YES", None, 0, MenuItemType::Action, MenuAction::ConfirmYes, None, false);
-                        spawn_menu_button(scroll_p, &font, "NO", None, 1, MenuItemType::Action, MenuAction::ConfirmNo, None, false);
-                        
-                        let mut count = 2;
-                        if confirmation.has_cancel {
-                            spawn_menu_button(scroll_p, &font, "CANCEL", None, 2, MenuItemType::Action, MenuAction::ConfirmCancel, None, false);
-                            count = 3;
-                        }
-                        new_container = Some(MenuContainer { current_selection: 0, items_count: count });
-                    },
-                    MenuSubState::Advanced => {
-                        spawn_menu_button(scroll_p, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None, false);
-                        spawn_menu_button(scroll_p, &font, "RUN BENCHMARK", None, 1, MenuItemType::Action, MenuAction::RunBenchmark, Some("Test hardware performance".to_string()), false);
-                        
-                        let gpu_val = pending.selected_gpu.clone().unwrap_or_else(|| {
-                            if gpu_list.names.is_empty() { "Detecting...".to_string() } else { gpu_list.names[0].clone() }
-                        });
-                        spawn_menu_button(scroll_p, &font, "GPU", Some(gpu_val), 2, MenuItemType::Toggle, MenuAction::NextGpu, Some("Select graphics hardware".to_string()), false);
-                        spawn_menu_button(scroll_p, &font, "SHADOWS", Some(format!("{:?}", pending.shadow_quality)), 3, MenuItemType::Toggle, MenuAction::NextShadowQuality, None, false);
-                        spawn_menu_button(scroll_p, &font, "FOG", Some(format!("{:?}", pending.fog_quality)), 4, MenuItemType::Toggle, MenuAction::NextFog, None, false);
-                        spawn_menu_button(scroll_p, &font, "BLOOM", Some(if pending.bloom { "ON" } else { "OFF" }.to_string()), 5, MenuItemType::Toggle, MenuAction::ToggleBloom, None, false);
-                        spawn_menu_button(scroll_p, &font, "SSAO", Some(format!("{:?}", pending.ssao)), 6, MenuItemType::Toggle, MenuAction::NextSsao, None, false);
-                        spawn_menu_button(scroll_p, &font, "SHADOW RES", Some(pending.shadow_resolution.to_string()), 7, MenuItemType::Toggle, MenuAction::NextShadowRes, None, false);
-                        spawn_menu_button(scroll_p, &font, "FPS LIMIT", Some(if pending.fps_limit_enabled { "ON" } else { "OFF" }.to_string()), 8, MenuItemType::Toggle, MenuAction::ToggleFpsLimit, None, false);
-                        spawn_menu_button(scroll_p, &font, "FPS VALUE", Some(pending.fps_limit.to_string()), 9, MenuItemType::Toggle, MenuAction::NextFpsLimit, None, !pending.fps_limit_enabled);
-
-                        new_container = Some(MenuContainer { current_selection: 0, items_count: 10 });
-                    }
+                spawn_menu_button(inner, &font, "YES", None, 0, MenuItemType::Action, MenuAction::ConfirmYes, None, false);
+                spawn_menu_button(inner, &font, "NO", None, 1, MenuItemType::Action, MenuAction::ConfirmNo, None, false);
+                
+                if confirmation.has_cancel {
+                    spawn_menu_button(inner, &font, "CANCEL", None, 2, MenuItemType::Action, MenuAction::ConfirmCancel, None, false);
                 }
             });
-        });
+        }).id();
+        
+        commands.entity(overlay_id).insert(MenuContainer { current_selection: 0, items_count: count });
     }
+
 
     if let Some(container) = new_container {
         let mut final_container = container;

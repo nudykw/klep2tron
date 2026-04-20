@@ -79,6 +79,9 @@ pub struct MenuEntity;
 pub struct LoadingEntity;
 
 #[derive(Component)]
+pub struct ConfirmationOverlay;
+
+#[derive(Component)]
 pub struct ProgressBar;
 
 #[derive(Component)]
