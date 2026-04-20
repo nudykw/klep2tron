@@ -4,7 +4,7 @@
   "window_mode": "Windowed",
   "resolution_scale": 1.0,
   "vsync": true,
-  "fps_limit_enabled": true,
+  "fps_limit_enabled": false,
   "fps_limit": 144,
   "quality_level": "Ultra",
   "shadow_quality": "Ultra",
