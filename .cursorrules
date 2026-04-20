@@ -1,0 +1,12 @@
+# Project Rules for Klep2tron
+
+## 1. Quality Assurance
+- **MANDATORY CHECK**: After completing any task or making significant code changes, ALWAYS run `cargo check` to verify compilation and catch typos. 
+- Do not report a task as "solved" until `cargo check` passes without errors.
+
+## 2. Hotkey Synchronization
+- **HOTKEY_SYNC**: All keyboard shortcuts must be synchronized between the input systems, the global help window (`help_ui_system`), and the documentation (`docs/EDITOR_GUIDE.md`).
+
+## 3. UI/UX Standards
+- Maintain consistent styling and premium aesthetics using Vanilla CSS (for web) and Bevy's UI system (for native).
+- Use smooth transitions (`RoomTransition`) for any scene or room changes.
