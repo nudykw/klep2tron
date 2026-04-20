@@ -3,6 +3,9 @@ use bevy::prelude::*;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use serde::{Deserialize, Serialize};
 
+pub mod ui;
+pub use crate::ui::menu::{MenuPlugin, MenuAction, MenuItemType, spawn_menu_button, MenuContainer, InputHintFooter};
+
 // --- Core Data Structures ---
 
 #[derive(Resource, Default)]
@@ -178,6 +181,7 @@ impl Plugin for ClientCorePlugin {
            .insert_resource(self.options.clone())
            .init_resource::<Project>()
            .init_resource::<ClientAssets>()
+           .add_plugins(MenuPlugin)
            .init_resource::<ExtraMenuButtons>()
            .init_resource::<Selection>()
            .init_resource::<EditorMode>()
@@ -191,7 +195,6 @@ impl Plugin for ClientCorePlugin {
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_systems(OnEnter(GameState::Menu), setup_menu)
            .add_systems(Update, (
-                menu_system.run_if(in_state(GameState::Menu)),
                 hud_update_system.run_if(in_state(GameState::InGame)),
                 map_rendering_system.run_if(in_state(GameState::InGame)),
                 collect_perf_system,
@@ -224,6 +227,7 @@ pub fn setup_menu(
     commands.spawn((Camera2dBundle::default(), MenuEntity));
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     
+    // Main Menu Container
     commands.spawn((NodeBundle {
         style: Style {
             width: Val::Percent(100.0), height: Val::Percent(100.0),
@@ -235,82 +239,43 @@ pub fn setup_menu(
         },
         background_color: Color::srgb(0.01, 0.01, 0.05).into(),
         ..default()
-    }, MenuEntity)).with_children(|parent| {
+    }, MenuEntity, MenuContainer { current_selection: 0, items_count: 1 + extra_buttons.buttons.len() }))
+    .with_children(|parent| {
         parent.spawn(TextBundle::from_section(
             "Klep2tron",
             TextStyle { font: font.clone(), font_size: 100.0, color: Color::WHITE },
         ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }));
 
         // Start Game Button (Default)
-        spawn_menu_button(parent, &font, "START GAME", MenuAction::StartGame);
+        spawn_menu_button(parent, &font, "START GAME", 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()));
 
         // Extra Buttons (e.g. from Editor)
-        for (label, action) in extra_buttons.buttons.iter() {
-            spawn_menu_button(parent, &font, label, action.clone());
+        for (idx, (label, action)) in extra_buttons.buttons.iter().enumerate() {
+            spawn_menu_button(parent, &font, label, idx + 1, MenuItemType::Action, action.clone(), None);
         }
+    });
+
+    // Footer for input hints
+    commands.spawn((NodeBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(20.0),
+            width: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        ..default()
+    }, MenuEntity)).with_children(|p| {
+        p.spawn((TextBundle::from_section(
+            "",
+            TextStyle { font: font.clone(), font_size: 18.0, color: Color::srgb(0.7, 0.7, 0.7) },
+        ), InputHintFooter));
     });
 }
 
 #[derive(Resource, Default)]
 pub struct ExtraMenuButtons {
     pub buttons: Vec<(String, MenuAction)>,
-}
-
-#[derive(Component, Clone)]
-pub enum MenuAction {
-    StartGame,
-    StartEditor,
-}
-
-fn spawn_menu_button(parent: &mut ChildBuilder, font: &Handle<Font>, text: &str, action: MenuAction) {
-    parent.spawn((
-        ButtonBundle {
-            style: Style {
-                width: Val::Px(250.0), height: Val::Px(60.0),
-                border: UiRect::all(Val::Px(2.0)),
-                justify_content: JustifyContent::Center, align_items: AlignItems::Center,
-                ..default()
-            },
-            border_color: Color::WHITE.into(),
-            background_color: Color::srgb(0.2, 0.2, 0.2).into(),
-            ..default()
-        },
-        action,
-    )).with_children(|p| {
-        p.spawn(TextBundle::from_section(
-            text,
-            TextStyle { font: font.clone(), font_size: 30.0, color: Color::WHITE },
-        ));
-    });
-}
-
-pub fn menu_system(
-    mut interaction_query: Query<(&Interaction, &MenuAction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
-    mut next_state: ResMut<NextState<GameState>>,
-    mut editor_mode: ResMut<EditorMode>,
-) {
-    for (interaction, action, mut color) in interaction_query.iter_mut() {
-        match *interaction {
-            Interaction::Pressed => {
-                match action {
-                    MenuAction::StartGame => {
-                        editor_mode.is_active = false;
-                        next_state.set(GameState::Loading);
-                    }
-                    MenuAction::StartEditor => {
-                        editor_mode.is_active = true;
-                        next_state.set(GameState::Loading);
-                    }
-                }
-            }
-            Interaction::Hovered => {
-                *color = Color::srgb(0.3, 0.3, 0.3).into();
-            }
-            Interaction::None => {
-                *color = Color::srgb(0.2, 0.2, 0.2).into();
-            }
-        }
-    }
 }
 
 pub fn cleanup_menu(mut commands: Commands, query: Query<Entity, With<MenuEntity>>) {
@@ -388,7 +353,7 @@ pub fn cleanup_map(
     tile_map.entities.clear();
 }
 
-pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, asset_server: Res<AssetServer>) {
+pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, _asset_server: Res<AssetServer>) {
     // 1. Lighting
     commands.spawn((
         DirectionalLightBundle {
