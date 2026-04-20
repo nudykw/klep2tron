@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets};
+pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -599,6 +599,7 @@ pub fn editor_ui_system(
     mut editor_state: ResMut<EditorState>,
     mut project: ResMut<Project>,
     selection: Res<Selection>,
+    mut dirty: ResMut<DirtyTiles>,
 ) {
     for (interaction, tt_btn, mut color, mut border) in interaction_query.iter_mut() {
         let is_selected = editor_state.current_type == tt_btn.0;
@@ -608,7 +609,11 @@ pub fn editor_ui_system(
                 if !is_selected { editor_state.current_type = tt_btn.0; changed = true; }
                 let room_idx = project.current_room_idx;
                 let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
-                if cell.h >= 0 && cell.tt != tt_btn.0 { cell.tt = tt_btn.0; changed = true; }
+                if cell.h >= 0 && cell.tt != tt_btn.0 { 
+                    cell.tt = tt_btn.0; 
+                    changed = true; 
+                    dirty.tiles.push((selection.x, selection.z));
+                }
                 if changed { *color = Color::srgb(0.0, 1.0, 1.0).into(); }
             }
             Interaction::Hovered => {
@@ -628,13 +633,17 @@ pub fn editor_ui_system(
     }
 }
 
-pub fn room_switching_system(keyboard: Res<ButtonInput<KeyCode>>, mut project: ResMut<Project>) {
+pub fn room_switching_system(keyboard: Res<ButtonInput<KeyCode>>, mut project: ResMut<Project>, mut dirty: ResMut<DirtyTiles>) {
     if keyboard.just_pressed(KeyCode::BracketRight) {
         project.current_room_idx += 1;
         if project.current_room_idx >= project.rooms.len() { project.rooms.push(Room::default()); }
+        dirty.full_rebuild = true;
     }
     if keyboard.just_pressed(KeyCode::BracketLeft) {
-        if project.current_room_idx > 0 { project.current_room_idx -= 1; }
+        if project.current_room_idx > 0 { 
+            project.current_room_idx -= 1; 
+            dirty.full_rebuild = true;
+        }
     }
 }
 
