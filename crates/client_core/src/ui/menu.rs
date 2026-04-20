@@ -27,6 +27,8 @@ pub enum MenuAction {
     ConfirmYes,
     ConfirmNo,
     ConfirmCancel,
+    OpenAdvanced,
+    NextGpu, PrevGpu,
     None,
 }
 
@@ -45,6 +47,7 @@ pub enum MenuSubState {
     Main,
     Settings,
     Confirmation,
+    Advanced,
 }
 
 #[derive(Component)]
@@ -59,6 +62,7 @@ pub struct MenuItem {
     pub item_type: MenuItemType,
     pub action: MenuAction,
     pub tooltip: Option<String>,
+    pub is_disabled: bool,
 }
 
 #[derive(Component)]
@@ -71,6 +75,9 @@ pub struct MenuTooltip {
 
 #[derive(Component)]
 pub struct InputHintFooter;
+
+#[derive(Component)]
+pub struct TooltipDisplay;
 
 #[derive(Resource, Default)]
 pub struct ExtraMenuButtons {
@@ -123,6 +130,7 @@ impl Plugin for MenuPlugin {
            .add_systems(Update, menu_item_system.run_if(menu_cond.clone()))
            .add_systems(Update, tooltip_system.run_if(menu_cond.clone()))
            .add_systems(Update, input_hint_system.run_if(menu_cond.clone()))
+           .add_systems(Update, menu_tooltip_system.run_if(menu_cond.clone()))
            .add_systems(Update, sync_pending_settings.run_if(in_state(GameState::Menu)));
     }
 }
@@ -177,6 +185,8 @@ pub struct MenuInputParams<'w, 's> {
     pub selection_memory: ResMut<'w, MenuSelectionMemory>,
     pub game_state: Res<'w, State<GameState>>,
     pub exit_confirm: ResMut<'w, ExitConfirmationActive>,
+    pub item_query: Query<'w, 's, &'static MenuItem>,
+    pub gpu_list: Res<'w, crate::settings::GpuList>,
 }
 
 pub fn menu_input_system(
@@ -220,8 +230,24 @@ pub fn menu_input_system(
 
     if move_dir != 0 {
         for mut container in params.query.iter_mut() {
-            let new_idx = (container.current_selection as i32 + move_dir).rem_euclid(container.items_count as i32);
-            container.current_selection = new_idx as usize;
+            let mut next_idx = container.current_selection;
+            let start_idx = next_idx;
+            loop {
+                next_idx = (next_idx as i32 + move_dir).rem_euclid(container.items_count as i32) as usize;
+                
+                let mut is_disabled = false;
+                for item in params.item_query.iter() {
+                    if item.index == next_idx && item.is_disabled {
+                        is_disabled = true;
+                        break;
+                    }
+                }
+                
+                if !is_disabled || next_idx == start_idx {
+                    break;
+                }
+            }
+            container.current_selection = next_idx;
             params.selection_memory.selections.insert(*params.menu_state.get(), container.current_selection);
         }
     }
@@ -238,6 +264,9 @@ pub fn menu_input_system(
                 }
             },
             MenuSubState::Confirmation => {
+                params.next_menu_state.set(MenuSubState::Settings);
+            },
+            MenuSubState::Advanced => {
                 params.next_menu_state.set(MenuSubState::Settings);
             },
             _ => {
@@ -258,7 +287,8 @@ pub fn menu_input_system(
                 &mut params.pending, 
                 &mut params.confirmation, 
                 &params.game_state,
-                &mut params.exit_confirm
+                &mut params.exit_confirm,
+                &params.gpu_list,
             );
         }
     }
@@ -282,6 +312,7 @@ pub fn menu_input_system(
                     MenuAction::NextQuality | MenuAction::PrevQuality => if horizontal_dir > 0 { MenuAction::NextQuality } else { MenuAction::PrevQuality },
                     MenuAction::NextUpscaling | MenuAction::PrevUpscaling => if horizontal_dir > 0 { MenuAction::NextUpscaling } else { MenuAction::PrevUpscaling },
                     MenuAction::NextWindowMode | MenuAction::PrevWindowMode => if horizontal_dir > 0 { MenuAction::NextWindowMode } else { MenuAction::PrevWindowMode },
+                    MenuAction::NextGpu | MenuAction::PrevGpu => if horizontal_dir > 0 { MenuAction::NextGpu } else { MenuAction::PrevGpu },
                     MenuAction::ToggleVSync => MenuAction::ToggleVSync,
                     _ => MenuAction::None,
                 };
@@ -295,7 +326,8 @@ pub fn menu_input_system(
                         &mut params.pending, 
                         &mut params.confirmation, 
                         &params.game_state,
-                        &mut params.exit_confirm
+                        &mut params.exit_confirm,
+                        &params.gpu_list,
                     );
                 }
             }
@@ -313,6 +345,7 @@ pub fn handle_menu_action(
     confirmation: &mut ResMut<ConfirmationData>,
     _game_state: &Res<State<GameState>>,
     exit_confirm: &mut ResMut<ExitConfirmationActive>,
+    gpu_list: &Res<crate::settings::GpuList>,
 ) {
     match action {
         MenuAction::StartGame => { 
@@ -329,7 +362,11 @@ pub fn handle_menu_action(
         },
         MenuAction::Back => { 
             if ***pending != **settings {
-                confirmation.message = "Settings have been changed, apply them?".to_string();
+                if pending.selected_gpu != settings.selected_gpu {
+                    confirmation.message = "GPU changed. Save and restart app?".to_string();
+                } else {
+                    confirmation.message = "Settings have been changed, apply them?".to_string();
+                }
                 confirmation.has_cancel = true;
                 next_menu_state.set(MenuSubState::Confirmation);
             } else {
@@ -337,6 +374,25 @@ pub fn handle_menu_action(
             }
         },
         MenuAction::OpenSettings => { next_menu_state.set(MenuSubState::Settings); },
+        MenuAction::OpenAdvanced => { next_menu_state.set(MenuSubState::Advanced); },
+        MenuAction::NextGpu => {
+            if !gpu_list.names.is_empty() {
+                let current = settings.selected_gpu.clone().unwrap_or_else(|| gpu_list.names[0].clone());
+                if let Some(idx) = gpu_list.names.iter().position(|n| n == &current) {
+                    let next_idx = (idx + 1) % gpu_list.names.len();
+                    pending.selected_gpu = Some(gpu_list.names[next_idx].clone());
+                }
+            }
+        },
+        MenuAction::PrevGpu => {
+            if !gpu_list.names.is_empty() {
+                let current = settings.selected_gpu.clone().unwrap_or_else(|| gpu_list.names[0].clone());
+                if let Some(idx) = gpu_list.names.iter().position(|n| n == &current) {
+                    let next_idx = (idx + gpu_list.names.len() - 1) % gpu_list.names.len();
+                    pending.selected_gpu = Some(gpu_list.names[next_idx].clone());
+                }
+            }
+        },
         MenuAction::ApplySettings => {
             if ***pending != **settings {
                 **settings = (***pending).clone();
@@ -349,8 +405,15 @@ pub fn handle_menu_action(
                 editor_mode.is_active = false;
                 next_game_state.set(GameState::Menu);
             } else {
+                let gpu_changed = pending.selected_gpu != settings.selected_gpu;
                 **settings = (***pending).clone();
                 save_settings(&**settings);
+                
+                if gpu_changed {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    std::process::exit(0);
+                }
+                
                 next_menu_state.set(MenuSubState::Main);
             }
         },
@@ -478,6 +541,24 @@ fn tooltip_system(
     }
 }
 
+fn menu_tooltip_system(
+    focus_query: Query<&MenuItem, With<MenuFocus>>,
+    mut tooltip_query: Query<&mut Text, With<TooltipDisplay>>,
+) {
+    let mut text_val = "".to_string();
+    if let Ok(item) = focus_query.get_single() {
+        if let Some(tooltip) = &item.tooltip {
+            text_val = tooltip.clone();
+        }
+    }
+    
+    for mut text in tooltip_query.iter_mut() {
+        if text.sections[0].value != text_val {
+            text.sections[0].value = text_val.clone();
+        }
+    }
+}
+
 fn input_hint_system(
     input_device: Res<InputDevice>,
     mut query: Query<&mut Text, With<InputHintFooter>>,
@@ -500,6 +581,11 @@ fn menu_visual_system(
 ) {
     let has_changes = **pending != *settings;
     for (item, mut color, mut transform, focus) in query.iter_mut() {
+        if item.is_disabled {
+            *color = Color::srgba(0.1, 0.1, 0.1, 0.5).into();
+            transform.scale = Vec3::splat(1.0);
+            continue;
+        }
         let is_apply = item.action == MenuAction::ApplySettings;
         if focus.is_some() {
             if is_apply && !has_changes {
@@ -528,37 +614,45 @@ pub fn spawn_menu_button(
     item_type: MenuItemType,
     action: MenuAction,
     tooltip: Option<String>,
+    is_disabled: bool,
 ) {
+    let bg_color = if is_disabled {
+        Color::srgba(0.1, 0.1, 0.1, 0.5)
+    } else {
+        Color::srgb(0.2, 0.2, 0.2)
+    };
+
     parent.spawn((
         ButtonBundle {
             style: Style {
-                width: Val::Px(300.0), height: Val::Px(60.0),
+                width: Val::Px(500.0), height: Val::Px(60.0),
                 border: UiRect::all(Val::Px(2.0)),
                 justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center,
-                padding: UiRect::horizontal(Val::Px(20.0)),
+                padding: UiRect::horizontal(Val::Px(25.0)),
                 ..default()
             },
-            border_color: Color::WHITE.into(),
-            background_color: Color::srgb(0.2, 0.2, 0.2).into(),
+            border_color: if is_disabled { Color::srgb(0.3, 0.3, 0.3).into() } else { Color::WHITE.into() },
+            background_color: bg_color.into(),
             ..default()
         },
-        MenuItem { index, item_type, action, tooltip },
+        MenuItem { index, item_type, action, tooltip, is_disabled },
     )).with_children(|p| {
+        let text_color = if is_disabled { Color::srgb(0.5, 0.5, 0.5) } else { Color::WHITE };
         p.spawn(TextBundle::from_section(
             text,
-            TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
-        ));
+            TextStyle { font: font.clone(), font_size: 26.0, color: text_color },
+        ).with_text_justify(JustifyText::Left));
 
         if let Some(val) = value {
             p.spawn(TextBundle::from_section(
                 format!("< {} >", val),
-                TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
-            ));
+                TextStyle { font: font.clone(), font_size: 26.0, color: text_color },
+            ).with_text_justify(JustifyText::Right));
         } else if item_type == MenuItemType::Submenu {
             p.spawn(TextBundle::from_section(
                 ">",
-                TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
-            ));
+                TextStyle { font: font.clone(), font_size: 26.0, color: text_color },
+            ).with_text_justify(JustifyText::Right));
         }
     });
 }
@@ -615,18 +709,24 @@ pub fn setup_menu(
         ..default()
     }, MenuEntity, MenuItemRoot));
 
-    // Footer for input hints
+    // Footer for input hints and tooltips
     commands.spawn((NodeBundle {
         style: Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             width: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
             ..default()
         },
         z_index: ZIndex::Global(100),
         ..default()
     }, MenuEntity)).with_children(|p| {
+        p.spawn((TextBundle::from_section(
+            "",
+            TextStyle { font_size: 20.0, color: Color::srgb(0.9, 0.9, 0.6), ..default() },
+        ).with_style(Style { margin: UiRect::bottom(Val::Px(10.0)), ..default() }), TooltipDisplay));
+
         p.spawn((TextBundle::from_section(
             "",
             TextStyle { font_size: 18.0, color: Color::srgb(0.7, 0.7, 0.7), ..default() },
@@ -642,6 +742,7 @@ fn menu_item_system(
     pending: Res<PendingGraphicsSettings>,
     confirmation: Res<ConfirmationData>,
     extra_buttons: Res<ExtraMenuButtons>,
+    gpu_list: Res<crate::settings::GpuList>,
     root_query: Query<(Entity, Option<&Children>), With<MenuItemRoot>>,
     selection_memory: Res<MenuSelectionMemory>,
 ) {
@@ -667,16 +768,16 @@ fn menu_item_system(
                     TextStyle { font: font.clone(), font_size: 100.0, color: Color::WHITE },
                 ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }));
 
-                spawn_menu_button(parent, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()));
+                spawn_menu_button(parent, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()), false);
                 
                 for (idx, (label, action)) in extra_buttons.buttons.iter().enumerate() {
-                    spawn_menu_button(parent, &font, label, None, idx + 1, MenuItemType::Action, action.clone(), None);
+                    spawn_menu_button(parent, &font, label, None, idx + 1, MenuItemType::Action, action.clone(), None, false);
                 }
 
-                spawn_menu_button(parent, &font, "SETTINGS", None, extra_buttons.buttons.len() + 1, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Graphics and performance".to_string()));
+                spawn_menu_button(parent, &font, "SETTINGS", None, extra_buttons.buttons.len() + 1, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Graphics and performance".to_string()), false);
                 
                 #[cfg(not(target_arch = "wasm32"))]
-                spawn_menu_button(parent, &font, "EXIT", None, extra_buttons.buttons.len() + 2, MenuItemType::Action, MenuAction::Exit, None);
+                spawn_menu_button(parent, &font, "EXIT", None, extra_buttons.buttons.len() + 2, MenuItemType::Action, MenuAction::Exit, None, false);
                 
                 // Update items count
                 #[cfg(not(target_arch = "wasm32"))]
@@ -692,23 +793,25 @@ fn menu_item_system(
                     TextStyle { font: font.clone(), font_size: 60.0, color: Color::WHITE },
                 ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));
 
-                spawn_menu_button(parent, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None);
+                spawn_menu_button(parent, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None, false);
                 
-                spawn_menu_button(parent, &font, "QUALITY", Some(format!("{:?}", pending.quality_level)), 1, MenuItemType::Toggle, MenuAction::NextQuality, Some("Global quality preset".to_string()));
+                spawn_menu_button(parent, &font, "QUALITY", Some(format!("{:?}", pending.quality_level)), 1, MenuItemType::Toggle, MenuAction::NextQuality, Some("Global quality preset".to_string()), false);
 
-                spawn_menu_button(parent, &font, "UPSCALING", Some(format!("{:?}", pending.upscaling)), 2, MenuItemType::Toggle, MenuAction::NextUpscaling, Some("FSR 1.0 or TAA".to_string()));
+                spawn_menu_button(parent, &font, "UPSCALING", Some(format!("{:?}", pending.upscaling)), 2, MenuItemType::Toggle, MenuAction::NextUpscaling, Some("FSR 1.0 or TAA".to_string()), false);
 
-                spawn_menu_button(parent, &font, "VSYNC", Some(if pending.vsync { "ON" } else { "OFF" }.to_string()), 3, MenuItemType::Toggle, MenuAction::ToggleVSync, None);
+                spawn_menu_button(parent, &font, "VSYNC", Some(if pending.vsync { "ON" } else { "OFF" }.to_string()), 3, MenuItemType::Toggle, MenuAction::ToggleVSync, None, false);
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    spawn_menu_button(parent, &font, "MODE", Some(format!("{:?}", pending.window_mode)), 4, MenuItemType::Toggle, MenuAction::NextWindowMode, None);
+                    spawn_menu_button(parent, &font, "MODE", Some(format!("{:?}", pending.window_mode)), 4, MenuItemType::Toggle, MenuAction::NextWindowMode, None, false);
                     
+                    spawn_menu_button(parent, &font, "ADVANCED", None, 5, MenuItemType::Submenu, MenuAction::OpenAdvanced, Some("GPU selection and more".to_string()), gpu_list.names.len() <= 1);
+
                     let _has_changes = *settings != **pending;
-                    spawn_menu_button(parent, &font, "APPLY", None, 5, MenuItemType::Action, MenuAction::ApplySettings, None);
+                    spawn_menu_button(parent, &font, "APPLY", None, 6, MenuItemType::Action, MenuAction::ApplySettings, None, false);
                 }
                 
-                let count = if cfg!(target_arch = "wasm32") { 4 } else { 6 };
+                let count = if cfg!(target_arch = "wasm32") { 4 } else { 7 };
                 new_container = Some(MenuContainer { current_selection: 0, items_count: count });
             },
             MenuSubState::Confirmation => {
@@ -717,16 +820,36 @@ fn menu_item_system(
                     TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE },
                 ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }));
 
-                spawn_menu_button(parent, &font, "YES", None, 0, MenuItemType::Action, MenuAction::ConfirmYes, None);
-                spawn_menu_button(parent, &font, "NO", None, 1, MenuItemType::Action, MenuAction::ConfirmNo, None);
+                spawn_menu_button(parent, &font, "YES", None, 0, MenuItemType::Action, MenuAction::ConfirmYes, None, false);
+                spawn_menu_button(parent, &font, "NO", None, 1, MenuItemType::Action, MenuAction::ConfirmNo, None, false);
                 
                 let mut count = 2;
                 if confirmation.has_cancel {
-                    spawn_menu_button(parent, &font, "CANCEL", None, 2, MenuItemType::Action, MenuAction::ConfirmCancel, None);
+                    spawn_menu_button(parent, &font, "CANCEL", None, 2, MenuItemType::Action, MenuAction::ConfirmCancel, None, false);
                     count = 3;
                 }
                 
                 new_container = Some(MenuContainer { current_selection: 0, items_count: count });
+            },
+            MenuSubState::Advanced => {
+                parent.spawn(TextBundle::from_section(
+                    "Advanced",
+                    TextStyle { font: font.clone(), font_size: 60.0, color: Color::WHITE },
+                ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));
+
+                spawn_menu_button(parent, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None, false);
+                
+                let gpu_val = pending.selected_gpu.clone().unwrap_or_else(|| {
+                    if gpu_list.names.is_empty() { "None".to_string() } else { gpu_list.names[0].clone() }
+                });
+                
+                // Shorten GPU name if too long
+                let short_gpu = if gpu_val.len() > 15 { format!("{}...", &gpu_val[..12]) } else { gpu_val.clone() };
+                let tooltip = format!("Current: {}\n(Restart required)", gpu_val);
+
+                spawn_menu_button(parent, &font, "GPU SELECT", Some(short_gpu), 1, MenuItemType::Toggle, MenuAction::NextGpu, Some(tooltip), gpu_list.names.len() <= 1);
+
+                new_container = Some(MenuContainer { current_selection: 0, items_count: 2 });
             }
         }
     });

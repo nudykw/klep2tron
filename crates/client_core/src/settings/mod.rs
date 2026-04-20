@@ -23,6 +23,9 @@ pub struct GraphicsSettings {
     
     // Performance
     pub upscaling: UpscalingMode,
+
+    // Advanced
+    pub selected_gpu: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,8 +79,14 @@ impl Default for GraphicsSettings {
             shadow_quality: QualityLevel::Medium,
             fog_quality: QualityLevel::Medium,
             upscaling: UpscalingMode::None,
+            selected_gpu: None,
         }
     }
+}
+
+#[derive(Resource, Default, Debug, Clone)]
+pub struct GpuList {
+    pub names: Vec<String>,
 }
 
 pub struct SettingsPlugin;
@@ -90,10 +99,41 @@ impl Plugin for SettingsPlugin {
         let (settings, needs_auto) = load_settings_or_default();
         app.insert_resource(settings)
            .insert_resource(NeedsAutoDetect(needs_auto))
+           .init_resource::<GpuList>()
            .add_systems(Update, (
                apply_settings_system,
                init_settings_system,
            ));
+    }
+}
+
+fn populate_gpu_list(
+    gpu_list: &mut GpuList,
+    instance_adapter_opt: Option<&RenderAdapterInfo>,
+) {
+    if !gpu_list.names.is_empty() { return; }
+
+    // Try to get current adapter from Bevy first
+    if let Some(adapter) = instance_adapter_opt {
+        if !gpu_list.names.contains(&adapter.name) {
+            gpu_list.names.push(adapter.name.clone());
+        }
+    }
+
+    // Only enumerate other adapters if we are not on WASM
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Use PRIMARY backends only (Vulkan/Metal/DX12) to avoid crashes with some drivers/OpenGL
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            ..Default::default()
+        });
+        for adapter in instance.enumerate_adapters(wgpu::Backends::PRIMARY) {
+            let name = adapter.get_info().name;
+            if !gpu_list.names.contains(&name) {
+                gpu_list.names.push(name);
+            }
+        }
     }
 }
 
@@ -102,15 +142,24 @@ fn init_settings_system(
     needs_auto_opt: Option<Res<NeedsAutoDetect>>,
     adapter_opt: Option<Res<RenderAdapterInfo>>,
     mut settings: ResMut<GraphicsSettings>,
+    mut gpu_list: ResMut<GpuList>,
 ) {
-    let Some(needs_auto) = needs_auto_opt else { return; };
-    
     if let Some(adapter) = adapter_opt {
-        if needs_auto.0 {
-            *settings = auto_detect_graphics(&adapter);
-            save_settings(&settings);
+        if settings.selected_gpu.is_none() {
+            settings.selected_gpu = Some(adapter.name.clone());
         }
-        commands.remove_resource::<NeedsAutoDetect>();
+        
+        if gpu_list.names.is_empty() {
+             populate_gpu_list(&mut gpu_list, Some(&adapter));
+        }
+
+        if let Some(needs_auto) = needs_auto_opt {
+            if needs_auto.0 {
+                *settings = auto_detect_graphics(&adapter);
+                save_settings(&settings);
+            }
+            commands.remove_resource::<NeedsAutoDetect>();
+        }
     }
 }
 
