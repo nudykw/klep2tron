@@ -523,6 +523,7 @@ pub fn spawn_menu_button(
     parent: &mut ChildBuilder,
     font: &Handle<Font>,
     text: &str,
+    value: Option<String>,
     index: usize,
     item_type: MenuItemType,
     action: MenuAction,
@@ -548,9 +549,14 @@ pub fn spawn_menu_button(
             TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
         ));
 
-        if item_type == MenuItemType::Submenu {
+        if let Some(val) = value {
             p.spawn(TextBundle::from_section(
-                "→",
+                format!("< {} >", val),
+                TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
+            ));
+        } else if item_type == MenuItemType::Submenu {
+            p.spawn(TextBundle::from_section(
+                ">",
                 TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
             ));
         }
@@ -661,16 +667,16 @@ fn menu_item_system(
                     TextStyle { font: font.clone(), font_size: 100.0, color: Color::WHITE },
                 ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }));
 
-                spawn_menu_button(parent, &font, "START GAME", 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()));
+                spawn_menu_button(parent, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()));
                 
                 for (idx, (label, action)) in extra_buttons.buttons.iter().enumerate() {
-                    spawn_menu_button(parent, &font, label, idx + 1, MenuItemType::Action, action.clone(), None);
+                    spawn_menu_button(parent, &font, label, None, idx + 1, MenuItemType::Action, action.clone(), None);
                 }
 
-                spawn_menu_button(parent, &font, "SETTINGS", extra_buttons.buttons.len() + 1, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Graphics and performance".to_string()));
+                spawn_menu_button(parent, &font, "SETTINGS", None, extra_buttons.buttons.len() + 1, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Graphics and performance".to_string()));
                 
                 #[cfg(not(target_arch = "wasm32"))]
-                spawn_menu_button(parent, &font, "EXIT", extra_buttons.buttons.len() + 2, MenuItemType::Action, MenuAction::Exit, None);
+                spawn_menu_button(parent, &font, "EXIT", None, extra_buttons.buttons.len() + 2, MenuItemType::Action, MenuAction::Exit, None);
                 
                 // Update items count
                 #[cfg(not(target_arch = "wasm32"))]
@@ -686,25 +692,20 @@ fn menu_item_system(
                     TextStyle { font: font.clone(), font_size: 60.0, color: Color::WHITE },
                 ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));
 
-                spawn_menu_button(parent, &font, "BACK", 0, MenuItemType::Action, MenuAction::Back, None);
+                spawn_menu_button(parent, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None);
                 
-                let quality_text = format!("QUALITY: {:?}", pending.quality_level);
-                spawn_menu_button(parent, &font, &quality_text, 1, MenuItemType::Toggle, MenuAction::NextQuality, Some("Global quality preset".to_string()));
+                spawn_menu_button(parent, &font, "QUALITY", Some(format!("{:?}", pending.quality_level)), 1, MenuItemType::Toggle, MenuAction::NextQuality, Some("Global quality preset".to_string()));
 
-                let upscale_text = format!("UPSCALING: {:?}", pending.upscaling);
-                spawn_menu_button(parent, &font, &upscale_text, 2, MenuItemType::Toggle, MenuAction::NextUpscaling, Some("FSR 1.0 or TAA".to_string()));
+                spawn_menu_button(parent, &font, "UPSCALING", Some(format!("{:?}", pending.upscaling)), 2, MenuItemType::Toggle, MenuAction::NextUpscaling, Some("FSR 1.0 or TAA".to_string()));
 
-                let vsync_text = format!("VSYNC: {}", if pending.vsync { "ON" } else { "OFF" });
-                spawn_menu_button(parent, &font, &vsync_text, 3, MenuItemType::Toggle, MenuAction::ToggleVSync, None);
+                spawn_menu_button(parent, &font, "VSYNC", Some(if pending.vsync { "ON" } else { "OFF" }.to_string()), 3, MenuItemType::Toggle, MenuAction::ToggleVSync, None);
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    let mode_text = format!("MODE: {:?}", pending.window_mode);
-                    spawn_menu_button(parent, &font, &mode_text, 4, MenuItemType::Toggle, MenuAction::NextWindowMode, None);
+                    spawn_menu_button(parent, &font, "MODE", Some(format!("{:?}", pending.window_mode)), 4, MenuItemType::Toggle, MenuAction::NextWindowMode, None);
                     
                     let _has_changes = *settings != **pending;
-                    // We can't easily change color per button in spawn_menu_button without extra param, but we'll use a hack or just pass it.
-                    spawn_menu_button(parent, &font, "APPLY", 5, MenuItemType::Action, MenuAction::ApplySettings, None);
+                    spawn_menu_button(parent, &font, "APPLY", None, 5, MenuItemType::Action, MenuAction::ApplySettings, None);
                 }
                 
                 let count = if cfg!(target_arch = "wasm32") { 4 } else { 6 };
@@ -716,12 +717,12 @@ fn menu_item_system(
                     TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE },
                 ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }));
 
-                spawn_menu_button(parent, &font, "YES", 0, MenuItemType::Action, MenuAction::ConfirmYes, None);
-                spawn_menu_button(parent, &font, "NO", 1, MenuItemType::Action, MenuAction::ConfirmNo, None);
+                spawn_menu_button(parent, &font, "YES", None, 0, MenuItemType::Action, MenuAction::ConfirmYes, None);
+                spawn_menu_button(parent, &font, "NO", None, 1, MenuItemType::Action, MenuAction::ConfirmNo, None);
                 
                 let mut count = 2;
                 if confirmation.has_cancel {
-                    spawn_menu_button(parent, &font, "CANCEL", 2, MenuItemType::Action, MenuAction::ConfirmCancel, None);
+                    spawn_menu_button(parent, &font, "CANCEL", None, 2, MenuItemType::Action, MenuAction::ConfirmCancel, None);
                     count = 3;
                 }
                 
