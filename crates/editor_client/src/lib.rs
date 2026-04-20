@@ -1,8 +1,5 @@
 use bevy::prelude::*;
 pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, MenuItemType, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState, RoomTransition, EditorMode};
-use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::asset::AssetMetaCheck;
 use bevy::render::render_resource::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 use bevy::render::camera::RenderTarget;
@@ -743,81 +740,6 @@ fn ray_aabb(ray: Ray3d, min: Vec3, max: Vec3) -> Option<f32> {
     }
 }
 
-fn get_wedge_v(transform: Transform, rot: f32) -> [Vec3; 6] {
-    let size = transform.scale;
-    let pos = transform.translation;
-    let hx = size.x / 2.0; let hy = size.y / 2.0; let hz = size.z / 2.0;
-    let v_base = [
-        Vec3::new(-hx, -hy,  hz), // 0 S-L-B
-        Vec3::new( hx, -hy,  hz), // 1 S-R-B
-        Vec3::new( hx,  hy, -hz), // 2 N-R-T
-        Vec3::new(-hx,  hy, -hz), // 3 N-L-T
-        Vec3::new(-hx, -hy, -hz), // 4 N-L-B
-        Vec3::new( hx, -hy, -hz), // 5 N-R-B
-    ];
-    let rotation = Quat::from_rotation_y(rot);
-    let mut v = [Vec3::ZERO; 6];
-    for i in 0..6 { v[i] = pos + rotation * v_base[i]; }
-    v
-}
-
-fn draw_wedge_generic<T: GizmoConfigGroup>(gizmos: &mut Gizmos<T>, transform: Transform, rot: f32, color: Color) {
-    let v = get_wedge_v(transform, rot);
-    let edges = [(0,1), (1,5), (5,4), (4,0), (4,3), (5,2), (3,2), (0,3), (1,2)];
-    for (s, e) in edges { gizmos.line(v[s], v[e], color); }
-}
-
-fn draw_dashed_wedge_generic<T: GizmoConfigGroup>(gizmos: &mut Gizmos<T>, transform: Transform, rot: f32, color: Color) {
-    let v = get_wedge_v(transform, rot);
-    let edges = [(0,1), (1,5), (5,4), (4,0), (4,3), (5,2), (3,2), (0,3), (1,2)];
-    let segments = 20;
-    for (s_idx, e_idx) in edges {
-        let start = v[s_idx]; let end = v[e_idx];
-        for i in 0..segments {
-            if i % 2 == 0 {
-                let s = start + (end - start) * (i as f32 / segments as f32);
-                let e = start + (end - start) * ((i + 1) as f32 / segments as f32);
-                gizmos.line(s, e, color);
-            }
-        }
-    }
-}
-
-fn draw_dashed_cuboid_generic<T: GizmoConfigGroup>(gizmos: &mut Gizmos<T>, transform: Transform, color: Color) {
-    let size = transform.scale;
-    let pos = transform.translation;
-    let half = size / 2.0;
-    
-    let v = [
-        pos + Vec3::new(-half.x, -half.y, -half.z),
-        pos + Vec3::new( half.x, -half.y, -half.z),
-        pos + Vec3::new( half.x,  half.y, -half.z),
-        pos + Vec3::new(-half.x,  half.y, -half.z),
-        pos + Vec3::new(-half.x, -half.y,  half.z),
-        pos + Vec3::new( half.x, -half.y,  half.z),
-        pos + Vec3::new( half.x,  half.y,  half.z),
-        pos + Vec3::new(-half.x,  half.y,  half.z),
-    ];
-    
-    let edges = [
-        (0,1), (1,2), (2,3), (3,0),
-        (4,5), (5,6), (6,7), (7,4),
-        (0,4), (1,5), (2,6), (3,7),
-    ];
-    
-    let segments = 20;
-    for (s_idx, e_idx) in edges {
-        let start = v[s_idx];
-        let end = v[e_idx];
-        for i in 0..segments {
-            if i % 2 == 0 {
-                let s = start + (end - start) * (i as f32 / segments as f32);
-                let e = start + (end - start) * ((i + 1) as f32 / segments as f32);
-                gizmos.line(s, e, color);
-            }
-        }
-    }
-}
 
 pub fn editor_ui_system(
     mut interaction_query: Query<(&Interaction, Option<&TileTypeButton>, Option<&HelpButton>, &mut BackgroundColor, &mut BorderColor)>,

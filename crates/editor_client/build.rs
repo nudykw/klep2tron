@@ -1,5 +1,4 @@
 use std::fs;
-use std::process::Command;
 use chrono::Local;
 
 fn main() {
@@ -9,12 +8,21 @@ fn main() {
     // Пытаемся прочитать текущий счетчик билдов из временного файла
     let build_file = "build_counter.tmp";
     let mut count = 1;
+    
     if let Ok(content) = fs::read_to_string(build_file) {
-        if let Ok(saved_count) = content.trim().parse::<u32>() {
-            count = saved_count + 1;
+        let parts: Vec<&str> = content.trim().split(':').collect();
+        if parts.len() == 2 {
+            let saved_date = parts[0];
+            let saved_count = parts[1].parse::<u32>().unwrap_or(0);
+            
+            if saved_date == date_str {
+                count = saved_count + 1;
+            }
         }
     }
-    let _ = fs::write(build_file, count.to_string());
+    
+    // Сохраняем дату и новый номер
+    let _ = fs::write(build_file, format!("{}:{}", date_str, count));
 
     let version = format!("V{}_{}", date_str, count);
     let out_dir = std::env::var("OUT_DIR").unwrap();
