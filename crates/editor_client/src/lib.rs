@@ -52,6 +52,9 @@ pub struct LoadingTimer(pub Timer);
 #[derive(Component)]
 pub struct RttCamera;
 
+#[derive(Component)]
+pub struct RttCameraTarget(pub Vec3);
+
 pub fn run_game() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
@@ -83,7 +86,7 @@ pub fn run_game() {
         .add_systems(Update, (
             update_window_title, 
             handle_menu_input, 
-            deactivate_rtt_cameras,
+            sync_rtt_cameras_system,
             camera_control_system,
             sync_overlay_camera_system,
             selection_system,
@@ -227,6 +230,8 @@ pub fn setup_editor(
                 ..default()
             },
             layer.clone(),
+            RttCamera,
+            RttCameraTarget(pos),
         ));
 
         // Preview Light
@@ -362,12 +367,49 @@ pub fn selection_system(
     mut selection: ResMut<Selection>,
     mut project: ResMut<Project>,
     editor_state: Res<EditorState>,
+    camera_query: Query<&Transform, With<OrbitCamera>>,
 ) {
     if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) { return; }
-    if keyboard.just_pressed(KeyCode::ArrowUp)    { selection.z = selection.z.saturating_sub(1); }
-    if keyboard.just_pressed(KeyCode::ArrowDown)  { if selection.z < 15 { selection.z += 1; } }
-    if keyboard.just_pressed(KeyCode::ArrowLeft)  { selection.x = selection.x.saturating_sub(1); }
-    if keyboard.just_pressed(KeyCode::ArrowRight) { if selection.x < 15 { selection.x += 1; } }
+    
+    // Determine movement vectors relative to camera
+    let mut move_dx = 0i32;
+    let mut move_dz = 0i32;
+
+    if let Ok(cam_transform) = camera_query.get_single() {
+        let forward = cam_transform.forward();
+        let forward_h = Vec2::new(forward.x, forward.z).normalize_or_zero();
+        
+        // Find dominant world direction (quantized to 4 axes)
+        let (f_dx, f_dz) = if forward_h.x.abs() > forward_h.y.abs() {
+            if forward_h.x > 0.0 { (1, 0) } else { (-1, 0) }
+        } else {
+            if forward_h.y > 0.0 { (0, 1) } else { (0, -1) }
+        };
+
+        // Relative directions:
+        // ArrowUp: (f_dx, f_dz)
+        // ArrowDown: (-f_dx, -f_dz)
+        // ArrowRight: (-f_dz, f_dx)
+        // ArrowLeft: (f_dz, -f_dx)
+
+        if keyboard.just_pressed(KeyCode::ArrowUp)    { move_dx = f_dx; move_dz = f_dz; }
+        if keyboard.just_pressed(KeyCode::ArrowDown)  { move_dx = -f_dx; move_dz = -f_dz; }
+        if keyboard.just_pressed(KeyCode::ArrowRight) { move_dx = -f_dz; move_dz = f_dx; }
+        if keyboard.just_pressed(KeyCode::ArrowLeft)  { move_dx = f_dz; move_dz = -f_dx; }
+    } else {
+        // Fallback to absolute if no camera found
+        if keyboard.just_pressed(KeyCode::ArrowUp)    { move_dz = -1; }
+        if keyboard.just_pressed(KeyCode::ArrowDown)  { move_dz = 1; }
+        if keyboard.just_pressed(KeyCode::ArrowLeft)  { move_dx = -1; }
+        if keyboard.just_pressed(KeyCode::ArrowRight) { move_dx = 1; }
+    }
+
+    if move_dx != 0 || move_dz != 0 {
+        let new_x = (selection.x as i32 + move_dx).clamp(0, 15);
+        let new_z = (selection.z as i32 + move_dz).clamp(0, 15);
+        selection.x = new_x as usize;
+        selection.z = new_z as usize;
+    }
     
     let room_idx = project.current_room_idx;
     
@@ -411,27 +453,44 @@ pub fn selection_highlight_system(
     selection: Res<Selection>, 
     project: Res<Project>,
     editor_state: Res<EditorState>,
+    camera_query: Query<&Transform, With<OrbitCamera>>,
     time: Res<Time>,
     mut gizmos: Gizmos<BoxGizmos>,
 ) {
     let room_idx = project.current_room_idx;
     let cell = project.rooms[room_idx].cells[selection.x][selection.z];
+    let cam_pos = camera_query.get_single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
     
-    // Blink logic: 2.5 Hz (5 changes per second)
+    // 0. Synchronized Blink
     let is_on = (time.elapsed_seconds() * 5.0).sin() > 0.0;
     if !is_on { return; }
 
-    // Position follows the cell height directly
+    // 1. Vertical Column Highlight (Dashed) - only if above floor
+    if cell.h > 0 {
+        let h_s = TILE_SIZE * 0.5;
+        let base_y = 0.0;
+        let top_y = (cell.h as f32 - 1.0) * TILE_H;
+        
+        // Draw vertical lines only
+        for dx in [-h_s, h_s] {
+            for dz in [-h_s, h_s] {
+                let start = Vec3::new(selection.x as f32 + dx, base_y, selection.z as f32 + dz);
+                let end = Vec3::new(selection.x as f32 + dx, top_y, selection.z as f32 + dz);
+                draw_dashed_line(&mut gizmos, start, end, Color::srgba(1.0, 1.0, 1.0, 0.15));
+            }
+        }
+    }
+
+    // 2. Selection Box Highlight (Refined Edges)
     let top_pos = Vec3::new(selection.x as f32, (cell.h as f32 - 0.5) * TILE_H, selection.z as f32);
     let transform = Transform::from_translation(top_pos).with_scale(Vec3::new(TILE_SIZE * 1.01, TILE_H * 1.01, TILE_SIZE * 1.01));
     
-    // Use the type from EditorState for PREVIEW
     let preview_type = editor_state.current_type;
-    let color = Color::srgba(1.0, 1.0, 1.0, 0.25);
+    let color = Color::srgba(1.0, 1.0, 1.0, 0.4);
 
     match preview_type {
         TileType::Cube => {
-            gizmos.cuboid(transform, color);
+            draw_refined_cuboid(&mut gizmos, transform, cam_pos, color);
         },
         _ => {
             let rot = match preview_type {
@@ -441,7 +500,87 @@ pub fn selection_highlight_system(
                 TileType::WedgeW => std::f32::consts::FRAC_PI_2,
                 _ => 0.0,
             };
-            draw_wedge_generic(&mut gizmos, transform, rot, color);
+            draw_refined_wedge(&mut gizmos, transform, rot, cam_pos, color);
+        }
+    }
+}
+
+fn draw_refined_cuboid(gizmos: &mut Gizmos<BoxGizmos>, transform: Transform, cam_pos: Vec3, color: Color) {
+    let center = transform.translation;
+    let half_scale = transform.scale * 0.5;
+    
+    // 8 vertices: (dx, dy, dz)
+    let mut v = [Vec3::ZERO; 8];
+    let mut i = 0;
+    for dx in [-1.0, 1.0] {
+        for dy in [-1.0, 1.0] {
+            for dz in [-1.0, 1.0] {
+                v[i] = center + Vec3::new(dx * half_scale.x, dy * half_scale.y, dz * half_scale.z);
+                i += 1;
+            }
+        }
+    }
+
+    // 12 edges: (idx1, idx2, face_idx1, face_idx2)
+    // Face Normals: 0:+X, 1:-X, 2:+Y, 3:-Y, 4:+Z, 5:-Z
+    let edges = [
+        (0, 1, 1, 3), (2, 3, 1, 2), (4, 5, 0, 3), (6, 7, 0, 2), // Z-aligned (X and Y are fixed)
+        (0, 2, 1, 5), (1, 3, 1, 4), (4, 6, 0, 5), (5, 7, 0, 4), // Y-aligned (X and Z are fixed)
+        (0, 4, 3, 5), (1, 5, 3, 4), (2, 6, 2, 5), (3, 7, 2, 4), // X-aligned (Y and Z are fixed)
+    ];
+
+    let face_normals = [
+        Vec3::X, Vec3::NEG_X, Vec3::Y, Vec3::NEG_Y, Vec3::Z, Vec3::NEG_Z
+    ];
+
+    for (i1, i2, n1, n2) in edges {
+        let is_back1 = face_normals[n1].dot(cam_pos - center) < 0.0;
+        let is_back2 = face_normals[n2].dot(cam_pos - center) < 0.0;
+        
+        if is_back1 && is_back2 {
+            draw_dashed_line(gizmos, v[i1], v[i2], color.with_alpha(0.15));
+        } else {
+            gizmos.line(v[i1], v[i2], color);
+        }
+    }
+}
+
+fn draw_refined_wedge(gizmos: &mut Gizmos<BoxGizmos>, transform: Transform, rot: f32, cam_pos: Vec3, color: Color) {
+    // For simplicity, we just draw the refined wedge with dashed lines for back edges too
+    // But since it's a custom shape, we'll manually define its 6 vertices and 9 edges
+    let center = transform.translation;
+    let half_scale = transform.scale * 0.5;
+    let rotation = Quat::from_rotation_y(rot);
+
+    // Local vertices for a wedge (N orientation)
+    // Bottom 4, Top 2 (on the back side)
+    let local_v = [
+        Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, -1.0, -1.0), // Bottom Back
+        Vec3::new(-1.0, -1.0, 1.0), Vec3::new(1.0, -1.0, 1.0),   // Bottom Front
+        Vec3::new(-1.0, 1.0, -1.0), Vec3::new(1.0, 1.0, -1.0),  // Top Back
+    ];
+
+    let mut v = [Vec3::ZERO; 6];
+    for i in 0..6 {
+        v[i] = center + rotation * (local_v[i] * half_scale);
+    }
+
+    // Edges
+    let edges = [
+        (0, 1), (1, 3), (3, 2), (2, 0), // Bottom
+        (4, 5), (0, 4), (1, 5),         // Back & Top
+        (2, 4), (3, 5),                 // Slopes
+    ];
+
+    // For wedge, we'll just check if the edge center is further from camera than box center
+    for (i1, i2) in edges {
+        let edge_center = (v[i1] + v[i2]) * 0.5;
+        let is_back = (edge_center - center).dot(cam_pos - center) < -0.2; // Heuristic
+        
+        if is_back {
+            draw_dashed_line(gizmos, v[i1], v[i2], color.with_alpha(0.15));
+        } else {
+            gizmos.line(v[i1], v[i2], color);
         }
     }
 }
@@ -659,15 +798,33 @@ pub fn auto_save_system(project: Res<Project>) {
 
 
 
-fn deactivate_rtt_cameras(
-    mut query: Query<&mut Camera, With<RttCamera>>,
-    mut count: Local<u32>,
+fn sync_rtt_cameras_system(
+    main_cam_query: Query<&OrbitCamera>,
+    mut rtt_query: Query<(&mut Transform, &RttCameraTarget), With<RttCamera>>,
 ) {
-    if *count > 10 { // Wait 10 frames to ensure RTT is captured
-        for mut camera in query.iter_mut() {
-            camera.is_active = false;
-        }
-    } else {
-        *count += 1;
+    let Ok(orbit) = main_cam_query.get_single() else { return };
+    
+    for (mut transform, target) in rtt_query.iter_mut() {
+        let radius = 2.0; // Fixed radius for previews
+        let x = target.0.x + radius * orbit.angle.cos();
+        let z = target.0.z + radius * orbit.angle.sin();
+        let y = target.0.y + (orbit.height / orbit.radius) * radius; // Scale height proportionally
+        
+        *transform = Transform::from_xyz(x, y, z).looking_at(target.0, Vec3::Y);
+    }
+}
+
+fn draw_dashed_line(gizmos: &mut Gizmos<BoxGizmos>, start: Vec3, end: Vec3, color: Color) {
+    let dir = end - start;
+    let length = dir.length();
+    if length < 0.01 { return; }
+    let norm = dir / length;
+    let dash_len = 0.05;
+    let gap_len = 0.05;
+    let mut current = 0.0;
+    while current < length {
+        let dash_end = (current + dash_len).min(length);
+        gizmos.line(start + norm * current, start + norm * dash_end, color);
+        current += dash_len + gap_len;
     }
 }
