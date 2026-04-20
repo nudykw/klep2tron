@@ -1,0 +1,9 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.14", features = ["webgl2"] }
+bevy_obj = "0.14"
+client_core = { path = "../client_core" }

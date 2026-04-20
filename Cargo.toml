@@ -5,5 +5,8 @@ members = [
     "crates/shared",
     "crates/admin_web",
     "crates/editor_client_web",
+    "crates/client_core",
+    "crates/client",
+    "crates/client_web",
 ]
 resolver = "2"

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+pub use client_core::*;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -6,13 +7,6 @@ use bevy::asset::AssetMetaCheck;
 use bevy::render::render_resource::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 use bevy::render::camera::RenderTarget;
 use bevy::render::view::RenderLayers;
-
-#[derive(Resource, Default)]
-pub struct EditorAssets {
-    pub cube_mesh: Handle<Mesh>,
-    pub wedge_mesh: Handle<Mesh>,
-    pub highlight_material: Handle<StandardMaterial>,
-}
 
 #[derive(Component)]
 pub struct SelectionHighlight;
@@ -29,43 +23,11 @@ include!(concat!(env!("OUT_DIR"), "/version.rs"));
 pub const TILE_SIZE: f32 = 1.0;
 pub const TILE_H:    f32 = 0.5; 
 
-#[derive(Clone, Copy, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
-pub enum TileType {
-    #[default] Empty,
-    Cube,
-    WedgeN, WedgeE, WedgeS, WedgeW,
-}
-
 #[derive(GizmoConfigGroup, Default, Reflect)]
 pub struct HiddenGizmos;
 
 #[derive(GizmoConfigGroup, Default, Reflect)]
 pub struct BoxGizmos;
-
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
-pub struct TileCell {
-    pub h: i32,
-    pub tt: TileType,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
-pub struct Room {
-    pub cells: [[TileCell; 16]; 16],
-}
-
-impl Default for Room {
-    fn default() -> Self {
-        Self {
-            cells: [[TileCell { h: 0, tt: TileType::Cube }; 16]; 16],
-        }
-    }
-}
-
-#[derive(Resource, serde::Serialize, serde::Deserialize, Default)]
-pub struct Project {
-    pub rooms: Vec<Room>,
-    pub current_room_idx: usize,
-}
 
 #[derive(Resource, Default)]
 pub struct Selection {
@@ -84,24 +46,11 @@ impl Default for EditorState {
     }
 }
 
-#[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
-pub enum GameState {
-    #[default]
-    Menu,
-    Loading,
-    InGame,
-}
-
 #[derive(Component)] pub struct OrbitCamera { pub center: Vec3, pub radius: f32, pub angle: f32, pub height: f32 }
 #[derive(Component)] pub struct CameraDebugText;
 #[derive(Component)] pub struct HudText;
-#[derive(Component)] pub struct MenuEntity;
-#[derive(Component)] pub struct LoadingEntity;
-#[derive(Component)] pub struct ProgressBar;
 #[derive(Component)] pub struct PersistentCamera2d;
-#[derive(Component)] pub struct MapEntity;
 #[derive(Component)] pub struct TileTypeButton(pub TileType);
-#[derive(Component)] pub struct TileEntity;
 
 #[derive(Resource)]
 pub struct LoadingTimer(pub Timer);
@@ -125,17 +74,11 @@ pub fn run_game() {
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(bevy_obj::ObjPlugin)
         .add_plugins(SystemInformationDiagnosticsPlugin)
-        .init_state::<GameState>()
+        .add_plugins(ClientCorePlugin)
         .init_gizmo_group::<HiddenGizmos>()
         .init_gizmo_group::<BoxGizmos>()
-        .init_resource::<Project>()
         .init_resource::<Selection>()
         .init_resource::<EditorState>()
-        .init_resource::<EditorAssets>()
-        .add_systems(OnEnter(GameState::Menu), setup_menu)
-        .add_systems(Update, menu_system.run_if(in_state(GameState::Menu)))
-        .add_systems(OnEnter(GameState::Loading), (cleanup_menu, start_loading))
-        .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
         .add_systems(OnEnter(GameState::InGame), setup_editor)
         .add_systems(Update, (
             camera_control_system, 
@@ -143,7 +86,6 @@ pub fn run_game() {
             selection_system,
             mouse_selection_system,
             editor_ui_system,
-            map_rendering_system,
             selection_highlight_system,
             hud_update_system,
             room_switching_system,
@@ -168,97 +110,18 @@ pub fn handle_menu_input(keyboard: Res<ButtonInput<KeyCode>>, mut state: ResMut<
     if keyboard.just_pressed(KeyCode::Enter) { state.set(GameState::Loading); }
 }
 
-pub fn cleanup_menu(mut commands: Commands, query: Query<Entity, With<MenuEntity>>) {
-    for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
-}
-
-pub fn menu_system(
-    mut next_state: ResMut<NextState<GameState>>,
-    mut query: Query<&Interaction, (Changed<Interaction>, With<Button>)>,
-) {
-    for interaction in query.iter() {
-        if *interaction == Interaction::Pressed {
-            next_state.set(GameState::Loading);
-        }
-    }
-}
-
-pub fn start_loading(
-    mut editor_assets: ResMut<EditorAssets>,
-    asset_server: Res<AssetServer>,
-) {
-    editor_assets.cube_mesh = asset_server.load("3dModels/Room/Bricks/cube.obj");
-    editor_assets.wedge_mesh = asset_server.load("3dModels/Room/Bricks/wedge.obj");
-}
-
-pub fn check_loading_system(
-    mut next_state: ResMut<NextState<GameState>>,
-    asset_server: Res<AssetServer>,
-    editor_assets: Res<EditorAssets>,
-) {
-    use bevy::asset::RecursiveDependencyLoadState;
-    let cube_state = asset_server.get_recursive_dependency_load_state(&editor_assets.cube_mesh);
-    let wedge_state = asset_server.get_recursive_dependency_load_state(&editor_assets.wedge_mesh);
-
-    if cube_state == Some(RecursiveDependencyLoadState::Loaded) && wedge_state == Some(RecursiveDependencyLoadState::Loaded) {
-        next_state.set(GameState::InGame);
-    }
-}
-
-pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Menu Camera
-    commands.spawn((Camera2dBundle::default(), MenuEntity));
-    
-    let font = asset_server.load("fonts/Roboto-Regular.ttf");
-    
-    // UI Root
-    commands.spawn((NodeBundle {
-        style: Style { 
-            width: Val::Percent(100.0), 
-            height: Val::Percent(100.0), 
-            flex_direction: FlexDirection::Column, 
-            justify_content: JustifyContent::Center, 
-            align_items: AlignItems::Center, 
-            ..default() 
-        },
-        background_color: Color::srgb(0.05, 0.05, 0.1).into(), // Very dark blue instead of pure black
-        ..default()
-    }, MenuEntity)).with_children(|p| {
-        p.spawn(TextBundle::from_section("Klep2Tron Editor", TextStyle { font: font.clone(), font_size: 80.0, color: Color::srgb(0.0, 1.0, 1.0) }));
-        
-        p.spawn(ButtonBundle {
-            style: Style { 
-                width: Val::Px(250.0), 
-                height: Val::Px(60.0), 
-                justify_content: JustifyContent::Center, 
-                align_items: AlignItems::Center, 
-                margin: UiRect::all(Val::Px(40.0)),
-                border: UiRect::all(Val::Px(2.0)),
-                ..default() 
-            },
-            background_color: Color::srgb(0.1, 0.1, 0.1).into(),
-            border_color: Color::srgb(0.3, 0.3, 0.3).into(),
-            ..default()
-        }).with_children(|p| {
-            p.spawn(TextBundle::from_section("START EDITOR", TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE }));
-        });
-        
-        p.spawn(TextBundle::from_section(format!("VERSION: {}", VERSION), TextStyle { font, font_size: 14.0, color: Color::srgb(0.4, 0.4, 0.4) }));
-    });
-}
-
 pub fn setup_editor(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut project: ResMut<Project>,
-    mut editor_assets: ResMut<EditorAssets>,
+    mut client_assets: ResMut<ClientAssets>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut config_store: ResMut<GizmoConfigStore>,
 ) {
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     
-    editor_assets.highlight_material = materials.add(StandardMaterial {
+    client_assets.highlight_material = materials.add(StandardMaterial {
         base_color: Color::srgba(0.0, 1.0, 1.0, 0.1),
         unlit: true,
         alpha_mode: AlphaMode::Blend,
@@ -359,12 +222,12 @@ pub fn setup_editor(
 
         // Preview Mesh
         let (mesh, rot) = match tt {
-            TileType::Cube => (editor_assets.cube_mesh.clone(), 0.0),
-            TileType::WedgeN => (editor_assets.wedge_mesh.clone(), 0.0),
-            TileType::WedgeE => (editor_assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
-            TileType::WedgeS => (editor_assets.wedge_mesh.clone(), std::f32::consts::PI),
-            TileType::WedgeW => (editor_assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
-            _ => (editor_assets.cube_mesh.clone(), 0.0),
+            TileType::Cube => (client_assets.cube_mesh.clone(), 0.0),
+            TileType::WedgeN => (client_assets.wedge_mesh.clone(), 0.0),
+            TileType::WedgeE => (client_assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
+            TileType::WedgeS => (client_assets.wedge_mesh.clone(), std::f32::consts::PI),
+            TileType::WedgeW => (client_assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
+            _ => (client_assets.cube_mesh.clone(), 0.0),
         };
         commands.spawn((
             PbrBundle {
@@ -773,7 +636,7 @@ pub struct MaterialCache {
 pub fn map_rendering_system(
     mut commands: Commands,
     project: Res<Project>,
-    editor_assets: Res<EditorAssets>,
+    client_assets: Res<ClientAssets>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     tile_query: Query<Entity, With<TileEntity>>,
     mut cache: Local<MaterialCache>,
@@ -843,11 +706,11 @@ pub fn map_rendering_system(
 
             let top_pos = Vec3::new(x as f32, (cell.h as f32 - 0.5) * TILE_H, z as f32);
             let (mesh, rot) = match cell.tt {
-                TileType::WedgeN => (editor_assets.wedge_mesh.clone(), 0.0),
-                TileType::WedgeE => (editor_assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
-                TileType::WedgeS => (editor_assets.wedge_mesh.clone(), std::f32::consts::PI),
-                TileType::WedgeW => (editor_assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
-                _ => (editor_assets.cube_mesh.clone(), 0.0),
+                TileType::WedgeN => (client_assets.wedge_mesh.clone(), 0.0),
+                TileType::WedgeE => (client_assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
+                TileType::WedgeS => (client_assets.wedge_mesh.clone(), std::f32::consts::PI),
+                TileType::WedgeW => (client_assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
+                _ => (client_assets.cube_mesh.clone(), 0.0),
             };
 
             commands.spawn((PbrBundle {
@@ -871,7 +734,7 @@ pub fn map_rendering_system(
                 }).clone();
 
                 commands.spawn((PbrBundle {
-                    mesh: editor_assets.cube_mesh.clone(), material: mat_side_local,
+                    mesh: client_assets.cube_mesh.clone(), material: mat_side_local,
                     transform: Transform::from_translation(Vec3::new(x as f32, (p_h - TILE_H)/2.0, z as f32))
                         .with_scale(Vec3::new(1.0, p_h - TILE_H, 1.0)),
                     ..default()
