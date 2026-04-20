@@ -88,6 +88,24 @@ To run the server:
 cargo run --bin server
 ```
 
+#### 4. Web Versions (WASM)
+To run web versions, you need to install **Trunk**:
+```bash
+cargo install --locked trunk
+```
+
+Then, go to the desired crate directory and start the server:
+*   **Web Client** (Port 8081):
+    ```bash
+    cd crates/client_web
+    trunk serve
+    ```
+*   **Web Editor** (Port 8082):
+    ```bash
+    cd crates/editor_client_web
+    trunk serve
+    ```
+
 ---
 
 <a name="українська"></a>
@@ -166,3 +184,21 @@ cargo run --bin editor_client
 ```bash
 cargo run --bin server
 ```
+
+#### 4. Веб-версії (WASM)
+Для запуску веб-версій необхідно встановити **Trunk**:
+```bash
+cargo install --locked trunk
+```
+
+Після цього перейдіть до директорії потрібного компонента та запустіть сервер:
+*   **Веб-клієнт** (Порт 8081):
+    ```bash
+    cd crates/client_web
+    trunk serve
+    ```
+*   **Веб-редактор** (Порт 8082):
+    ```bash
+    cd crates/editor_client_web
+    trunk serve
+    ```
