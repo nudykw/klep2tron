@@ -5,12 +5,23 @@ This document serves as a technical overview for AI assistance to quickly naviga
 ## 🏗️ Workspace Structure
 
 - `crates/client`: Native game client binary.
-- `crates/client_core`: Shared game logic, rendering systems, and asset management (The "Heart").
+- `crates/client_core`: Shared game logic and systems (The "Heart").
+  - `src/rendering/`: Map drawing, materials, and mesh logic.
+  - `src/ui/`: `menu`, `help`, and `hud` submodules.
+  - `src/world.rs`: Environment, lighting, and camera setup.
+  - `src/assets/`: Resource loading and progress bar.
+  - `src/perf.rs`: Metrics collection and history.
+  - `src/transition.rs`: Room switching logic and UI.
+  - `src/input.rs`: Global shared controls (fullscreen).
+  - `src/history.rs`: Undo/Redo stack management.
 - `crates/client_web`: WASM wrapper for the game client.
-- `crates/editor_client`: Native map editor binary.
+- `crates/editor_client`: Native map editor.
+  - `src/camera.rs`: Orbit controls and RTT sync.
+  - `src/ui/`: Editor-specific buttons and tooltips.
+  - `src/logic.rs`: Selection, mouse mapping, and history.
 - `crates/editor_client_web`: WASM wrapper for the map editor.
 - `crates/server`: Server-side logic (Docker/PostgreSQL).
-- `crates/shared`: Shared data structures between client and server (e.g., `Project`, `Room`, `Cell`).
+- `crates/shared`: Shared data structures between client and server.
 - `crates/admin_web`: Web interface for administration.
 
 ## 🚦 State Machine (`GameState`)
@@ -27,23 +38,23 @@ Defined in `client_core/src/lib.rs`:
 - **TileMap**: Runtime cache of spawned entities mapped to coordinates.
 - **DirtyTiles**: List of coordinates that need re-rendering (optimization).
 - **PerfHistory**: In-memory storage for FPS, CPU, and RAM metrics.
+- **CommandHistory**: Undo/Redo stack for the editor.
 
 ## 🎨 Rendering Logic (`map_rendering_system`)
 
-Located in `client_core/src/lib.rs`.
+Located in `client_core/src/rendering/mod.rs`.
 - Uses **Partial Updates**: Only tiles in `DirtyTiles` are re-spawned.
 - **Full Rebuild**: Triggered by room change or `dirty.full_rebuild`.
 - **Change Detection**: Uses `project.is_changed()` to detect external loads.
 
 ## 🛠️ Editor Specifics
 
-- **OrbitCamera**: Specialized 3D camera controller for the editor.
+- **OrbitCamera**: Specialized 3D camera controller (`src/camera.rs`).
 - **RTT Previews**: Render-to-Texture previews of tile types in the top panel.
-- **Gizmos**: Used for selection highlights and dashed wedge outlines.
+- **Gizmos**: Used for selection highlights and dashed wedge outlines (`src/logic.rs`).
 
 ## 🚀 Common Commands
 
 - **Run Editor**: `cargo run -p editor_client`
-- **Run Web Editor**: `trunk serve --port 8082` (in `crates/editor_client_web`)
 - **Run Game**: `cargo run -p client`
-- **Check All**: `cargo check --workspace`
+- **Check Workspace**: `cargo check --workspace`

@@ -55,6 +55,11 @@ pub struct MenuTooltip {
 #[derive(Component)]
 pub struct InputHintFooter;
 
+#[derive(Resource, Default)]
+pub struct ExtraMenuButtons {
+    pub buttons: Vec<(String, MenuAction)>,
+}
+
 pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
@@ -262,5 +267,60 @@ pub fn spawn_menu_button(
                 TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
             ));
         }
+    });
+}
+
+pub fn setup_menu(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>, 
+    extra_buttons: Res<ExtraMenuButtons>
+) {
+    use crate::MenuEntity;
+    commands.spawn((Camera2dBundle::default(), MenuEntity));
+    let font = asset_server.load("fonts/Roboto-Regular.ttf");
+    
+    // Main Menu Container
+    commands.spawn((NodeBundle {
+        style: Style {
+            width: Val::Percent(100.0), height: Val::Percent(100.0),
+            display: Display::Flex, flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center, justify_content: JustifyContent::Center,
+            position_type: PositionType::Absolute,
+            row_gap: Val::Px(20.0),
+            ..default()
+        },
+        background_color: Color::srgb(0.01, 0.01, 0.05).into(),
+        ..default()
+    }, MenuEntity, MenuContainer { current_selection: 0, items_count: 1 + extra_buttons.buttons.len() }))
+    .with_children(|parent| {
+        parent.spawn(TextBundle::from_section(
+            "Klep2tron",
+            TextStyle { font: font.clone(), font_size: 100.0, color: Color::WHITE },
+        ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }));
+
+        // Start Game Button (Default)
+        spawn_menu_button(parent, &font, "START GAME", 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()));
+
+        // Extra Buttons (e.g. from Editor)
+        for (idx, (label, action)) in extra_buttons.buttons.iter().enumerate() {
+            spawn_menu_button(parent, &font, label, idx + 1, MenuItemType::Action, action.clone(), None);
+        }
+    });
+
+    // Footer for input hints
+    commands.spawn((NodeBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(20.0),
+            width: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        ..default()
+    }, MenuEntity)).with_children(|p| {
+        p.spawn((TextBundle::from_section(
+            "",
+            TextStyle { font: font.clone(), font_size: 18.0, color: Color::srgb(0.7, 0.7, 0.7) },
+        ), InputHintFooter));
     });
 }
