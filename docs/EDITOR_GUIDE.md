@@ -22,14 +22,16 @@ Hold **Shift** to use the camera controls:
 - **Mouse Left Click**: Directly select a tile in the 3D world.
 
 #### 🏗 Editing Tiles
-- **Q**: Increase tile height. The tile will automatically take the currently selected type.
-- **A**: Decrease tile height. If the height goes below 0, the tile becomes **Empty**.
-- **F**: **Quick Clone**. Copies the tile type and height from a neighboring cell.
-- **Top Panel**: Click on the 3D preview buttons at the top to change the active tile type (Cube, Wedge North/South/East/West).
+- **Q**: Increase tile height.
+- **A**: Decrease tile height. Holes (`h = -1`) are allowed only for **Empty** tiles.
+- **F**: **Clone Previous**. Copies the type and height from the cell you were at *just before* moving to the current one.
+- **Top Panel**: Click on the 3D preview buttons at the top to change the active tile type.
 
-#### 🏠 Room Management
-- **`[` (Left Bracket)**: Switch to the previous room.
-- **`]` (Right Bracket)**: Switch to the next room (creates a new room if you are at the end).
+#### 🏠 Room Management & Navigation
+- **`[` / `]`**: Switch rooms with smooth transition.
+- **F1 / Esc**: Toggle Global Help window.
+- **Ctrl+Enter**: Toggle **Fullscreen** mode.
+- **Esc**: Return to Main Menu (when help is closed).
 
 ### 💾 Saving
 The editor **automatically saves** your progress to `map.json` in the project root whenever a change is detected.
@@ -54,14 +56,16 @@ The editor **automatically saves** your progress to `map.json` in the project ro
 - **Ліва кнопка миші**: Прямий вибір тайла у 3D світі.
 
 #### 🏗 Редагування тайлів
-- **Q**: Збільшити висоту тайла. Тайл автоматично набуде поточно обраного типу.
-- **A**: Зменшити висоту тайла. Якщо висота стане менше 0, тайл стане **Empty** (пустим).
-- **F**: **Швидке клонування**. Копіює тип та висоту з сусіднього тайла.
-- **Верхня панель**: Натискайте на кнопки з 3D-прев'ю вгорі, щоб змінити активний тип тайла (Куб, Скат).
+- **Q**: Збільшити висоту тайла.
+- **A**: Зменшити висоту тайла. Порожнечі (`h = -1`) дозволені лише для типу **Empty**.
+- **F**: **Штамп**. Копіює тип та висоту з клітинки, на якій ви стояли *перед* цим.
+- **Верхня панель**: Натискайте на кнопки з 3D-прев'ю вгорі, щоб змінити активний тип тайла.
 
-#### 🏠 Керування кімнатами
-- **`[` (Ліва дужка)**: Перейти до попередньої кімнати.
-- **`]` (Права дужка)**: Перейти до наступної кімнати (створює нову, якщо ви в кінці списку).
+#### 🏠 Керування кімнатами та Навігація
+- **`[` / `]`**: Перемикання кімнат з плавним переходом.
+- **F1 / Esc**: Відкрити/Закрити вікно допомоги.
+- **Ctrl+Enter**: Повноэкранний режим.
+- **Esc**: Вихід у головне меню (коли вікно допомоги закрите).
 
 ### 💾 Збереження
 Редактор **автоматично зберігає** прогрес у файл `map.json` у корені проєкту при будь-якій зміні.

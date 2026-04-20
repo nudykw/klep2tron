@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState, RoomTransition};
+pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState, RoomTransition, EditorMode};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -65,7 +65,6 @@ pub struct RttCameraTarget(pub Vec3);
 pub fn run_game() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(NextState::Pending(GameState::Loading))
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window { 
@@ -104,10 +103,14 @@ pub fn run_game() {
             auto_save_system,
             undo_redo_system,
             editor_tooltip_system,
-        ).run_if(in_state(GameState::InGame)))
+        ).run_if(in_state(GameState::InGame).and_then(is_editor_active)))
         // System for forced window title update (in case of Bevy lags in Wasm)
         .add_systems(Update, update_window_title)
         .run();
+}
+
+pub fn is_editor_active(mode: Res<EditorMode>) -> bool {
+    mode.is_active
 }
 
 
@@ -141,7 +144,9 @@ pub fn setup_editor(
     mut config_store: ResMut<GizmoConfigStore>,
     mut history: ResMut<CommandHistory>,
     mut editor_state: ResMut<EditorState>,
+    editor_mode: Res<EditorMode>,
 ) {
+    if !editor_mode.is_active { return; }
     history.undo_stack.clear();
     history.redo_stack.clear();
     // Load map.json
@@ -201,16 +206,16 @@ pub fn setup_editor(
 
     // Lighting
     commands.insert_resource(AmbientLight { color: Color::WHITE, brightness: 500.0 });
-    commands.spawn(DirectionalLightBundle {
+    commands.spawn((DirectionalLightBundle {
         directional_light: DirectionalLight { illuminance: 5000.0, shadows_enabled: false, ..default() },
         transform: Transform::from_xyz(10.0, 20.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
-    });
-    commands.spawn(DirectionalLightBundle {
+    }, MapEntity));
+    commands.spawn((DirectionalLightBundle {
         directional_light: DirectionalLight { illuminance: 3000.0, shadows_enabled: false, ..default() },
         transform: Transform::from_xyz(-10.0, 15.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
-    });
+    }, MapEntity));
 
     // HUD
     commands.spawn((NodeBundle {
@@ -354,10 +359,10 @@ pub fn setup_editor(
         p.spawn(TextBundle::from_section("", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }));
     });
 
-    commands.spawn(DirectionalLightBundle {
+    commands.spawn((DirectionalLightBundle {
         directional_light: DirectionalLight { shadows_enabled: true, illuminance: 10_000.0, ..default() },
         transform: Transform::from_rotation(Quat::from_rotation_x(-0.8) * Quat::from_rotation_y(0.6)), ..default()
-    });
+    }, MapEntity));
     
     commands.insert_resource(AmbientLight { color: Color::WHITE, brightness: 200.0 });
 
@@ -370,6 +375,7 @@ pub fn setup_editor(
         },
         OrbitCamera { center, radius: 17.5, angle: 6.9, height: 8.0 },
         FogSettings { color: Color::BLACK, falloff: FogFalloff::Linear { start: 10.0, end: 40.0 }, ..default() },
+        MapEntity,
     ));
 
     // Overlay Camera for selection (always on top)
@@ -388,6 +394,7 @@ pub fn setup_editor(
         },
         OverlayCamera,
         RenderLayers::layer(1),
+        MapEntity,
     ));
 }
 

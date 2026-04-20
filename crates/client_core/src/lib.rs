@@ -61,6 +61,11 @@ pub struct TileCell {
     pub tt: TileType,
 }
 
+#[derive(Resource, Default, Clone, Debug)]
+pub struct EditorMode {
+    pub is_active: bool,
+}
+
 #[derive(Serialize, Deserialize, Clone, Resource, Default)]
 pub struct Room {
     pub cells: [[TileCell; 16]; 16],
@@ -175,6 +180,7 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<ClientAssets>()
            .init_resource::<ExtraMenuButtons>()
            .init_resource::<Selection>()
+           .init_resource::<EditorMode>()
            .init_resource::<TileMap>()
            .init_resource::<DirtyTiles>()
            .init_resource::<PerfHistory>()
@@ -189,8 +195,9 @@ impl Plugin for ClientCorePlugin {
                 hud_update_system.run_if(in_state(GameState::InGame)),
                 map_rendering_system.run_if(in_state(GameState::InGame)),
                 collect_perf_system,
-                help_input_system,
+                help_toggle_system,
                 help_ui_system,
+                fullscreen_toggle_system,
                 transition_logic_system,
                 transition_ui_system,
             ))
@@ -198,13 +205,12 @@ impl Plugin for ClientCorePlugin {
            .add_systems(OnEnter(GameState::Loading), start_loading)
            .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
            .add_systems(OnExit(GameState::Menu), cleanup_menu)
+           .add_systems(OnExit(GameState::InGame), cleanup_map)
            .add_systems(OnEnter(GameState::InGame), cleanup_loading);
 
         if !self.options.skip_default_setup {
             app.add_systems(OnEnter(GameState::InGame), setup_game_world);
         }
-
-        app.add_systems(Update, map_rendering_system.run_if(in_state(GameState::InGame)));
     }
 }
 
@@ -281,13 +287,20 @@ fn spawn_menu_button(parent: &mut ChildBuilder, font: &Handle<Font>, text: &str,
 pub fn menu_system(
     mut interaction_query: Query<(&Interaction, &MenuAction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut editor_mode: ResMut<EditorMode>,
 ) {
     for (interaction, action, mut color) in interaction_query.iter_mut() {
         match *interaction {
             Interaction::Pressed => {
                 match action {
-                    MenuAction::StartGame => next_state.set(GameState::Loading),
-                    MenuAction::StartEditor => next_state.set(GameState::Loading),
+                    MenuAction::StartGame => {
+                        editor_mode.is_active = false;
+                        next_state.set(GameState::Loading);
+                    }
+                    MenuAction::StartEditor => {
+                        editor_mode.is_active = true;
+                        next_state.set(GameState::Loading);
+                    }
                 }
             }
             Interaction::Hovered => {
@@ -360,6 +373,17 @@ pub fn check_loading_system(
 
 pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<LoadingEntity>>) {
     for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
+}
+
+pub fn cleanup_map(
+    mut commands: Commands, 
+    query: Query<Entity, Or<(With<MapEntity>, With<TileEntity>)>>,
+    mut tile_map: ResMut<TileMap>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    tile_map.entities.clear();
 }
 
 pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, asset_server: Res<AssetServer>) {
@@ -440,9 +464,13 @@ pub fn map_rendering_system(
     // Process only dirty tiles
     let tiles_to_process = std::mem::take(&mut dirty.tiles);
     for (x, z) in tiles_to_process {
-        // Despawn old entities at this coordinate
+        // Despawn old entities at this coordinate (safely)
         if let Some(entities) = tile_map.entities.remove(&(x, z)) {
-            for entity in entities { commands.entity(entity).despawn_recursive(); }
+            for entity in entities { 
+                if let Some(ec) = commands.get_entity(entity) {
+                    ec.despawn_recursive();
+                }
+            }
         }
         
         let cell = room.cells[x][z];
@@ -572,7 +600,7 @@ pub fn save_perf_history(
     }
 }
 
-pub fn help_input_system(keyboard: Res<ButtonInput<KeyCode>>, mut help_state: ResMut<HelpState>) {
+pub fn help_toggle_system(keyboard: Res<ButtonInput<KeyCode>>, mut help_state: ResMut<HelpState>) {
     if keyboard.just_pressed(KeyCode::F1) {
         help_state.is_open = !help_state.is_open;
     }
@@ -625,6 +653,7 @@ pub fn help_ui_system(
                     let controls = [
                         // HOTKEY_SYNC: Keep this list in sync with actual input systems
                         ("F1 / Esc", "Toggle / Close Help"),
+                        ("Ctrl+Enter", "Toggle Fullscreen"),
                         ("Ctrl+Z / Ctrl+U", "Undo / Redo"),
                         ("Arrows", "Move Selection"),
                         ("Shift + Arrows", "Camera Orbit / Zoom"),
@@ -715,5 +744,22 @@ pub fn transition_ui_system(
             _ => 0.0,
         };
         *color = Color::srgba(0.0, 0.0, 0.0, alpha).into();
+    }
+}
+
+pub fn fullscreen_toggle_system(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut windows: Query<&mut Window>,
+) {
+    // HOTKEY_SYNC: Ctrl+Enter to toggle fullscreen
+    let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+    if ctrl && keyboard.just_pressed(KeyCode::Enter) {
+        if let Ok(mut window) = windows.get_single_mut() {
+            use bevy::window::WindowMode;
+            window.mode = match window.mode {
+                WindowMode::Windowed => WindowMode::SizedFullscreen,
+                _ => WindowMode::Windowed,
+            };
+        }
     }
 }
