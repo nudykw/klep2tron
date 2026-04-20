@@ -1,20 +1,36 @@
 use bevy::prelude::*;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasBundle;
 use crate::{Project, Room, TileMap, GraphicsSettings, QualityLevel, UpscalingMode};
+use bevy::pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings, ScreenSpaceAmbientOcclusionQualityLevel};
+use bevy::render::view::Msaa;
+use bevy::core_pipeline::bloom::BloomSettings;
 
-pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, _asset_server: Res<AssetServer>) {
-    commands.spawn((
-        DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                illuminance: 10000.0,
+pub fn setup_game_world(
+    mut commands: Commands, 
+    mut project: ResMut<Project>, 
+    _asset_server: Res<AssetServer>,
+    light_query: Query<Entity, With<DirectionalLight>>,
+) {
+    if light_query.is_empty() {
+        commands.spawn((
+            DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    shadows_enabled: true,
+                    illuminance: 12000.0,
+                    ..default()
+                },
+                transform: Transform::from_xyz(15.0, 30.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
+                cascade_shadow_config: bevy::pbr::CascadeShadowConfigBuilder {
+                    first_cascade_far_bound: 20.0,
+                    maximum_distance: 200.0,
+                    num_cascades: 1, 
+                    ..default()
+                }.build(),
                 ..default()
             },
-            transform: Transform::from_xyz(10.0, 20.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        MapEntity,
-    ));
+            MapEntity,
+        ));
+    }
 
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -81,35 +97,82 @@ pub fn apply_graphics_quality_system(
     mut light_query: Query<&mut DirectionalLight>,
     mut fog_query: Query<&mut FogSettings>,
     camera_query: Query<Entity, With<Camera3d>>,
+    ssao_query: Query<Entity, With<bevy::pbr::ScreenSpaceAmbientOcclusionSettings>>,
     mut commands: Commands,
+    mut initialized: Local<bool>,
+    mut msaa: ResMut<Msaa>,
+    mut shadow_map: ResMut<bevy::pbr::DirectionalLightShadowMap>,
 ) {
-    if !settings.is_changed() { return; }
-    
-    // Shadows
-    for mut light in light_query.iter_mut() {
-        light.shadows_enabled = match settings.shadow_quality {
-            QualityLevel::Low => false,
-            _ => true,
-        };
+    let has_cameras = !camera_query.is_empty();
+    if !settings.is_changed() && (*initialized && has_cameras) { return; }
+    if has_cameras {
+        *initialized = true;
+        info!("Applying graphics settings: {:?}", *settings);
     }
 
-    // Fog
-    for mut fog in fog_query.iter_mut() {
-        match settings.fog_quality {
-            QualityLevel::Low => {
-                fog.falloff = FogFalloff::Linear { start: 10.0, end: 40.0 };
-            },
-            QualityLevel::Medium => {
-                fog.falloff = FogFalloff::Linear { start: 5.0, end: 25.0 };
-            },
-            QualityLevel::High | QualityLevel::Ultra => {
-                fog.falloff = FogFalloff::Exponential { density: 0.05 };
-            },
+    // Auto-disable MSAA if SSAO or TAA is used
+    if settings.ssao != QualityLevel::Off || settings.upscaling == UpscalingMode::TAA {
+        if *msaa != Msaa::Off {
+            *msaa = Msaa::Off;
+            info!("MSAA disabled for advanced effects");
+        }
+    } else {
+        if *msaa == Msaa::Off {
+            *msaa = Msaa::Sample4;
+            info!("MSAA re-enabled");
         }
     }
     
-    // Upscaling & TAA
+    // Shadows
+    for mut light in light_query.iter_mut() {
+        let enabled = match settings.shadow_quality {
+            QualityLevel::Off => false,
+            _ => true,
+        };
+        if light.shadows_enabled != enabled {
+            light.shadows_enabled = enabled;
+            info!("Directional light shadows set to: {}", enabled);
+        }
+    }
+    if shadow_map.size != settings.shadow_resolution as usize {
+        shadow_map.size = settings.shadow_resolution as usize;
+        info!("Shadow map resolution changed to {}", shadow_map.size);
+    }
+
+    // Fog
     for entity in camera_query.iter() {
+        let fog_opt = fog_query.get_mut(entity).ok();
+        match settings.fog_quality {
+            QualityLevel::Off => {
+                if fog_opt.is_some() {
+                    commands.entity(entity).remove::<FogSettings>();
+                }
+            },
+            level => {
+                let falloff = match level {
+                    QualityLevel::Low => FogFalloff::Linear { start: 10.0, end: 40.0 },
+                    QualityLevel::Medium => FogFalloff::Linear { start: 5.0, end: 25.0 },
+                    _ => FogFalloff::Exponential { density: 0.05 },
+                };
+
+                if let Some(mut fog) = fog_opt {
+                    fog.falloff = falloff;
+                    fog.color = Color::srgb(0.1, 0.1, 0.2);
+                } else {
+                    info!("Inserting FogSettings into camera");
+                    commands.entity(entity).insert(FogSettings {
+                        color: Color::srgb(0.1, 0.1, 0.2),
+                        falloff,
+                        ..default()
+                    });
+                }
+            }
+        }
+    }
+    
+    // Post-processing and Upscaling
+    for entity in camera_query.iter() {
+        // Upscaling & TAA
         match settings.upscaling {
             UpscalingMode::None | UpscalingMode::FSR => {
                 commands.entity(entity).remove::<TemporalAntiAliasBundle>();
@@ -117,6 +180,38 @@ pub fn apply_graphics_quality_system(
             UpscalingMode::TAA => {
                 commands.entity(entity).insert(TemporalAntiAliasBundle::default());
             },
+        }
+
+        // Bloom
+        if settings.bloom {
+            commands.entity(entity).insert(BloomSettings::default());
+        } else {
+            commands.entity(entity).remove::<BloomSettings>();
+        }
+
+        // SSAO
+        let has_ssao = ssao_query.get(entity).is_ok();
+        match settings.ssao {
+            QualityLevel::Off => {
+                if has_ssao {
+                    commands.entity(entity).remove::<bevy::pbr::ScreenSpaceAmbientOcclusionBundle>();
+                }
+            },
+            level => {
+                let quality = match level {
+                    QualityLevel::Low => ScreenSpaceAmbientOcclusionQualityLevel::Low,
+                    QualityLevel::Medium => ScreenSpaceAmbientOcclusionQualityLevel::Medium,
+                    QualityLevel::High => ScreenSpaceAmbientOcclusionQualityLevel::High,
+                    _ => ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
+                };
+
+                commands.entity(entity).insert(ScreenSpaceAmbientOcclusionBundle {
+                    settings: ScreenSpaceAmbientOcclusionSettings {
+                        quality_level: quality,
+                    },
+                    ..default()
+                });
+            }
         }
     }
 }

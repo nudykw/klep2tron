@@ -12,6 +12,7 @@ shared = { path = "../shared" }
 image = "0.25"
 winit = "0.30"
 wgpu = "0.20"
+bevy_framepace = "0.17"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

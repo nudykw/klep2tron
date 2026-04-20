@@ -4,9 +4,14 @@
   "window_mode": "Windowed",
   "resolution_scale": 1.0,
   "vsync": true,
-  "fps_limit": 60,
-  "quality_level": "Medium",
-  "shadow_quality": "Medium",
-  "fog_quality": "Medium",
-  "upscaling": "None"
+  "fps_limit_enabled": true,
+  "fps_limit": 144,
+  "quality_level": "Ultra",
+  "shadow_quality": "Ultra",
+  "fog_quality": "High",
+  "upscaling": "TAA",
+  "selected_gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "ssao": "Off",
+  "bloom": true,
+  "shadow_resolution": 1024
 }

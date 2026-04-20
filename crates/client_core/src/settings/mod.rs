@@ -14,6 +14,7 @@ pub struct GraphicsSettings {
     pub window_mode: MyWindowMode,
     pub resolution_scale: f32, 
     pub vsync: bool,
+    pub fps_limit_enabled: bool,
     pub fps_limit: u32, 
     
     // Quality
@@ -26,14 +27,19 @@ pub struct GraphicsSettings {
 
     // Advanced
     pub selected_gpu: Option<String>,
+    pub ssao: QualityLevel,
+    pub bloom: bool,
+    pub shadow_resolution: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QualityLevel {
+    Off,
     Low,
     Medium,
     High,
     Ultra,
+    Custom,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -74,12 +80,16 @@ impl Default for GraphicsSettings {
             window_mode: MyWindowMode::Windowed,
             resolution_scale: 1.0,
             vsync: true,
+            fps_limit_enabled: false,
             fps_limit: 60,
             quality_level: QualityLevel::Medium,
             shadow_quality: QualityLevel::Medium,
             fog_quality: QualityLevel::Medium,
             upscaling: UpscalingMode::None,
             selected_gpu: None,
+            ssao: QualityLevel::Off,
+            bloom: true,
+            shadow_resolution: 1024,
         }
     }
 }
@@ -99,7 +109,9 @@ impl Plugin for SettingsPlugin {
         let (settings, needs_auto) = load_settings_or_default();
         app.insert_resource(settings)
            .insert_resource(NeedsAutoDetect(needs_auto))
+           .insert_resource(bevy::pbr::DirectionalLightShadowMap { size: 1024 })
            .init_resource::<GpuList>()
+           .add_plugins(bevy_framepace::FramepacePlugin)
            .add_systems(Update, (
                apply_settings_system,
                init_settings_system,
@@ -107,7 +119,7 @@ impl Plugin for SettingsPlugin {
     }
 }
 
-fn populate_gpu_list(
+pub fn populate_gpu_list(
     gpu_list: &mut GpuList,
     instance_adapter_opt: Option<&RenderAdapterInfo>,
 ) {
@@ -231,6 +243,7 @@ fn save_settings_to_web(settings: &GraphicsSettings) -> Result<(), wasm_bindgen:
 fn apply_settings_system(
     settings: Res<GraphicsSettings>,
     mut windows: Query<&mut Window>,
+    mut framepace: ResMut<bevy_framepace::FramepaceSettings>,
 ) {
     if !settings.is_changed() { return; }
     
@@ -248,6 +261,13 @@ fn apply_settings_system(
         } else {
             bevy::window::PresentMode::AutoNoVsync
         };
+
+        // Apply FPS Limit
+        if settings.fps_limit_enabled && !settings.vsync {
+            framepace.limiter = bevy_framepace::Limiter::from_framerate(settings.fps_limit as f64);
+        } else {
+            framepace.limiter = bevy_framepace::Limiter::Off;
+        }
     }
 }
 

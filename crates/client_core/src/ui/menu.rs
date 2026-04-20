@@ -29,6 +29,13 @@ pub enum MenuAction {
     ConfirmCancel,
     OpenAdvanced,
     NextGpu, PrevGpu,
+    NextSsao, PrevSsao,
+    ToggleBloom,
+    NextFog, PrevFog,
+    NextShadowRes, PrevShadowRes,
+    NextShadowQuality, PrevShadowQuality,
+    ToggleFpsLimit,
+    NextFpsLimit, PrevFpsLimit,
     None,
 }
 
@@ -186,7 +193,8 @@ pub struct MenuInputParams<'w, 's> {
     pub game_state: Res<'w, State<GameState>>,
     pub exit_confirm: ResMut<'w, ExitConfirmationActive>,
     pub item_query: Query<'w, 's, &'static MenuItem>,
-    pub gpu_list: Res<'w, crate::settings::GpuList>,
+    pub gpu_list: ResMut<'w, crate::settings::GpuList>,
+    pub instance_adapter: Option<Res<'w, bevy::render::renderer::RenderAdapterInfo>>,
 }
 
 pub fn menu_input_system(
@@ -253,27 +261,21 @@ pub fn menu_input_system(
     }
 
     if back_pressed {
-        match *params.menu_state.get() {
-            MenuSubState::Settings => {
-                if params.pending.0 != *params.settings {
-                    params.confirmation.message = "Settings have been changed, apply them?".to_string();
-                    params.confirmation.has_cancel = true;
-                    params.next_menu_state.set(MenuSubState::Confirmation);
-                } else {
-                    params.next_menu_state.set(MenuSubState::Main);
-                }
-            },
-            MenuSubState::Confirmation => {
-                params.next_menu_state.set(MenuSubState::Settings);
-            },
-            MenuSubState::Advanced => {
-                params.next_menu_state.set(MenuSubState::Settings);
-            },
-            _ => {
-                if *params.game_state.get() == GameState::Menu {
-                }
-            }
-        }
+
+        handle_menu_action(
+            MenuAction::Back, 
+            &mut params.next_state, 
+            &mut params.editor_mode, 
+            &mut params.next_menu_state, 
+            &mut params.settings, 
+            &mut params.pending, 
+            &mut params.confirmation, 
+            &params.game_state,
+            &mut params.exit_confirm,
+            &mut params.gpu_list,
+            &params.instance_adapter,
+            &params.menu_state,
+        );
     }
 
     if select_pressed {
@@ -288,7 +290,9 @@ pub fn menu_input_system(
                 &mut params.confirmation, 
                 &params.game_state,
                 &mut params.exit_confirm,
-                &params.gpu_list,
+                &mut params.gpu_list,
+                &params.instance_adapter,
+                &params.menu_state,
             );
         }
     }
@@ -313,7 +317,14 @@ pub fn menu_input_system(
                     MenuAction::NextUpscaling | MenuAction::PrevUpscaling => if horizontal_dir > 0 { MenuAction::NextUpscaling } else { MenuAction::PrevUpscaling },
                     MenuAction::NextWindowMode | MenuAction::PrevWindowMode => if horizontal_dir > 0 { MenuAction::NextWindowMode } else { MenuAction::PrevWindowMode },
                     MenuAction::NextGpu | MenuAction::PrevGpu => if horizontal_dir > 0 { MenuAction::NextGpu } else { MenuAction::PrevGpu },
+                    MenuAction::NextSsao | MenuAction::PrevSsao => if horizontal_dir > 0 { MenuAction::NextSsao } else { MenuAction::PrevSsao },
+                    MenuAction::NextFog | MenuAction::PrevFog => if horizontal_dir > 0 { MenuAction::NextFog } else { MenuAction::PrevFog },
+                    MenuAction::NextShadowRes | MenuAction::PrevShadowRes => if horizontal_dir > 0 { MenuAction::NextShadowRes } else { MenuAction::PrevShadowRes },
+                    MenuAction::NextShadowQuality | MenuAction::PrevShadowQuality => if horizontal_dir > 0 { MenuAction::NextShadowQuality } else { MenuAction::PrevShadowQuality },
+                    MenuAction::NextFpsLimit | MenuAction::PrevFpsLimit => if horizontal_dir > 0 { MenuAction::NextFpsLimit } else { MenuAction::PrevFpsLimit },
                     MenuAction::ToggleVSync => MenuAction::ToggleVSync,
+                    MenuAction::ToggleBloom => MenuAction::ToggleBloom,
+                    MenuAction::ToggleFpsLimit => MenuAction::ToggleFpsLimit,
                     _ => MenuAction::None,
                 };
                 if action != MenuAction::None {
@@ -327,7 +338,9 @@ pub fn menu_input_system(
                         &mut params.confirmation, 
                         &params.game_state,
                         &mut params.exit_confirm,
-                        &params.gpu_list,
+                        &mut params.gpu_list,
+                        &params.instance_adapter,
+                        &params.menu_state,
                     );
                 }
             }
@@ -345,7 +358,9 @@ pub fn handle_menu_action(
     confirmation: &mut ResMut<ConfirmationData>,
     _game_state: &Res<State<GameState>>,
     exit_confirm: &mut ResMut<ExitConfirmationActive>,
-    gpu_list: &Res<crate::settings::GpuList>,
+    gpu_list: &mut ResMut<crate::settings::GpuList>,
+    instance_adapter: &Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
+    menu_state: &Res<State<MenuSubState>>,
 ) {
     match action {
         MenuAction::StartGame => { 
@@ -361,20 +376,139 @@ pub fn handle_menu_action(
             std::process::exit(0);
         },
         MenuAction::Back => { 
-            if ***pending != **settings {
-                if pending.selected_gpu != settings.selected_gpu {
-                    confirmation.message = "GPU changed. Save and restart app?".to_string();
-                } else {
-                    confirmation.message = "Settings have been changed, apply them?".to_string();
+            let has_changes = ***pending != **settings;
+            match *menu_state.get() {
+                MenuSubState::Advanced => {
+                    if has_changes {
+                        if pending.selected_gpu != settings.selected_gpu {
+                            confirmation.message = "GPU changed. Save and restart app?".to_string();
+                        } else {
+                            confirmation.message = "Advanced settings changed, apply them?".to_string();
+                        }
+                        confirmation.has_cancel = true;
+                        next_menu_state.set(MenuSubState::Confirmation);
+                    } else {
+                        next_menu_state.set(MenuSubState::Settings);
+                    }
+                },
+                MenuSubState::Settings => {
+                    if has_changes {
+                        if pending.selected_gpu != settings.selected_gpu {
+                            confirmation.message = "GPU changed. Save and restart app?".to_string();
+                        } else {
+                            confirmation.message = "Settings have been changed, apply them?".to_string();
+                        }
+                        confirmation.has_cancel = true;
+                        next_menu_state.set(MenuSubState::Confirmation);
+                    } else {
+                        next_menu_state.set(MenuSubState::Main); 
+                    }
+                },
+                _ => {
+                    next_menu_state.set(MenuSubState::Main);
                 }
-                confirmation.has_cancel = true;
-                next_menu_state.set(MenuSubState::Confirmation);
-            } else {
-                next_menu_state.set(MenuSubState::Main); 
             }
         },
         MenuAction::OpenSettings => { next_menu_state.set(MenuSubState::Settings); },
-        MenuAction::OpenAdvanced => { next_menu_state.set(MenuSubState::Advanced); },
+        MenuAction::OpenAdvanced => { 
+            next_menu_state.set(MenuSubState::Advanced); 
+            // Refresh GPU list when entering advanced
+            crate::settings::populate_gpu_list(gpu_list, instance_adapter.as_ref().map(|v| &**v));
+        },
+        MenuAction::NextSsao => {
+            pending.ssao = match pending.ssao {
+                QualityLevel::Off => QualityLevel::Low,
+                QualityLevel::Low => QualityLevel::Medium,
+                QualityLevel::Medium => QualityLevel::High,
+                QualityLevel::High => QualityLevel::Ultra,
+                _ => QualityLevel::Off,
+            };
+        },
+        MenuAction::PrevSsao => {
+            pending.ssao = match pending.ssao {
+                QualityLevel::Off => QualityLevel::Ultra,
+                QualityLevel::Low => QualityLevel::Off,
+                QualityLevel::Medium => QualityLevel::Low,
+                QualityLevel::High => QualityLevel::Medium,
+                _ => QualityLevel::High,
+            };
+        },
+        MenuAction::ToggleBloom => {
+            pending.bloom = !pending.bloom;
+        },
+        MenuAction::NextFog => {
+            pending.fog_quality = match pending.fog_quality {
+                QualityLevel::Off => QualityLevel::Low,
+                QualityLevel::Low => QualityLevel::Medium,
+                QualityLevel::Medium => QualityLevel::High,
+                QualityLevel::High => QualityLevel::Ultra,
+                _ => QualityLevel::Off,
+            };
+        },
+        MenuAction::PrevFog => {
+            pending.fog_quality = match pending.fog_quality {
+                QualityLevel::Off => QualityLevel::Ultra,
+                QualityLevel::Low => QualityLevel::Off,
+                QualityLevel::Medium => QualityLevel::Low,
+                QualityLevel::High => QualityLevel::Medium,
+                _ => QualityLevel::High,
+            };
+        },
+        MenuAction::NextShadowRes => {
+            pending.shadow_resolution = match pending.shadow_resolution {
+                512 => 1024,
+                1024 => 2048,
+                2048 => 4096,
+                _ => 512,
+            };
+        },
+        MenuAction::PrevShadowRes => {
+            pending.shadow_resolution = match pending.shadow_resolution {
+                512 => 4096,
+                1024 => 512,
+                2048 => 1024,
+                _ => 2048,
+            };
+        },
+        MenuAction::NextShadowQuality => {
+            pending.shadow_quality = match pending.shadow_quality {
+                QualityLevel::Off => QualityLevel::Low,
+                QualityLevel::Low => QualityLevel::Medium,
+                QualityLevel::Medium => QualityLevel::High,
+                QualityLevel::High => QualityLevel::Ultra,
+                _ => QualityLevel::Off,
+            };
+        },
+        MenuAction::PrevShadowQuality => {
+            pending.shadow_quality = match pending.shadow_quality {
+                QualityLevel::Off => QualityLevel::Ultra,
+                QualityLevel::Low => QualityLevel::Off,
+                QualityLevel::Medium => QualityLevel::Low,
+                QualityLevel::High => QualityLevel::Medium,
+                _ => QualityLevel::High,
+            };
+        },
+        MenuAction::ToggleFpsLimit => {
+            pending.fps_limit_enabled = !pending.fps_limit_enabled;
+        },
+        MenuAction::NextFpsLimit => {
+            pending.fps_limit = match pending.fps_limit {
+                30 => 60,
+                60 => 120,
+                120 => 144,
+                144 => 240,
+                _ => 30,
+            };
+        },
+        MenuAction::PrevFpsLimit => {
+            pending.fps_limit = match pending.fps_limit {
+                30 => 240,
+                60 => 30,
+                120 => 60,
+                144 => 120,
+                _ => 144,
+            };
+        },
         MenuAction::NextGpu => {
             if !gpu_list.names.is_empty() {
                 let current = settings.selected_gpu.clone().unwrap_or_else(|| gpu_list.names[0].clone());
@@ -421,7 +555,7 @@ pub fn handle_menu_action(
             if exit_confirm.0 {
                 exit_confirm.0 = false;
             } else {
-                next_menu_state.set(MenuSubState::Main);
+                next_menu_state.set(MenuSubState::Settings);
             }
         },
         MenuAction::ConfirmCancel => {
@@ -480,12 +614,14 @@ pub fn handle_menu_action(
                 QualityLevel::Medium => QualityLevel::High,
                 QualityLevel::High => QualityLevel::Ultra,
                 QualityLevel::Ultra => QualityLevel::Low,
+                _ => QualityLevel::Medium,
             };
             match pending.quality_level {
                 QualityLevel::Low => { pending.shadow_quality = QualityLevel::Low; pending.fog_quality = QualityLevel::Low; },
                 QualityLevel::Medium => { pending.shadow_quality = QualityLevel::Medium; pending.fog_quality = QualityLevel::Low; },
                 QualityLevel::High => { pending.shadow_quality = QualityLevel::High; pending.fog_quality = QualityLevel::Medium; },
                 QualityLevel::Ultra => { pending.shadow_quality = QualityLevel::Ultra; pending.fog_quality = QualityLevel::High; },
+                _ => {},
             }
         },
         MenuAction::PrevQuality => {
@@ -494,12 +630,14 @@ pub fn handle_menu_action(
                 QualityLevel::Medium => QualityLevel::Low,
                 QualityLevel::High => QualityLevel::Medium,
                 QualityLevel::Ultra => QualityLevel::High,
+                _ => QualityLevel::Medium,
             };
             match pending.quality_level {
                 QualityLevel::Low => { pending.shadow_quality = QualityLevel::Low; pending.fog_quality = QualityLevel::Low; },
                 QualityLevel::Medium => { pending.shadow_quality = QualityLevel::Medium; pending.fog_quality = QualityLevel::Low; },
                 QualityLevel::High => { pending.shadow_quality = QualityLevel::High; pending.fog_quality = QualityLevel::Medium; },
                 QualityLevel::Ultra => { pending.shadow_quality = QualityLevel::Ultra; pending.fog_quality = QualityLevel::High; },
+                _ => {},
             }
         },
         _ => {}
@@ -805,7 +943,7 @@ fn menu_item_system(
                 {
                     spawn_menu_button(parent, &font, "MODE", Some(format!("{:?}", pending.window_mode)), 4, MenuItemType::Toggle, MenuAction::NextWindowMode, None, false);
                     
-                    spawn_menu_button(parent, &font, "ADVANCED", None, 5, MenuItemType::Submenu, MenuAction::OpenAdvanced, Some("GPU selection and more".to_string()), gpu_list.names.len() <= 1);
+                    spawn_menu_button(parent, &font, "ADVANCED", None, 5, MenuItemType::Submenu, MenuAction::OpenAdvanced, Some("GPU selection and more".to_string()), false);
 
                     let _has_changes = *settings != **pending;
                     spawn_menu_button(parent, &font, "APPLY", None, 6, MenuItemType::Action, MenuAction::ApplySettings, None, false);
@@ -848,8 +986,22 @@ fn menu_item_system(
                 let tooltip = format!("Current: {}\n(Restart required)", gpu_val);
 
                 spawn_menu_button(parent, &font, "GPU SELECT", Some(short_gpu), 1, MenuItemType::Toggle, MenuAction::NextGpu, Some(tooltip), gpu_list.names.len() <= 1);
+                
+                spawn_menu_button(parent, &font, "SHADOWS", Some(format!("{:?}", pending.shadow_quality)), 2, MenuItemType::Toggle, MenuAction::NextShadowQuality, None, false);
+                
+                spawn_menu_button(parent, &font, "FOG", Some(format!("{:?}", pending.fog_quality)), 3, MenuItemType::Toggle, MenuAction::NextFog, None, false);
 
-                new_container = Some(MenuContainer { current_selection: 0, items_count: 2 });
+                spawn_menu_button(parent, &font, "BLOOM", Some(if pending.bloom { "ON" } else { "OFF" }.to_string()), 4, MenuItemType::Toggle, MenuAction::ToggleBloom, None, false);
+
+                spawn_menu_button(parent, &font, "SSAO", Some(format!("{:?}", pending.ssao)), 5, MenuItemType::Toggle, MenuAction::NextSsao, None, false);
+
+                spawn_menu_button(parent, &font, "SHADOW RES", Some(pending.shadow_resolution.to_string()), 6, MenuItemType::Toggle, MenuAction::NextShadowRes, None, false);
+
+                spawn_menu_button(parent, &font, "FPS LIMIT", Some(if pending.fps_limit_enabled { "ON" } else { "OFF" }.to_string()), 7, MenuItemType::Toggle, MenuAction::ToggleFpsLimit, None, false);
+                
+                spawn_menu_button(parent, &font, "FPS VALUE", Some(pending.fps_limit.to_string()), 8, MenuItemType::Toggle, MenuAction::NextFpsLimit, None, !pending.fps_limit_enabled);
+
+                new_container = Some(MenuContainer { current_selection: 0, items_count: 9 });
             }
         }
     });
