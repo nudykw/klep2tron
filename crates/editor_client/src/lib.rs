@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles};
+pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -95,6 +95,7 @@ pub fn run_game() {
             selection_highlight_system,
             room_switching_system,
             auto_save_system,
+            undo_redo_system,
         ).run_if(in_state(GameState::InGame)))
         // System for forced window title update (in case of Bevy lags in Wasm)
         .add_systems(Update, update_window_title)
@@ -123,7 +124,10 @@ pub fn setup_editor(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut config_store: ResMut<GizmoConfigStore>,
+    mut history: ResMut<CommandHistory>,
 ) {
+    history.undo_stack.clear();
+    history.redo_stack.clear();
     // Load map.json
     #[cfg(not(target_arch = "wasm32"))]
     if let Ok(content) = std::fs::read_to_string("assets/map.json") {
@@ -366,6 +370,7 @@ pub fn selection_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut selection: ResMut<Selection>,
     mut project: ResMut<Project>,
+    mut history: ResMut<CommandHistory>,
     editor_state: Res<EditorState>,
     camera_query: Query<&Transform, With<OrbitCamera>>,
 ) {
@@ -427,6 +432,7 @@ pub fn selection_system(
             if nx >= 0 && nx < 16 && nz >= 0 && nz < 16 {
                 let neighbor_cell = project.rooms[room_idx].cells[nx as usize][nz as usize];
                 if neighbor_cell.h >= 0 {
+                    history.push_undo(&project);
                     project.rooms[room_idx].cells[x][z] = neighbor_cell;
                     info!("Cloned block from {} {}", nx, nz);
                     break;
@@ -436,6 +442,7 @@ pub fn selection_system(
     }
 
     if keyboard.just_pressed(KeyCode::KeyQ) || keyboard.just_pressed(KeyCode::KeyA) {
+        history.push_undo(&project);
         let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
         if keyboard.just_pressed(KeyCode::KeyQ) { 
             cell.h += 1; 
@@ -737,6 +744,7 @@ pub fn editor_ui_system(
     mut interaction_query: Query<(&Interaction, &TileTypeButton, &mut BackgroundColor, &mut BorderColor)>,
     mut editor_state: ResMut<EditorState>,
     mut project: ResMut<Project>,
+    mut history: ResMut<CommandHistory>,
     selection: Res<Selection>,
     mut dirty: ResMut<DirtyTiles>,
 ) {
@@ -747,8 +755,10 @@ pub fn editor_ui_system(
                 let mut changed = false;
                 if !is_selected { editor_state.current_type = tt_btn.0; changed = true; }
                 let room_idx = project.current_room_idx;
-                let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
+                let cell = project.rooms[room_idx].cells[selection.x][selection.z];
                 if cell.h >= 0 && cell.tt != tt_btn.0 { 
+                    history.push_undo(&project);
+                    let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
                     cell.tt = tt_btn.0; 
                     changed = true; 
                     dirty.tiles.push((selection.x, selection.z));
@@ -772,8 +782,14 @@ pub fn editor_ui_system(
     }
 }
 
-pub fn room_switching_system(keyboard: Res<ButtonInput<KeyCode>>, mut project: ResMut<Project>, mut dirty: ResMut<DirtyTiles>) {
+pub fn room_switching_system(
+    keyboard: Res<ButtonInput<KeyCode>>, 
+    mut project: ResMut<Project>, 
+    mut dirty: ResMut<DirtyTiles>,
+    mut history: ResMut<CommandHistory>,
+) {
     if keyboard.just_pressed(KeyCode::BracketRight) {
+        history.push_undo(&project);
         project.current_room_idx += 1;
         if project.current_room_idx >= project.rooms.len() { project.rooms.push(Room::default()); }
         dirty.full_rebuild = true;
@@ -791,6 +807,31 @@ pub fn auto_save_system(project: Res<Project>) {
         #[cfg(not(target_arch = "wasm32"))]
         if let Ok(json) = serde_json::to_string_pretty(&*project) {
             let _ = std::fs::write("assets/map.json", json);
+        }
+    }
+}
+
+pub fn undo_redo_system(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut project: ResMut<Project>,
+    mut history: ResMut<CommandHistory>,
+    mut dirty: ResMut<DirtyTiles>,
+) {
+    let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+    
+    if ctrl && keyboard.just_pressed(KeyCode::KeyZ) {
+        if let Some(prev) = history.undo(&project) {
+            *project = prev;
+            dirty.full_rebuild = true;
+            info!("Undo successful");
+        }
+    }
+
+    if ctrl && keyboard.just_pressed(KeyCode::KeyU) {
+        if let Some(next) = history.redo(&project) {
+            *project = next;
+            dirty.full_rebuild = true;
+            info!("Redo successful");
         }
     }
 }

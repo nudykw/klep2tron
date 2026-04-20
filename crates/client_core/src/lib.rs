@@ -29,10 +29,38 @@ pub struct Room {
     pub cells: [[TileCell; 16]; 16],
 }
 
-#[derive(Resource, Serialize, Deserialize, Default)]
+#[derive(Resource, Serialize, Deserialize, Default, Clone)]
 pub struct Project {
     pub rooms: Vec<Room>,
     pub current_room_idx: usize,
+}
+
+#[derive(Resource, Default)]
+pub struct CommandHistory {
+    pub undo_stack: Vec<Project>,
+    pub redo_stack: Vec<Project>,
+}
+
+impl CommandHistory {
+    pub fn push_undo(&mut self, project: &Project) {
+        self.undo_stack.push(project.clone());
+        if self.undo_stack.len() > 100 {
+            self.undo_stack.remove(0);
+        }
+        self.redo_stack.clear();
+    }
+
+    pub fn undo(&mut self, current: &Project) -> Option<Project> {
+        let prev = self.undo_stack.pop()?;
+        self.redo_stack.push(current.clone());
+        Some(prev)
+    }
+
+    pub fn redo(&mut self, current: &Project) -> Option<Project> {
+        let next = self.redo_stack.pop()?;
+        self.undo_stack.push(current.clone());
+        Some(next)
+    }
 }
 
 #[derive(Resource, Default)]
@@ -113,6 +141,7 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<TileMap>()
            .init_resource::<DirtyTiles>()
            .init_resource::<PerfHistory>()
+           .init_resource::<CommandHistory>()
            .add_plugins(FrameTimeDiagnosticsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_systems(OnEnter(GameState::Menu), setup_menu)
