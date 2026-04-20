@@ -107,6 +107,7 @@ pub fn apply_graphics_quality_system(
     mut shadow_map: ResMut<bevy::pbr::DirectionalLightShadowMap>,
 ) {
     let has_cameras = !camera_query.is_empty();
+    if settings.is_loading { return; }
     if !settings.is_changed() && (*initialized && has_cameras) { return; }
     if has_cameras {
         *initialized = true;

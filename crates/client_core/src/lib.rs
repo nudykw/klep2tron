@@ -11,6 +11,7 @@ pub mod transition;
 pub mod input;
 pub mod history;
 pub mod settings;
+pub mod benchmark;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::winit::WinitWindows;
@@ -65,6 +66,7 @@ pub enum GameState {
     Menu,
     Loading,
     InGame,
+    Benchmark,
 }
 
 #[derive(Resource, Default)]
@@ -165,13 +167,14 @@ impl Plugin for ClientCorePlugin {
            .add_plugins(SettingsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_plugins(MaterialPlugin::<StarrySkyMaterial>::default())
+           .add_plugins(benchmark::BenchmarkPlugin)
            .init_resource::<ExitConfirmationActive>()
            .add_systems(OnEnter(GameState::Menu), setup_menu)
            .add_systems(Startup, (load_app_icon, setup_starry_sky))
            .add_systems(Update, (
                 set_window_icon,
                 hud_update_system.run_if(in_state(GameState::InGame)),
-                map_rendering_system.run_if(in_state(GameState::InGame)),
+                map_rendering_system.run_if(in_state(GameState::InGame).or_else(in_state(GameState::Benchmark))),
                 collect_perf_system,
                 help_toggle_system,
                 help_ui_system,
@@ -184,7 +187,8 @@ impl Plugin for ClientCorePlugin {
                 starry_sky_follow_system,
            ))
 
-           .add_systems(OnEnter(GameState::Loading), start_loading)
+            .add_systems(OnEnter(GameState::Loading), start_loading)
+            .add_systems(OnEnter(GameState::Benchmark), start_loading)
            .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
            .add_systems(OnExit(GameState::Loading), (cleanup_loading, setup_game_world))
            .add_systems(OnExit(GameState::Menu), cleanup_menu)
@@ -242,6 +246,8 @@ fn exit_confirmation_sync_system(
         }
     }
 }
+
+
 
 
 fn finish_loading_settings_on_menu(mut settings: ResMut<GraphicsSettings>) {

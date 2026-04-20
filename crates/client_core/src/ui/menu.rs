@@ -36,6 +36,7 @@ pub enum MenuAction {
     NextShadowQuality, PrevShadowQuality,
     ToggleFpsLimit,
     NextFpsLimit, PrevFpsLimit,
+    RunBenchmark,
     None,
 }
 
@@ -580,6 +581,9 @@ pub fn handle_menu_action(
                 next_menu_state.set(MenuSubState::Settings);
             }
         },
+        MenuAction::RunBenchmark => {
+            next_game_state.set(GameState::Benchmark);
+        },
         MenuAction::ToggleVSync => {
             pending.vsync = !pending.vsync;
         },
@@ -685,8 +689,8 @@ fn menu_scrolling_system(
 ) {
     let Ok(container) = container_query.get_single() else { return; };
     for mut style in scroll_query.iter_mut() {
-        let item_height = 54.0; 
-        let viewport_height = 400.0;
+        let item_height = 60.0; 
+        let viewport_height = 420.0;
         // Center the selected item in the viewport
         let target_offset = (viewport_height / 2.0) - (container.current_selection as f32 * item_height) - (item_height / 2.0);
         
@@ -972,6 +976,10 @@ fn menu_item_system(
     };
 
     if !menu_state.is_changed() && !settings.is_changed() && !pending.is_changed() && !is_empty { return; }
+    info!("Menu rebuilding for state: {:?}", *menu_state.get());
+    if *menu_state.get() == MenuSubState::Advanced {
+        info!("Advanced menu: indices 0-9 being spawned");
+    }
     
     // Update title text
     if let Ok(mut text) = title_query.get_single_mut() {
@@ -1056,20 +1064,21 @@ fn menu_item_system(
                     },
                     MenuSubState::Advanced => {
                         spawn_menu_button(scroll_p, &font, "BACK", None, 0, MenuItemType::Action, MenuAction::Back, None, false);
+                        spawn_menu_button(scroll_p, &font, "RUN BENCHMARK", None, 1, MenuItemType::Action, MenuAction::RunBenchmark, Some("Test hardware performance".to_string()), false);
                         
                         let gpu_val = pending.selected_gpu.clone().unwrap_or_else(|| {
                             if gpu_list.names.is_empty() { "Detecting...".to_string() } else { gpu_list.names[0].clone() }
                         });
-                        spawn_menu_button(scroll_p, &font, "GPU", Some(gpu_val), 1, MenuItemType::Toggle, MenuAction::NextGpu, Some("Select graphics hardware".to_string()), false);
-                        spawn_menu_button(scroll_p, &font, "SHADOWS", Some(format!("{:?}", pending.shadow_quality)), 2, MenuItemType::Toggle, MenuAction::NextShadowQuality, None, false);
-                        spawn_menu_button(scroll_p, &font, "FOG", Some(format!("{:?}", pending.fog_quality)), 3, MenuItemType::Toggle, MenuAction::NextFog, None, false);
-                        spawn_menu_button(scroll_p, &font, "BLOOM", Some(if pending.bloom { "ON" } else { "OFF" }.to_string()), 4, MenuItemType::Toggle, MenuAction::ToggleBloom, None, false);
-                        spawn_menu_button(scroll_p, &font, "SSAO", Some(format!("{:?}", pending.ssao)), 5, MenuItemType::Toggle, MenuAction::NextSsao, None, false);
-                        spawn_menu_button(scroll_p, &font, "SHADOW RES", Some(pending.shadow_resolution.to_string()), 6, MenuItemType::Toggle, MenuAction::NextShadowRes, None, false);
-                        spawn_menu_button(scroll_p, &font, "FPS LIMIT", Some(if pending.fps_limit_enabled { "ON" } else { "OFF" }.to_string()), 7, MenuItemType::Toggle, MenuAction::ToggleFpsLimit, None, false);
-                        spawn_menu_button(scroll_p, &font, "FPS VALUE", Some(pending.fps_limit.to_string()), 8, MenuItemType::Toggle, MenuAction::NextFpsLimit, None, !pending.fps_limit_enabled);
+                        spawn_menu_button(scroll_p, &font, "GPU", Some(gpu_val), 2, MenuItemType::Toggle, MenuAction::NextGpu, Some("Select graphics hardware".to_string()), false);
+                        spawn_menu_button(scroll_p, &font, "SHADOWS", Some(format!("{:?}", pending.shadow_quality)), 3, MenuItemType::Toggle, MenuAction::NextShadowQuality, None, false);
+                        spawn_menu_button(scroll_p, &font, "FOG", Some(format!("{:?}", pending.fog_quality)), 4, MenuItemType::Toggle, MenuAction::NextFog, None, false);
+                        spawn_menu_button(scroll_p, &font, "BLOOM", Some(if pending.bloom { "ON" } else { "OFF" }.to_string()), 5, MenuItemType::Toggle, MenuAction::ToggleBloom, None, false);
+                        spawn_menu_button(scroll_p, &font, "SSAO", Some(format!("{:?}", pending.ssao)), 6, MenuItemType::Toggle, MenuAction::NextSsao, None, false);
+                        spawn_menu_button(scroll_p, &font, "SHADOW RES", Some(pending.shadow_resolution.to_string()), 7, MenuItemType::Toggle, MenuAction::NextShadowRes, None, false);
+                        spawn_menu_button(scroll_p, &font, "FPS LIMIT", Some(if pending.fps_limit_enabled { "ON" } else { "OFF" }.to_string()), 8, MenuItemType::Toggle, MenuAction::ToggleFpsLimit, None, false);
+                        spawn_menu_button(scroll_p, &font, "FPS VALUE", Some(pending.fps_limit.to_string()), 9, MenuItemType::Toggle, MenuAction::NextFpsLimit, None, !pending.fps_limit_enabled);
 
-                        new_container = Some(MenuContainer { current_selection: 0, items_count: 9 });
+                        new_container = Some(MenuContainer { current_selection: 0, items_count: 10 });
                     }
                 }
             });

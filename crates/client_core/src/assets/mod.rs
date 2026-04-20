@@ -9,14 +9,20 @@ pub struct ClientAssets {
     pub highlight_material: Handle<StandardMaterial>,
 }
 
-pub fn start_loading(mut commands: Commands, mut assets: ResMut<ClientAssets>, asset_server: Res<AssetServer>) {
+pub fn start_loading(
+    mut commands: Commands, 
+    mut assets: ResMut<ClientAssets>, 
+    asset_server: Res<AssetServer>,
+    state: Res<State<GameState>>,
+) {
     assets.cube_mesh = asset_server.load("3dModels/Room/Bricks/cube.obj");
     assets.wedge_mesh = asset_server.load("3dModels/Room/Bricks/wedge.obj");
     assets.font = asset_server.load("fonts/Roboto-Regular.ttf");
+    
+    if *state.get() == GameState::Loading {
+        commands.spawn((Camera2dBundle::default(), LoadingEntity));
 
-    commands.spawn((Camera2dBundle::default(), LoadingEntity));
-
-    commands.spawn((NodeBundle {
+        commands.spawn((NodeBundle {
         style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), flex_direction: FlexDirection::Column, justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() },
         background_color: Color::srgb(0.0, 0.0, 0.0).into(),
         ..default()
@@ -33,7 +39,8 @@ pub fn start_loading(mut commands: Commands, mut assets: ResMut<ClientAssets>, a
                 ..default()
             }, ProgressBar));
         });
-    });
+        });
+    }
 }
 
 pub fn check_loading_system(

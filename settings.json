@@ -8,7 +8,7 @@
   "fps_limit": 144,
   "quality_level": "Ultra",
   "shadow_quality": "Ultra",
-  "fog_quality": "High",
+  "fog_quality": "Ultra",
   "upscaling": "TAA",
   "selected_gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
   "ssao": "Off",
