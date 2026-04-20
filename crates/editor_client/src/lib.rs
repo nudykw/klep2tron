@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState};
+pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState, RoomTransition};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -878,17 +878,18 @@ pub fn room_switching_system(
     mut project: ResMut<Project>, 
     mut dirty: ResMut<DirtyTiles>,
     mut history: ResMut<CommandHistory>,
+    mut transition: ResMut<RoomTransition>,
 ) {
     if keyboard.just_pressed(KeyCode::BracketRight) {
         history.push_undo(&project);
-        project.current_room_idx += 1;
-        if project.current_room_idx >= project.rooms.len() { project.rooms.push(Room::default()); }
-        dirty.full_rebuild = true;
+        let next_idx = project.current_room_idx + 1;
+        if next_idx >= project.rooms.len() { project.rooms.push(Room::default()); }
+        transition.start(next_idx);
     }
     if keyboard.just_pressed(KeyCode::BracketLeft) {
         if project.current_room_idx > 0 { 
-            project.current_room_idx -= 1; 
-            dirty.full_rebuild = true;
+            history.push_undo(&project);
+            transition.start(project.current_room_idx - 1);
         }
     }
 }

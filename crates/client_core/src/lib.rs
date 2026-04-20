@@ -19,6 +19,35 @@ pub struct HelpState {
 #[derive(Component)]
 pub struct HelpUi;
 
+#[derive(Default, PartialEq, Eq, Clone, Copy)]
+pub enum TransitionPhase {
+    #[default] Idle,
+    Out,
+    In,
+}
+
+#[derive(Resource, Default)]
+pub struct RoomTransition {
+    pub phase: TransitionPhase,
+    pub timer: f32,
+    pub target_room_idx: usize,
+    pub speed: f32, // 1.0 / duration in seconds
+}
+
+impl RoomTransition {
+    pub fn start(&mut self, target: usize) {
+        if self.phase == TransitionPhase::Idle {
+            self.phase = TransitionPhase::Out;
+            self.timer = 0.0;
+            self.target_room_idx = target;
+            self.speed = 4.0; // 0.25s out, 0.25s in
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct TransitionUi;
+
 #[derive(Clone, Copy, PartialEq, Debug, Default, Serialize, Deserialize, Component)]
 pub enum TileType {
     #[default] Empty,
@@ -151,6 +180,7 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<PerfHistory>()
            .init_resource::<CommandHistory>()
            .init_resource::<HelpState>()
+           .init_resource::<RoomTransition>()
            .add_plugins(FrameTimeDiagnosticsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_systems(OnEnter(GameState::Menu), setup_menu)
@@ -161,6 +191,8 @@ impl Plugin for ClientCorePlugin {
                 collect_perf_system,
                 help_input_system,
                 help_ui_system,
+                transition_logic_system,
+                transition_ui_system,
             ))
            .add_systems(PostUpdate, save_perf_history)
            .add_systems(OnEnter(GameState::Loading), start_loading)
@@ -612,5 +644,64 @@ pub fn help_ui_system(
         for entity in query.iter() {
             commands.entity(entity).despawn_recursive();
         }
+    }
+}
+
+pub fn transition_logic_system(
+    time: Res<Time>,
+    mut transition: ResMut<RoomTransition>,
+    mut project: ResMut<Project>,
+    mut dirty: ResMut<DirtyTiles>,
+) {
+    if transition.phase == TransitionPhase::Idle { return; }
+
+    transition.timer += time.delta_seconds() * transition.speed;
+
+    if transition.phase == TransitionPhase::Out && transition.timer >= 1.0 {
+        // Switch room at peak darkness
+        project.current_room_idx = transition.target_room_idx;
+        dirty.full_rebuild = true;
+        transition.phase = TransitionPhase::In;
+        transition.timer = 0.0;
+    } else if transition.phase == TransitionPhase::In && transition.timer >= 1.0 {
+        transition.phase = TransitionPhase::Idle;
+        transition.timer = 0.0;
+    }
+}
+
+pub fn transition_ui_system(
+    mut commands: Commands,
+    transition: Res<RoomTransition>,
+    query: Query<Entity, With<TransitionUi>>,
+    mut overlay_query: Query<&mut BackgroundColor, With<TransitionUi>>,
+) {
+    if transition.phase == TransitionPhase::Idle {
+        if let Ok(entity) = query.get_single() {
+            commands.entity(entity).despawn_recursive();
+        }
+        return;
+    }
+
+    if query.is_empty() {
+        commands.spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0), height: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                background_color: Color::NONE.into(),
+                z_index: ZIndex::Global(1000), // Always on top
+                ..default()
+            },
+            TransitionUi,
+        ));
+    } else if let Ok(mut color) = overlay_query.get_single_mut() {
+        let alpha = match transition.phase {
+            TransitionPhase::Out => transition.timer.clamp(0.0, 1.0),
+            TransitionPhase::In => (1.0 - transition.timer).clamp(0.0, 1.0),
+            _ => 0.0,
+        };
+        *color = Color::srgba(0.0, 0.0, 0.0, alpha).into();
     }
 }
