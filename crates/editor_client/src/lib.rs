@@ -502,7 +502,7 @@ pub fn selection_system(
         
         history.push_undo(&project);
         project.rooms[room_idx].cells[selection.x][selection.z] = cell;
-        dirty.tiles.push((selection.x, selection.z));
+        mark_tile_dirty(selection.x, selection.z, &mut dirty);
         info!("Cloned previous cell with h={}", cell.h);
     }
 
@@ -514,12 +514,12 @@ pub fn selection_system(
             // If rising from hole, it becomes floor (Empty) at first
             if cell.h == 0 { cell.tt = TileType::Empty; }
             else if cell.h > 0 { cell.tt = editor_state.current_type; }
-            dirty.tiles.push((selection.x, selection.z));
+            mark_tile_dirty(selection.x, selection.z, &mut dirty);
         }
         if keyboard.just_pressed(KeyCode::KeyA) { 
             cell.h = (cell.h - 1).max(-1); 
             if cell.h < 0 { cell.tt = TileType::Empty; }
-            dirty.tiles.push((selection.x, selection.z));
+            mark_tile_dirty(selection.x, selection.z, &mut dirty);
         }
     }
 }
@@ -838,7 +838,7 @@ pub fn editor_ui_system(
                         let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
                         cell.tt = tt_btn.0; 
                         changed = true; 
-                        dirty.tiles.push((selection.x, selection.z));
+                        mark_tile_dirty(selection.x, selection.z, &mut dirty);
                     }
                     if changed { *color = Color::srgb(0.0, 1.0, 1.0).into(); }
                 }
@@ -988,4 +988,12 @@ fn draw_dashed_line(gizmos: &mut Gizmos<BoxGizmos>, start: Vec3, end: Vec3, colo
         gizmos.line(start + norm * current, start + norm * dash_end, color);
         current += dash_len + gap_len;
     }
+}
+pub fn mark_tile_dirty(x: usize, z: usize, dirty: &mut DirtyTiles) {
+    dirty.tiles.push((x, z));
+    // Neighbors
+    if x > 0 { dirty.tiles.push((x - 1, z)); }
+    if x < 15 { dirty.tiles.push((x + 1, z)); }
+    if z > 0 { dirty.tiles.push((x, z - 1)); }
+    if z < 15 { dirty.tiles.push((x, z + 1)); }
 }

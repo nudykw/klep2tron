@@ -482,24 +482,32 @@ pub fn map_rendering_system(
         let mut tz = z as i32;
         let mut steps = 0;
         let mut found_cube_h = None;
+        let initial_tt = cell.tt;
+        
         while steps < 16 {
-            let c = room.cells[tx as usize][tz as usize];
-            if matches!(c.tt, TileType::Cube) { found_cube_h = Some(c.h); break; }
-            let (dx, dz) = match c.tt {
+            let (dx, dz) = match initial_tt {
                 TileType::WedgeN => (0, -1), TileType::WedgeE => (1, 0),
                 TileType::WedgeS => (0, 1), TileType::WedgeW => (-1, 0),
                 _ => break,
             };
             tx += dx; tz += dz;
             if tx < 0 || tx >= 16 || tz < 0 || tz >= 16 { break; }
-            steps += 1;
+            
+            let c = room.cells[tx as usize][tz as usize];
+            if c.tt == initial_tt {
+                found_cube_h = Some(c.h);
+                // Continue following the same wedge direction to find the highest one in the chain
+                steps += 1;
+                continue;
+            } else {
+                // Hit a different tile type (Cube or different Wedge), stop inheritance
+                break;
+            }
         }
         let target_h = found_cube_h.unwrap_or(cell.h);
 
         let (mat_top, mat_side) = cache.map.entry((target_h, is_even)).or_insert_with(|| {
-            let h_val = (target_h as f32 * 0.1).clamp(0.0, 1.0);
-            let base_color = if is_even { Color::srgb(0.4+h_val*0.2, 0.7+h_val*0.2, 0.2) } 
-                                 else { Color::srgb(0.3+h_val*0.2, 0.6+h_val*0.2, 0.1) };
+            let base_color = get_rainbow_color(target_h, is_even);
             let side_color = Color::from(LinearRgba::from(base_color) * 0.7);
             (materials.add(StandardMaterial { base_color, ..default() }), materials.add(StandardMaterial { base_color: side_color, ..default() }))
         }).clone();
@@ -762,4 +770,23 @@ pub fn fullscreen_toggle_system(
             };
         }
     }
+}
+pub fn get_rainbow_color(h: i32, is_even: bool) -> Color {
+    let rainbow = [
+        Color::srgb(1.0, 0.2, 0.2), // Red
+        Color::srgb(1.0, 0.5, 0.0), // Orange
+        Color::srgb(1.0, 0.9, 0.0), // Yellow
+        Color::srgb(0.2, 0.8, 0.2), // Green
+        Color::srgb(0.0, 0.6, 1.0), // Blue
+        Color::srgb(0.3, 0.3, 0.9), // Indigo
+        Color::srgb(0.6, 0.2, 0.8), // Violet
+    ];
+    let idx = (h.max(0) as usize) % rainbow.len();
+    let mut color = LinearRgba::from(rainbow[idx]);
+    if !is_even {
+        color.red *= 0.9;
+        color.green *= 0.9;
+        color.blue *= 0.9;
+    }
+    Color::from(color)
 }
