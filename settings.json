@@ -1,7 +1,7 @@
 {
   "version": 1,
   "is_loading": false,
-  "window_mode": "Windowed",
+  "window_mode": "BorderlessFullscreen",
   "resolution_scale": 1.0,
   "vsync": true,
   "fps_limit_enabled": false,

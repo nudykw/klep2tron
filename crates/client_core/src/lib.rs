@@ -164,9 +164,10 @@ impl Plugin for ClientCorePlugin {
            .init_state::<MenuSubState>()
            .add_plugins(SettingsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
+           .add_plugins(MaterialPlugin::<StarrySkyMaterial>::default())
            .init_resource::<ExitConfirmationActive>()
            .add_systems(OnEnter(GameState::Menu), setup_menu)
-           .add_systems(Startup, load_app_icon)
+           .add_systems(Startup, (load_app_icon, setup_starry_sky))
            .add_systems(Update, (
                 set_window_icon,
                 hud_update_system.run_if(in_state(GameState::InGame)),
@@ -180,7 +181,9 @@ impl Plugin for ClientCorePlugin {
                 apply_graphics_quality_system,
                 global_input_system,
                 exit_confirmation_sync_system,
+                starry_sky_follow_system,
            ))
+
            .add_systems(OnEnter(GameState::Loading), start_loading)
            .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
            .add_systems(OnExit(GameState::Loading), (cleanup_loading, setup_game_world))

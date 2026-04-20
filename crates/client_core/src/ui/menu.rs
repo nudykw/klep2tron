@@ -151,6 +151,7 @@ impl Plugin for MenuPlugin {
                 input_hint_system,
                 menu_tooltip_system,
            ).chain().run_if(menu_cond.clone()))
+
            .add_systems(Update, sync_pending_settings.run_if(in_state(GameState::Menu)));
 
     }
@@ -740,35 +741,37 @@ fn input_hint_system(
 }
 
 fn menu_visual_system(
-    mut query: Query<(&MenuItem, &mut BackgroundColor, &mut Transform, Option<&MenuFocus>)>,
+    time: Res<Time>,
+    mut query: Query<(&MenuItem, &mut BackgroundColor, &mut BorderColor, &mut Transform, Option<&MenuFocus>)>,
     settings: Res<GraphicsSettings>,
     pending: Res<PendingGraphicsSettings>,
 ) {
     let has_changes = **pending != *settings;
-    for (item, mut color, mut transform, focus) in query.iter_mut() {
-        if item.is_disabled {
-            *color = Color::srgba(0.1, 0.1, 0.1, 0.5).into();
-            transform.scale = Vec3::splat(1.0);
-            continue;
-        }
+    let t = (time.elapsed_seconds() * 3.0).sin() * 0.5 + 0.5;
+
+    for (item, mut bg, mut border, mut transform, focus) in query.iter_mut() {
         let is_apply = item.action == MenuAction::ApplySettings;
-        if focus.is_some() {
-            if is_apply && !has_changes {
-                *color = Color::srgb(0.2, 0.2, 0.2).into();
-            } else {
-                *color = Color::srgb(0.4, 0.4, 0.5).into();
-            }
+        let is_dimmed = item.is_disabled || (is_apply && !has_changes);
+
+        if is_dimmed {
+            *bg = Color::srgba(0.1, 0.1, 0.1, 0.2).into();
+            *border = Color::NONE.into();
+            transform.scale = Vec3::splat(1.0);
+        } else if focus.is_some() {
+            // Pulse effect for focused item
+            let bg_alpha = 0.15 + t * 0.15;
+            let border_alpha = 0.4 + t * 0.4;
+            *bg = Color::srgba(0.3, 0.6, 1.0, bg_alpha).into();
+            *border = Color::srgba(0.4, 0.7, 1.0, border_alpha).into();
             transform.scale = Vec3::splat(1.05);
         } else {
-            if is_apply && !has_changes {
-                *color = Color::srgb(0.1, 0.1, 0.1).into();
-            } else {
-                *color = Color::srgb(0.2, 0.2, 0.2).into();
-            }
+            *bg = Color::srgba(1.0, 1.0, 1.0, 0.05).into();
+            *border = Color::NONE.into();
             transform.scale = Vec3::splat(1.0);
         }
     }
 }
+
 
 pub fn spawn_menu_button(
     parent: &mut ChildBuilder,
@@ -781,28 +784,27 @@ pub fn spawn_menu_button(
     tooltip: Option<String>,
     is_disabled: bool,
 ) {
-    let bg_color = if is_disabled {
-        Color::srgba(0.1, 0.1, 0.1, 0.5)
-    } else {
-        Color::srgb(0.2, 0.2, 0.2)
-    };
-
     parent.spawn((
-        ButtonBundle {
+        NodeBundle {
             style: Style {
-                width: Val::Px(500.0), height: Val::Px(60.0),
-                border: UiRect::all(Val::Px(2.0)),
-                justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center,
-                padding: UiRect::horizontal(Val::Px(25.0)),
+                width: Val::Px(460.0),
+                height: Val::Px(50.0),
+                margin: UiRect::vertical(Val::Px(5.0)),
+                padding: UiRect::horizontal(Val::Px(20.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                border: UiRect::all(Val::Px(1.5)),
                 ..default()
             },
-            border_color: if is_disabled { Color::srgb(0.3, 0.3, 0.3).into() } else { Color::WHITE.into() },
-            background_color: bg_color.into(),
+            background_color: if is_disabled { Color::srgba(0.1, 0.1, 0.1, 0.3).into() } else { Color::srgba(1.0, 1.0, 1.0, 0.05).into() },
+            border_color: Color::NONE.into(),
+            border_radius: BorderRadius::all(Val::Px(10.0)),
             ..default()
         },
         MenuItem { index, item_type, action, tooltip, is_disabled },
     )).with_children(|p| {
-        let text_color = if is_disabled { Color::srgb(0.5, 0.5, 0.5) } else { Color::WHITE };
+        let text_color = if is_disabled { Color::srgb(0.4, 0.4, 0.4) } else { Color::srgb(0.9, 0.9, 0.9) };
+
         p.spawn(TextBundle::from_section(
             text,
             TextStyle { font: font.clone(), font_size: 26.0, color: text_color },
@@ -842,10 +844,25 @@ pub fn setup_menu(
     
     // Check if a 2D camera already exists
     if camera_query.is_empty() {
+        // Spawn 3D camera for background (skybox)
+        commands.spawn((
+            Camera3dBundle {
+                camera: Camera {
+                    order: 0,
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(1.0, 0.0, 0.0), Vec3::Y),
+                ..default()
+            },
+            MenuEntity,
+        ));
+
+        // Spawn 2D camera for UI
         commands.spawn((
             Camera2dBundle {
                 camera: Camera {
                     order: 10,
+                    clear_color: ClearColorConfig::None,
                     ..default()
                 },
                 ..default()
@@ -854,12 +871,6 @@ pub fn setup_menu(
         ));
     }
     
-    let bg_color = if exit_confirm.0 && *game_state.get() == GameState::InGame {
-        Color::srgba(0.01, 0.01, 0.05, 0.8)
-    } else {
-        Color::srgba(0.01, 0.01, 0.05, 1.0)
-    };
-
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
 
     // Root Container for items
@@ -873,7 +884,7 @@ pub fn setup_menu(
             padding: UiRect::top(Val::Px(60.0)),
             ..default()
         },
-        background_color: bg_color.into(),
+        background_color: if exit_confirm.0 { Color::srgba(0.0, 0.0, 0.05, 0.6).into() } else { Color::NONE.into() },
         ..default()
     }, MenuEntity, MenuItemRoot)).with_children(|p| {
         // Persistent Title
@@ -885,19 +896,24 @@ pub fn setup_menu(
             ..default()
         }), MenuTitleDisplay));
 
-        // Viewport to clip scrolling items
+        // Viewport to clip scrolling items (with glass effect)
         p.spawn((NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Px(400.0), 
+                width: Val::Px(500.0),
+                height: Val::Px(420.0), 
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexStart,
                 overflow: Overflow::clip(),
                 margin: UiRect::top(Val::Px(20.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                padding: UiRect::vertical(Val::Px(10.0)),
                 ..default()
             },
+            background_color: Color::srgba(0.05, 0.05, 0.15, 0.4).into(),
+            border_color: Color::srgba(0.3, 0.5, 1.0, 0.2).into(),
+            border_radius: BorderRadius::all(Val::Px(12.0)),
             ..default()
         }, MenuViewport));
     });

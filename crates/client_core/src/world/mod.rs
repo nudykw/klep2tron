@@ -5,6 +5,9 @@ use bevy::pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSe
 use bevy::render::view::Msaa;
 use bevy::core_pipeline::bloom::BloomSettings;
 
+pub mod sky;
+pub use sky::*;
+
 pub fn setup_game_world(
     mut commands: Commands, 
     mut project: ResMut<Project>, 
