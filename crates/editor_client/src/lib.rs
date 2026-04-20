@@ -33,11 +33,15 @@ pub struct BoxGizmos;
 #[derive(Resource)]
 pub struct EditorState {
     pub current_type: TileType,
+    pub last_selected_cell: client_core::TileCell,
 }
 
 impl Default for EditorState {
     fn default() -> Self {
-        Self { current_type: TileType::Cube }
+        Self { 
+            current_type: TileType::Cube,
+            last_selected_cell: client_core::TileCell::default(),
+        }
     }
 }
 
@@ -136,6 +140,7 @@ pub fn setup_editor(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut config_store: ResMut<GizmoConfigStore>,
     mut history: ResMut<CommandHistory>,
+    mut editor_state: ResMut<EditorState>,
 ) {
     history.undo_stack.clear();
     history.redo_stack.clear();
@@ -147,6 +152,19 @@ pub fn setup_editor(
         }
     }
     if project.rooms.is_empty() { project.rooms.push(Room::default()); }
+    
+    // Fix non-empty tiles with h < 0 (they should not be holes)
+    for room in project.rooms.iter_mut() {
+        for row in room.cells.iter_mut() {
+            for cell in row.iter_mut() {
+                if cell.h < 0 && cell.tt != TileType::Empty { cell.h = 0; }
+            }
+        }
+    }
+
+    // Initial last_selected_cell from starting position (0,0)
+    let room_idx = project.current_room_idx;
+    editor_state.last_selected_cell = project.rooms[room_idx].cells[0][0];
 
     // HUD for the editor
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
@@ -417,8 +435,9 @@ pub fn selection_system(
     mut selection: ResMut<Selection>,
     mut project: ResMut<Project>,
     mut history: ResMut<CommandHistory>,
+    mut dirty: ResMut<DirtyTiles>,
     // HOTKEY_SYNC: selection_system uses Arrows, Q/A, F
-    editor_state: Res<EditorState>,
+    mut editor_state: ResMut<EditorState>,
     camera_query: Query<&Transform, With<OrbitCamera>>,
 ) {
     if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) { return; }
@@ -457,6 +476,10 @@ pub fn selection_system(
     }
 
     if move_dx != 0 || move_dz != 0 {
+        // Save current cell before moving
+        let room_idx = project.current_room_idx;
+        editor_state.last_selected_cell = project.rooms[room_idx].cells[selection.x][selection.z];
+        
         let new_x = (selection.x as i32 + move_dx).clamp(0, 15);
         let new_z = (selection.z as i32 + move_dz).clamp(0, 15);
         selection.x = new_x as usize;
@@ -465,27 +488,15 @@ pub fn selection_system(
     
     let room_idx = project.current_room_idx;
     
-    // Feature: Clone from neighbor with 'F'
+    // Feature: Clone from previous selection with 'F'
     if keyboard.just_pressed(KeyCode::KeyF) {
-        let x = selection.x;
-        let z = selection.z;
-        let neighbors = [
-            (x as i32, z as i32 + 1),     // Behind
-            (x as i32 + 1, z as i32 + 1), // Behind-Right
-            (x as i32 - 1, z as i32 + 1), // Behind-Left
-            (x as i32 + 1, z as i32),     // Right
-        ];
-        for (nx, nz) in neighbors {
-            if nx >= 0 && nx < 16 && nz >= 0 && nz < 16 {
-                let neighbor_cell = project.rooms[room_idx].cells[nx as usize][nz as usize];
-                if neighbor_cell.h >= 0 {
-                    history.push_undo(&project);
-                    project.rooms[room_idx].cells[x][z] = neighbor_cell;
-                    info!("Cloned block from {} {}", nx, nz);
-                    break;
-                }
-            }
-        }
+        let room_idx = project.current_room_idx;
+        let cell = editor_state.last_selected_cell;
+        
+        history.push_undo(&project);
+        project.rooms[room_idx].cells[selection.x][selection.z] = cell;
+        dirty.tiles.push((selection.x, selection.z));
+        info!("Cloned previous cell with h={}", cell.h);
     }
 
     if keyboard.just_pressed(KeyCode::KeyQ) || keyboard.just_pressed(KeyCode::KeyA) {
@@ -493,12 +504,15 @@ pub fn selection_system(
         let cell = &mut project.rooms[room_idx].cells[selection.x][selection.z];
         if keyboard.just_pressed(KeyCode::KeyQ) { 
             cell.h += 1; 
-            if cell.h >= 0 { cell.tt = editor_state.current_type; }
+            // If rising from hole, it becomes floor (Empty) at first
+            if cell.h == 0 { cell.tt = TileType::Empty; }
+            else if cell.h > 0 { cell.tt = editor_state.current_type; }
+            dirty.tiles.push((selection.x, selection.z));
         }
         if keyboard.just_pressed(KeyCode::KeyA) { 
             cell.h = (cell.h - 1).max(-1); 
             if cell.h < 0 { cell.tt = TileType::Empty; }
-            else { cell.tt = editor_state.current_type; }
+            dirty.tiles.push((selection.x, selection.z));
         }
     }
 }
@@ -645,6 +659,7 @@ pub fn mouse_selection_system(
     camera_query: Query<(&Camera, &GlobalTransform), (With<OrbitCamera>, Without<SelectionHighlight>)>,
     project: Res<Project>,
     mut selection: ResMut<Selection>,
+    mut editor_state: ResMut<EditorState>,
     interaction_query: Query<&Interaction>,
 ) {
     if !buttons.just_pressed(MouseButton::Left) { return; }
@@ -686,8 +701,14 @@ pub fn mouse_selection_system(
             }
 
             if let Some((x, z, _)) = best_hit {
-                selection.x = x;
-                selection.z = z;
+                if selection.x != x || selection.z != z {
+                    // Save current cell before jumping
+                    let room_idx = project.current_room_idx;
+                    editor_state.last_selected_cell = project.rooms[room_idx].cells[selection.x][selection.z];
+                    
+                    selection.x = x;
+                    selection.z = z;
+                }
             }
         }
     }
@@ -876,7 +897,6 @@ pub fn editor_tooltip_system(
 pub fn room_switching_system(
     keyboard: Res<ButtonInput<KeyCode>>, 
     mut project: ResMut<Project>, 
-    mut dirty: ResMut<DirtyTiles>,
     mut history: ResMut<CommandHistory>,
     mut transition: ResMut<RoomTransition>,
 ) {

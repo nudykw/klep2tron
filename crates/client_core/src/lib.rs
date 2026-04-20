@@ -403,7 +403,7 @@ pub fn map_rendering_system(
     project: Res<Project>,
     assets: Res<ClientAssets>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    tile_query: Query<Entity, With<TileEntity>>,
+    _tile_query: Query<Entity, With<TileEntity>>,
     mut cache: Local<MaterialCache>,
     mut first_run: Local<bool>,
     mut last_room: Local<Option<usize>>,
@@ -486,25 +486,37 @@ pub fn map_rendering_system(
         };
 
         let h_val = cell.h as f32;
+        let total_height = h_val * 0.5;
         let mut entities = Vec::new();
+        
+        // 1. Spawn the Top Cap (0.5 height). 
+        // Its top face will be at total_height, aligning with the selection box.
         let top_id = commands.spawn((PbrBundle {
-            mesh, material: mat_top,
-            transform: Transform::from_translation(Vec3::new(x as f32, h_val * 0.5 - 0.25, z as f32))
+            mesh: mesh.clone(), 
+            material: mat_top,
+            transform: Transform::from_translation(Vec3::new(x as f32, total_height - 0.25, z as f32))
                 .with_scale(Vec3::new(1.0, 0.5, 1.0)).with_rotation(Quat::from_rotation_y(rot)),
             ..default()
         }, TileEntity)).id();
         entities.push(top_id);
 
-        if cell.h > 1 {
-            let column_h = (h_val - 1.0) * 0.5;
+        // 2. Spawn the Foundation Column (from y=-0.5 up to the bottom of the top cap)
+        // This ensures it connects with the floor depth and leaves no gaps.
+        let foundation_bottom = -0.5;
+        let column_top = total_height - 0.5;
+        let column_h = column_top - foundation_bottom;
+        
+        if column_h > 0.01 {
             let col_id = commands.spawn((PbrBundle {
-                mesh: assets.cube_mesh.clone(), material: mat_side.clone(),
-                transform: Transform::from_translation(Vec3::new(x as f32, column_h * 0.5, z as f32))
+                mesh: assets.cube_mesh.clone(), 
+                material: mat_side.clone(),
+                transform: Transform::from_translation(Vec3::new(x as f32, foundation_bottom + column_h * 0.5, z as f32))
                     .with_scale(Vec3::new(1.0, column_h, 1.0)),
                 ..default()
             }, TileEntity)).id();
             entities.push(col_id);
         }
+        
         tile_map.entities.insert((x, z), entities);
     }
 }
@@ -617,7 +629,7 @@ pub fn help_ui_system(
                         ("Arrows", "Move Selection"),
                         ("Shift + Arrows", "Camera Orbit / Zoom"),
                         ("Q / A", "Change Height / Up-Down"),
-                        ("F", "Clone Neighbor Tile"),
+                        ("F", "Clone Previous Selection"),
                         ("[ / ]", "Switch Room"),
                         ("Esc", "Return to Menu"),
                         ("Left Mouse", "Select Tile / Move"),
