@@ -54,6 +54,19 @@ pub struct DirtyTiles {
     pub full_rebuild: bool,
 }
 
+#[derive(Resource, Default, serde::Serialize)]
+pub struct PerfHistory {
+    pub entries: Vec<PerfEntry>,
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct PerfEntry {
+    pub timestamp: f64,
+    pub fps: f32,
+    pub cpu: f32,
+    pub mem: f32,
+}
+
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
 pub enum GameState {
     #[default] Menu,
@@ -99,13 +112,17 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<Selection>()
            .init_resource::<TileMap>()
            .init_resource::<DirtyTiles>()
+           .init_resource::<PerfHistory>()
            .add_plugins(FrameTimeDiagnosticsPlugin)
-           .add_plugins(bevy::diagnostic::LogDiagnosticsPlugin::default())
+           .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_systems(OnEnter(GameState::Menu), setup_menu)
            .add_systems(Update, (
-               menu_system.run_if(in_state(GameState::Menu)),
-               hud_update_system.run_if(in_state(GameState::InGame)),
-           ))
+                menu_system.run_if(in_state(GameState::Menu)),
+                hud_update_system.run_if(in_state(GameState::InGame)),
+                map_rendering_system.run_if(in_state(GameState::InGame)),
+                collect_perf_system,
+            ))
+           .add_systems(PostUpdate, save_perf_history)
            .add_systems(OnEnter(GameState::Loading), start_loading)
            .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
            .add_systems(OnExit(GameState::Menu), cleanup_menu)
@@ -198,7 +215,7 @@ pub fn menu_system(
             Interaction::Pressed => {
                 match action {
                     MenuAction::StartGame => next_state.set(GameState::Loading),
-                    MenuAction::StartEditor => next_state.set(GameState::InGame),
+                    MenuAction::StartEditor => next_state.set(GameState::Loading),
                 }
             }
             Interaction::Hovered => {
@@ -321,25 +338,32 @@ pub fn map_rendering_system(
     mut tile_map: ResMut<TileMap>,
     mut dirty: ResMut<DirtyTiles>,
 ) {
+    if assets.cube_mesh == Handle::default() { return; } // Wait for assets
     let room_changed = last_room.map_or(true, |r| r != project.current_room_idx);
     
-    if !*first_run || room_changed || dirty.full_rebuild {
-        *first_run = true;
-        *last_room = Some(project.current_room_idx);
-        dirty.full_rebuild = false;
-        dirty.tiles.clear();
-        
-        // Full rebuild
-        for entities in tile_map.entities.values() {
-            for &entity in entities { commands.entity(entity).despawn_recursive(); }
+    if !*first_run || room_changed || dirty.full_rebuild || project.is_changed() {
+        if !*first_run || room_changed || dirty.full_rebuild {
+            *first_run = true;
+            *last_room = Some(project.current_room_idx);
+            dirty.full_rebuild = false;
+            dirty.tiles.clear();
+            
+            // Full rebuild: despawn everything and mark all cells for spawning
+            for entities in tile_map.entities.values() {
+                for &entity in entities { commands.entity(entity).despawn_recursive(); }
+            }
+            tile_map.entities.clear();
+            for x in 0..16 { for z in 0..16 { dirty.tiles.push((x, z)); } }
+        } else if project.is_changed() {
+            // Project changed externally (e.g. loaded), mark all tiles for update
+            println!("Project changed, marking {} tiles dirty", 16*16);
+            for x in 0..16 { for z in 0..16 { dirty.tiles.push((x, z)); } }
         }
-        tile_map.entities.clear();
-        
-        // Mark all tiles for rebuild
-        for x in 0..16 { for z in 0..16 { dirty.tiles.push((x, z)); } }
     } else if dirty.tiles.is_empty() {
         return;
     }
+    
+    println!("Rendering room {}... ({} tiles dirty)", project.current_room_idx, dirty.tiles.len());
     
     if project.rooms.is_empty() { return; }
     let room = &project.rooms[project.current_room_idx];
@@ -423,8 +447,8 @@ pub fn hud_update_system(
     mut query: Query<&mut Text, With<HudText>>
 ) {
     let fps = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS).and_then(|d: &bevy::diagnostic::Diagnostic| d.smoothed()).unwrap_or(0.0);
-    if let Ok(mut text) = query.get_single_mut() {
-        if let Some(sel) = selection {
+    for mut text in query.iter_mut() {
+        if let Some(sel) = selection.as_ref() {
             if project.current_room_idx < project.rooms.len() {
                 let room = &project.rooms[project.current_room_idx];
                 let cell = room.cells[sel.x][sel.z];
@@ -432,6 +456,37 @@ pub fn hud_update_system(
             }
         } else {
             text.sections[0].value = format!("FPS: {:.0} | ROOM: {}", fps, project.current_room_idx);
+        }
+    }
+}
+
+pub fn collect_perf_system(
+    time: Res<Time>,
+    diagnostics: Res<DiagnosticsStore>,
+    mut history: ResMut<PerfHistory>,
+) {
+    let current_time = time.elapsed_seconds_f64();
+    if history.entries.last().map_or(true, |e| (current_time - e.timestamp) >= 1.0) {
+        let fps = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
+        let cpu = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::CPU_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
+        let mem = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::MEM_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
+        
+        history.entries.push(PerfEntry {
+            timestamp: current_time,
+            fps, cpu, mem
+        });
+    }
+}
+
+pub fn save_perf_history(
+    history: Res<PerfHistory>,
+    mut exit_events: EventReader<bevy::app::AppExit>,
+) {
+    for _ in exit_events.read() {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(json) = serde_json::to_string_pretty(&*history) {
+            let _ = std::fs::write("perf_metrics.json", json);
+            println!("--- Performance Report Saved to perf_metrics.json ---");
         }
     }
 }

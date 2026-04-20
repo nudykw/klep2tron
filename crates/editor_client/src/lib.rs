@@ -52,6 +52,7 @@ pub struct LoadingTimer(pub Timer);
 pub fn run_game() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(NextState::Pending(GameState::Loading))
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window { 
@@ -66,7 +67,6 @@ pub fn run_game() {
             })
         )
         .add_plugins(bevy_obj::ObjPlugin)
-        .add_plugins(SystemInformationDiagnosticsPlugin)
         .add_plugins(ClientCorePlugin {
             options: ClientCoreOptions { skip_default_setup: true }
         })
@@ -126,12 +126,6 @@ pub fn setup_editor(
 
     // HUD for the editor
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
-    commands.spawn((NodeBundle {
-        style: Style { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(8.0)), flex_direction: FlexDirection::Column, ..default() },
-        background_color: Color::srgba(0.0, 0.0, 0.0, 0.8).into(), ..default()
-    }, MapEntity)).with_children(|p| {
-        p.spawn((TextBundle::from_section("FPS: 0", TextStyle { font: font.clone(), font_size: 18.0, color: Color::WHITE }), HudText));
-    });
     
     client_assets.highlight_material = materials.add(StandardMaterial {
         base_color: Color::srgba(0.0, 1.0, 1.0, 0.1),
