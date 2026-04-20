@@ -356,14 +356,11 @@ pub fn map_rendering_system(
             for x in 0..16 { for z in 0..16 { dirty.tiles.push((x, z)); } }
         } else if project.is_changed() {
             // Project changed externally (e.g. loaded), mark all tiles for update
-            println!("Project changed, marking {} tiles dirty", 16*16);
             for x in 0..16 { for z in 0..16 { dirty.tiles.push((x, z)); } }
         }
     } else if dirty.tiles.is_empty() {
         return;
     }
-    
-    println!("Rendering room {}... ({} tiles dirty)", project.current_room_idx, dirty.tiles.len());
     
     if project.rooms.is_empty() { return; }
     let room = &project.rooms[project.current_room_idx];
