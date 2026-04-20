@@ -376,17 +376,58 @@ pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<Loading
 }
 
 pub fn cleanup_map(
-    mut commands: Commands, 
-    query: Query<Entity, Or<(With<MapEntity>, With<TileEntity>)>>,
+    mut commands: Commands,
     mut tile_map: ResMut<TileMap>,
+    tile_query: Query<Entity, Or<(With<TileEntity>, With<MapEntity>)>>,
 ) {
-    for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+    for entity in tile_query.iter() {
+        if let Some(ec) = commands.get_entity(entity) {
+            ec.despawn_recursive();
+        }
     }
     tile_map.entities.clear();
 }
 
 pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, asset_server: Res<AssetServer>) {
+    // 1. Lighting
+    commands.spawn((
+        DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                shadows_enabled: true,
+                illuminance: 10000.0,
+                ..default()
+            },
+            transform: Transform::from_xyz(10.0, 20.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        MapEntity,
+    ));
+
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 200.0,
+    });
+
+    // 2. Standard Camera (Base for both game and editor)
+    let center = Vec3::new(7.5, 0.0, 7.5);
+    let radius: f32 = 17.5;
+    let angle: f32 = 6.9;
+    let height: f32 = 8.0;
+    let cam_x = center.x + radius * angle.cos();
+    let cam_z = center.z + radius * angle.sin();
+
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                order: 1,
+                ..default()
+            },
+            transform: Transform::from_xyz(cam_x, height, cam_z).looking_at(center, Vec3::Y),
+            ..default()
+        },
+        MapEntity,
+    ));
+
     // Load map.json
     #[cfg(not(target_arch = "wasm32"))]
     if let Ok(content) = std::fs::read_to_string("assets/map.json") {
@@ -398,23 +439,6 @@ pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, as
     if project.rooms.is_empty() { 
         project.rooms.push(Room::default()); 
     }
-
-    // Spawning a default 3D camera for the game client
-    commands.spawn((Camera3dBundle {
-        transform: Transform::from_xyz(20.0, 15.0, 20.0).looking_at(Vec3::new(7.5, 0.0, 7.5), Vec3::Y),
-        ..default()
-    }, MapEntity));
-
-    commands.insert_resource(AmbientLight { color: Color::WHITE, brightness: 500.0 });
-
-    // HUD for the client
-    let font = asset_server.load("fonts/Roboto-Regular.ttf");
-    commands.spawn((NodeBundle {
-        style: Style { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(8.0)), flex_direction: FlexDirection::Column, ..default() },
-        background_color: Color::srgba(0.0, 0.0, 0.0, 0.8).into(), ..default()
-    }, MapEntity)).with_children(|p| {
-        p.spawn((TextBundle::from_section("FPS: 0", TextStyle { font, font_size: 18.0, color: Color::WHITE }), HudText));
-    });
 }
 
 #[derive(Resource, Default)]
@@ -444,9 +468,11 @@ pub fn map_rendering_system(
             dirty.full_rebuild = false;
             dirty.tiles.clear();
             
-            // Full rebuild: despawn everything and mark all cells for spawning
-            for entities in tile_map.entities.values() {
-                for &entity in entities { commands.entity(entity).despawn_recursive(); }
+            // Full rebuild: despawn everything (nuclear option)
+            for entity in _tile_query.iter() {
+                if let Some(ec) = commands.get_entity(entity) {
+                    ec.despawn_recursive();
+                }
             }
             tile_map.entities.clear();
             for x in 0..16 { for z in 0..16 { dirty.tiles.push((x, z)); } }

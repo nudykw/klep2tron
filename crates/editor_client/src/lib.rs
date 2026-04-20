@@ -80,12 +80,14 @@ pub fn run_game() {
         )
         .add_plugins(bevy_obj::ObjPlugin)
         .add_plugins(ClientCorePlugin {
-            options: ClientCoreOptions { skip_default_setup: true }
+            options: ClientCoreOptions { skip_default_setup: false }
         })
         .insert_resource(ExtraMenuButtons {
             buttons: vec![("LEVEL EDITOR".to_string(), MenuAction::StartEditor)]
         })
         .init_resource::<EditorState>()
+        .init_resource::<EditorMode>()
+        .init_resource::<Selection>()
         .init_gizmo_group::<HiddenGizmos>()
         .init_gizmo_group::<BoxGizmos>()
         .add_systems(OnEnter(GameState::InGame), setup_editor)
@@ -103,10 +105,37 @@ pub fn run_game() {
             auto_save_system,
             undo_redo_system,
             editor_tooltip_system,
+            attach_editor_camera,
         ).run_if(in_state(GameState::InGame).and_then(is_editor_active)))
         // System for forced window title update (in case of Bevy lags in Wasm)
         .add_systems(Update, update_window_title)
         .run();
+}
+
+pub fn attach_editor_camera(
+    mut commands: Commands,
+    mut camera_query: Query<(Entity, &mut Transform), (With<Camera>, Without<OrbitCamera>, Without<RttCamera>, Without<OverlayCamera>)>,
+    editor_mode: Res<EditorMode>,
+) {
+    if !editor_mode.is_active { return; }
+    
+    if let Ok((entity, mut transform)) = camera_query.get_single_mut() {
+        let center = Vec3::new(7.5, 0.0, 7.5);
+        let orbit = OrbitCamera {
+            center,
+            radius: 17.5,
+            angle: 6.9,
+            height: 8.0,
+        };
+        
+        // Force initial transform to match orbit parameters
+        let x = orbit.center.x + orbit.radius * orbit.angle.cos();
+        let z = orbit.center.z + orbit.radius * orbit.angle.sin();
+        transform.translation = Vec3::new(x, orbit.height, z);
+        transform.look_at(orbit.center, Vec3::Y);
+        
+        commands.entity(entity).insert(orbit);
+    }
 }
 
 pub fn is_editor_active(mode: Res<EditorMode>) -> bool {
@@ -204,18 +233,7 @@ pub fn setup_editor(
     }
     if project.rooms.is_empty() { project.rooms.push(Room::default()); }
 
-    // Lighting
-    commands.insert_resource(AmbientLight { color: Color::WHITE, brightness: 500.0 });
-    commands.spawn((DirectionalLightBundle {
-        directional_light: DirectionalLight { illuminance: 5000.0, shadows_enabled: false, ..default() },
-        transform: Transform::from_xyz(10.0, 20.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    }, MapEntity));
-    commands.spawn((DirectionalLightBundle {
-        directional_light: DirectionalLight { illuminance: 3000.0, shadows_enabled: false, ..default() },
-        transform: Transform::from_xyz(-10.0, 15.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    }, MapEntity));
+    // Lighting and standard camera are now provided by client_core::setup_game_world.
 
     // HUD
     commands.spawn((NodeBundle {
@@ -270,6 +288,7 @@ pub fn setup_editor(
             layer.clone(),
             RttCamera,
             RttCameraTarget(pos),
+            MapEntity,
         ));
 
         // Preview Light
@@ -280,6 +299,7 @@ pub fn setup_editor(
                 ..default()
             },
             layer.clone(),
+            MapEntity,
         ));
 
         // Preview Mesh
@@ -293,13 +313,14 @@ pub fn setup_editor(
         };
         commands.spawn((
             PbrBundle {
-                mesh, material: top_mat.clone(),
+                mesh: mesh.clone(), material: top_mat.clone(),
                 transform: Transform::from_translation(pos)
                     .with_scale(Vec3::new(1.0, 0.5, 1.0))
                     .with_rotation(Quat::from_rotation_y(rot)),
                 ..default()
             },
-            layer,
+            layer.clone(),
+            MapEntity,
         ));
     }
 
@@ -358,25 +379,8 @@ pub fn setup_editor(
     }, TooltipUi)).with_children(|p| {
         p.spawn(TextBundle::from_section("", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }));
     });
-
-    commands.spawn((DirectionalLightBundle {
-        directional_light: DirectionalLight { shadows_enabled: true, illuminance: 10_000.0, ..default() },
-        transform: Transform::from_rotation(Quat::from_rotation_x(-0.8) * Quat::from_rotation_y(0.6)), ..default()
-    }, MapEntity));
-    
-    commands.insert_resource(AmbientLight { color: Color::WHITE, brightness: 200.0 });
-
-    let center = Vec3::new(7.5, 0.0, 7.5);
-    commands.spawn((
-        Camera3dBundle {
-            camera: Camera { order: 1, ..default() },
-            transform: Transform::from_xyz(21.8, 8.0, 17.6).looking_at(center, Vec3::Y),
-            ..default()
-        },
-        OrbitCamera { center, radius: 17.5, angle: 6.9, height: 8.0 },
-        FogSettings { color: Color::BLACK, falloff: FogFalloff::Linear { start: 10.0, end: 40.0 }, ..default() },
-        MapEntity,
-    ));
+    // The base camera and lights are now spawned by client_core::setup_game_world.
+    // The attach_editor_camera system will handle adding OrbitCamera controls.
 
     // Overlay Camera for selection (always on top)
     commands.spawn((
@@ -676,8 +680,8 @@ pub fn mouse_selection_system(
         if *interaction != Interaction::None { return; }
     }
     
-    let window = windows.single();
-    let (camera, camera_transform) = camera_query.single();
+    let Ok(window) = windows.get_single() else { return; };
+    let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
 
     if let Some(cursor_pos) = window.cursor_position() {
         if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
