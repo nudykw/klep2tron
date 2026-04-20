@@ -43,6 +43,11 @@ pub struct ClientAssets {
     pub highlight_material: Handle<StandardMaterial>,
 }
 
+#[derive(Resource, Default)]
+pub struct TileMap {
+    pub entities: std::collections::HashMap<(usize, usize), Vec<Entity>>,
+}
+
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
 pub enum GameState {
     #[default] Menu,
@@ -85,7 +90,10 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<Project>()
            .init_resource::<ClientAssets>()
            .init_resource::<ExtraMenuButtons>()
+           .init_resource::<Selection>()
+           .init_resource::<TileMap>()
            .add_plugins(FrameTimeDiagnosticsPlugin)
+           .add_plugins(bevy::diagnostic::LogDiagnosticsPlugin::default())
            .add_systems(OnEnter(GameState::Menu), setup_menu)
            .add_systems(Update, (
                menu_system.run_if(in_state(GameState::Menu)),
@@ -302,6 +310,7 @@ pub fn map_rendering_system(
     tile_query: Query<Entity, With<TileEntity>>,
     mut cache: Local<MaterialCache>,
     mut first_run: Local<bool>,
+    mut tile_map: ResMut<TileMap>,
 ) {
     if !*first_run {
         *first_run = true;
@@ -310,7 +319,17 @@ pub fn map_rendering_system(
     }
     
     if project.rooms.is_empty() { return; }
-    for entity in tile_query.iter() { commands.entity(entity).despawn_recursive(); }
+
+    // For now, let's stick to full rebuild BUT avoid full world despawn if possible.
+    // Actually, real partial update requires tracking WHICH cell changed.
+    // Since Project only has is_changed(), we still rebuild the room.
+    // BUT we can use the tile_map to despawn only tiles, not other MapEntities.
+    for entities in tile_map.entities.values() {
+        for &entity in entities {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+    tile_map.entities.clear();
 
     let room = &project.rooms[project.current_room_idx];
     let mut ramp_cache: std::collections::HashMap<(usize, usize), i32> = std::collections::HashMap::with_capacity(64);
@@ -374,24 +393,30 @@ pub fn map_rendering_system(
 
             // Spawn top tile (0.5 height unit)
             let h_val = cell.h as f32;
-            commands.spawn((PbrBundle {
+            let mut entities = Vec::new();
+            
+            let top_id = commands.spawn((PbrBundle {
                 mesh, material: mat_top,
                 transform: Transform::from_translation(Vec3::new(x as f32, h_val * 0.5 - 0.25, z as f32))
                     .with_scale(Vec3::new(1.0, 0.5, 1.0))
                     .with_rotation(Quat::from_rotation_y(rot)),
                 ..default()
-            }, TileEntity));
+            }, TileEntity)).id();
+            entities.push(top_id);
 
             // Spawn single scaled column below
             if cell.h > 1 {
                 let column_h = (h_val - 1.0) * 0.5;
-                commands.spawn((PbrBundle {
+                let col_id = commands.spawn((PbrBundle {
                     mesh: assets.cube_mesh.clone(), material: mat_side.clone(),
                     transform: Transform::from_translation(Vec3::new(x as f32, column_h * 0.5, z as f32))
                         .with_scale(Vec3::new(1.0, column_h, 1.0)),
                     ..default()
-                }, TileEntity));
+                }, TileEntity)).id();
+                entities.push(col_id);
             }
+            
+            tile_map.entities.insert((x, z), entities);
         }
     }
 }
