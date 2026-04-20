@@ -10,6 +10,12 @@ pub mod perf;
 pub mod transition;
 pub mod input;
 pub mod history;
+pub mod settings;
+
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::winit::WinitWindows;
+#[cfg(not(target_arch = "wasm32"))]
+use winit::window::Icon;
 
 // Re-export key types for convenience
 pub use crate::ui::menu::*;
@@ -22,6 +28,7 @@ pub use crate::perf::*;
 pub use crate::transition::*;
 pub use crate::input::*;
 pub use crate::history::*;
+pub use crate::settings::*;
 
 // --- Core Data Structures (The "Project Contract") ---
 
@@ -49,7 +56,7 @@ pub struct EditorMode {
 
 #[derive(Resource, Default)]
 pub struct HelpState {
-    pub is_open: bool,
+    pub is_open:    bool,
 }
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
@@ -59,6 +66,9 @@ pub enum GameState {
     Loading,
     InGame,
 }
+
+#[derive(Resource, Default)]
+pub struct ExitConfirmationActive(pub bool);
 
 #[derive(Component)]
 pub struct MenuEntity;
@@ -71,6 +81,12 @@ pub struct ProgressBar;
 
 #[derive(Component)]
 pub struct HudText;
+
+#[derive(Resource)]
+struct AppIconHandle {
+    handle: Handle<Image>,
+    retries: u32,
+}
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct ClientCoreOptions {
@@ -123,6 +139,7 @@ pub struct Cell {
 }
 
 // --- Plugin Implementation ---
+#[derive(Default)]
 pub struct ClientCorePlugin {
     pub options: ClientCoreOptions,
 }
@@ -144,9 +161,14 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<HelpState>()
            .init_resource::<RoomTransition>()
            .init_resource::<CommandHistory>()
+           .init_state::<MenuSubState>()
+           .add_plugins(SettingsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
+           .init_resource::<ExitConfirmationActive>()
            .add_systems(OnEnter(GameState::Menu), setup_menu)
+           .add_systems(Startup, load_app_icon)
            .add_systems(Update, (
+                set_window_icon,
                 hud_update_system.run_if(in_state(GameState::InGame)),
                 map_rendering_system.run_if(in_state(GameState::InGame)),
                 collect_perf_system,
@@ -155,13 +177,74 @@ impl Plugin for ClientCorePlugin {
                 transition_logic_system,
                 transition_ui_system,
                 fullscreen_toggle_system,
+                apply_graphics_quality_system,
+                global_input_system,
+                exit_confirmation_sync_system,
            ))
            .add_systems(OnEnter(GameState::Loading), start_loading)
            .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
            .add_systems(OnExit(GameState::Loading), (cleanup_loading, setup_game_world))
            .add_systems(OnExit(GameState::Menu), cleanup_menu)
-           .add_systems(OnExit(GameState::InGame), cleanup_game)
-           .add_systems(Last, save_perf_history);
+           .add_systems(OnExit(GameState::InGame), (cleanup_game, cleanup_menu))
+           .add_systems(Last, save_perf_history)
+            .add_systems(Update, finish_loading_settings_on_menu.run_if(in_state(GameState::Menu)));
+    }
+}
+
+fn global_input_system(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    state: Res<State<GameState>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    editor_mode: Res<EditorMode>,
+    mut exit_confirm: ResMut<ExitConfirmationActive>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        match *state.get() {
+            GameState::InGame => {
+                if editor_mode.is_active {
+                    next_state.set(GameState::Menu);
+                } else {
+                    exit_confirm.0 = !exit_confirm.0;
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
+fn exit_confirmation_sync_system(
+    mut commands: Commands,
+    exit_confirm: Res<ExitConfirmationActive>,
+    game_state: Res<State<GameState>>,
+    mut confirmation: ResMut<ConfirmationData>,
+    mut next_menu_state: ResMut<NextState<MenuSubState>>,
+    menu_query: Query<Entity, With<MenuEntity>>,
+    asset_server: Res<AssetServer>,
+    camera_query: Query<Entity, With<Camera2d>>,
+) {
+    if *game_state.get() != GameState::InGame { return; }
+    
+    if exit_confirm.is_changed() {
+        if exit_confirm.0 {
+            // Setup confirmation UI
+            confirmation.message = "Quit to main menu?".to_string();
+            confirmation.has_cancel = false;
+            next_menu_state.set(MenuSubState::Confirmation);
+            setup_menu(commands, asset_server, game_state, exit_confirm, camera_query, next_menu_state);
+        } else {
+            // Cleanup confirmation UI
+            for entity in menu_query.iter() {
+                commands.entity(entity).despawn_recursive();
+            }
+        }
+    }
+}
+
+
+fn finish_loading_settings_on_menu(mut settings: ResMut<GraphicsSettings>) {
+    if settings.is_loading {
+        settings.is_loading = false;
+        save_settings(&settings);
     }
 }
 
@@ -176,3 +259,63 @@ pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<Loading
 pub fn cleanup_game(mut commands: Commands, query: Query<Entity, With<MapEntity>>) {
     for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_app_icon(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.insert_resource(AppIconHandle {
+        handle: asset_server.load("icons/app_icon.png"),
+        retries: 3,
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn set_window_icon(
+    windows: NonSend<WinitWindows>,
+    images: Res<Assets<Image>>,
+    icon_handle: Option<ResMut<AppIconHandle>>,
+    mut commands: Commands,
+) {
+    let Some(mut icon_handle) = icon_handle else { return; };
+
+    // Wayland check
+    let is_wayland = std::env::var("XDG_SESSION_TYPE").map(|v| v == "wayland").unwrap_or(false);
+    if is_wayland {
+        commands.remove_resource::<AppIconHandle>();
+        return;
+    }
+    
+    if let Some(image) = images.get(&icon_handle.handle) {
+        let Ok(dynamic_image) = image.clone().try_into_dynamic() else {
+            warn!("Failed to convert icon image to dynamic image");
+            commands.remove_resource::<AppIconHandle>();
+            return;
+        };
+        let rgba_image = dynamic_image.into_rgba8();
+        let (width, height) = rgba_image.dimensions();
+        let rgba = rgba_image.into_raw();
+        
+        info!("Setting window icon: {}x{}, buffer size: {}", width, height, rgba.len());
+
+        let Ok(icon) = Icon::from_rgba(rgba, width, height) else {
+            warn!("Failed to create icon from rgba");
+            commands.remove_resource::<AppIconHandle>();
+            return;
+        };
+
+        for window in windows.windows.values() {
+            window.set_window_icon(Some(icon.clone()));
+        }
+        
+        if icon_handle.retries > 0 {
+            icon_handle.retries -= 1;
+        } else {
+            commands.remove_resource::<AppIconHandle>();
+            info!("Finished setting window icon");
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn load_app_icon() {}
+#[cfg(target_arch = "wasm32")]
+fn set_window_icon() {}

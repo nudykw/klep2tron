@@ -6,11 +6,44 @@
     <title>Klep2tron Client</title>
     <link data-trunk rel="copy-dir" href="assets" />
     <link data-trunk rel="rust" />
+    <link rel="icon" type="image/png" href="assets/icons/app_icon.png">
     <style>
         body { margin: 0; background: black; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
         canvas { background-color: black; }
     </style>
 </head>
 <body>
+    <button id="fullscreen-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; padding: 10px 20px; background: rgba(0, 255, 255, 0.1); color: #00ffff; border: 2px solid #00ffff; border-radius: 8px; cursor: pointer; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; backdrop-filter: blur(5px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);">FULLSCREEN</button>
+    <script>
+        const btn = document.getElementById('fullscreen-btn');
+        btn.addEventListener('mouseenter', () => { 
+            btn.style.background = 'rgba(0, 255, 255, 0.3)';
+            btn.style.boxShadow = '0 0 25px rgba(0, 255, 255, 0.5)';
+            btn.style.transform = 'translateY(-2px)';
+        });
+        btn.addEventListener('mouseleave', () => { 
+            btn.style.background = 'rgba(0, 255, 255, 0.1)';
+            btn.style.boxShadow = '0 0 15px rgba(0, 255, 255, 0.2)';
+            btn.style.transform = 'translateY(0)';
+        });
+        btn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                btn.innerText = 'FULLSCREEN';
+            } else {
+                btn.innerText = 'EXIT FULLSCREEN';
+            }
+        });
+    </script>
 </body>
 </html>

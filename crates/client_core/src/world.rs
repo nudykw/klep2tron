@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use crate::{Project, Room, TileMap};
+use bevy::core_pipeline::experimental::taa::TemporalAntiAliasBundle;
+use crate::{Project, Room, TileMap, GraphicsSettings, QualityLevel, UpscalingMode};
 
 pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, _asset_server: Res<AssetServer>) {
     commands.spawn((
@@ -37,6 +38,11 @@ pub fn setup_game_world(mut commands: Commands, mut project: ResMut<Project>, _a
             ..default()
         },
         MapEntity,
+        FogSettings {
+            color: Color::srgb(0.05, 0.05, 0.1),
+            falloff: FogFalloff::Linear { start: 5.0, end: 25.0 },
+            ..default()
+        }
     ));
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -69,3 +75,48 @@ pub struct TileEntity;
 
 #[derive(Component)]
 pub struct MapEntity;
+
+pub fn apply_graphics_quality_system(
+    settings: Res<GraphicsSettings>,
+    mut light_query: Query<&mut DirectionalLight>,
+    mut fog_query: Query<&mut FogSettings>,
+    camera_query: Query<Entity, With<Camera3d>>,
+    mut commands: Commands,
+) {
+    if !settings.is_changed() { return; }
+    
+    // Shadows
+    for mut light in light_query.iter_mut() {
+        light.shadows_enabled = match settings.shadow_quality {
+            QualityLevel::Low => false,
+            _ => true,
+        };
+    }
+
+    // Fog
+    for mut fog in fog_query.iter_mut() {
+        match settings.fog_quality {
+            QualityLevel::Low => {
+                fog.falloff = FogFalloff::Linear { start: 10.0, end: 40.0 };
+            },
+            QualityLevel::Medium => {
+                fog.falloff = FogFalloff::Linear { start: 5.0, end: 25.0 };
+            },
+            QualityLevel::High | QualityLevel::Ultra => {
+                fog.falloff = FogFalloff::Exponential { density: 0.05 };
+            },
+        }
+    }
+    
+    // Upscaling & TAA
+    for entity in camera_query.iter() {
+        match settings.upscaling {
+            UpscalingMode::None | UpscalingMode::FSR => {
+                commands.entity(entity).remove::<TemporalAntiAliasBundle>();
+            },
+            UpscalingMode::TAA => {
+                commands.entity(entity).insert(TemporalAntiAliasBundle::default());
+            },
+        }
+    }
+}

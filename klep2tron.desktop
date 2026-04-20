@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Klep2tron
+Comment=2.5D Strategy Game
+Exec=/home/nudyk/Projects/Rust/klep2tron/target/debug/client
+Icon=/home/nudyk/Projects/Rust/klep2tron/assets/icons/app_icon.png
+Terminal=false
+Type=Application
+Categories=Game;
+StartupWMClass=Klep2tron

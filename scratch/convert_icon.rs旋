@@ -1,0 +1,14 @@
+use image::ImageFormat;
+use std::fs::File;
+use std::io::BufReader;
+
+fn main() {
+    let input_path = "assets/icons/app_icon.png";
+    let output_path = "assets/icons/app_icon_real.png";
+    
+    let img = image::open(input_path).expect("Failed to open image");
+    img.save_with_format(output_path, ImageFormat::Png).expect("Failed to save PNG");
+    
+    std::fs::rename(output_path, input_path).expect("Failed to replace original file");
+    println!("Successfully converted JPEG to real PNG!");
+}
