@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-pub use client_core::*;
+pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, HudText, Selection, ClientAssets};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -18,7 +18,7 @@ pub struct UiPreview;
 pub struct OverlayCamera;
 
 // Include auto-generated version
-include!(concat!(env!("OUT_DIR"), "/version.rs"));
+mod build_info { include!(concat!(env!("OUT_DIR"), "/version.rs")); }
 
 pub const TILE_SIZE: f32 = 1.0;
 pub const TILE_H:    f32 = 0.5; 
@@ -29,11 +29,6 @@ pub struct HiddenGizmos;
 #[derive(GizmoConfigGroup, Default, Reflect)]
 pub struct BoxGizmos;
 
-#[derive(Resource, Default)]
-pub struct Selection {
-    pub x: usize,
-    pub z: usize,
-}
 
 #[derive(Resource)]
 pub struct EditorState {
@@ -48,7 +43,6 @@ impl Default for EditorState {
 
 #[derive(Component)] pub struct OrbitCamera { pub center: Vec3, pub radius: f32, pub angle: f32, pub height: f32 }
 #[derive(Component)] pub struct CameraDebugText;
-#[derive(Component)] pub struct HudText;
 #[derive(Component)] pub struct PersistentCamera2d;
 #[derive(Component)] pub struct TileTypeButton(pub TileType);
 
@@ -61,7 +55,7 @@ pub fn run_game() {
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window { 
-                    title: format!("Klep2Tron_{}_MAP_EDITOR", VERSION), 
+                    title: format!("Klep2Tron_{}_MAP_EDITOR", build_info::VERSION), 
                     ..default() 
                 }),
                 ..default()
@@ -71,23 +65,25 @@ pub fn run_game() {
                 ..default()
             })
         )
-        .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(bevy_obj::ObjPlugin)
         .add_plugins(SystemInformationDiagnosticsPlugin)
-        .add_plugins(ClientCorePlugin)
+        .add_plugins(ClientCorePlugin {
+            options: ClientCoreOptions { skip_default_setup: true }
+        })
+        .insert_resource(ExtraMenuButtons {
+            buttons: vec![("LEVEL EDITOR".to_string(), MenuAction::StartEditor)]
+        })
+        .init_resource::<EditorState>()
         .init_gizmo_group::<HiddenGizmos>()
         .init_gizmo_group::<BoxGizmos>()
-        .init_resource::<Selection>()
-        .init_resource::<EditorState>()
         .add_systems(OnEnter(GameState::InGame), setup_editor)
         .add_systems(Update, (
-            camera_control_system, 
+            camera_control_system,
             sync_overlay_camera_system,
             selection_system,
             mouse_selection_system,
             editor_ui_system,
             selection_highlight_system,
-            hud_update_system,
             room_switching_system,
             auto_save_system,
         ).run_if(in_state(GameState::InGame)))
@@ -99,7 +95,7 @@ pub fn run_game() {
 
 pub fn update_window_title(mut windows: Query<&mut Window>) {
     for mut window in windows.iter_mut() {
-        let expected = format!("Klep2Tron_{}_MAP_EDITOR", VERSION);
+        let expected = format!("Klep2Tron_{}_MAP_EDITOR", build_info::VERSION);
         if window.title != expected {
             window.title = expected;
         }
@@ -111,15 +107,31 @@ pub fn handle_menu_input(keyboard: Res<ButtonInput<KeyCode>>, mut state: ResMut<
 }
 
 pub fn setup_editor(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut project: ResMut<Project>,
+    mut commands: Commands, 
+    mut project: ResMut<Project>, 
     mut client_assets: ResMut<ClientAssets>,
+    asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut config_store: ResMut<GizmoConfigStore>,
 ) {
+    // Load map.json
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Ok(content) = std::fs::read_to_string("assets/map.json") {
+        if let Ok(loaded) = serde_json::from_str::<Project>(&content) {
+            *project = loaded;
+        }
+    }
+    if project.rooms.is_empty() { project.rooms.push(Room::default()); }
+
+    // HUD for the editor
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
+    commands.spawn((NodeBundle {
+        style: Style { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(8.0)), flex_direction: FlexDirection::Column, ..default() },
+        background_color: Color::srgba(0.0, 0.0, 0.0, 0.8).into(), ..default()
+    }, MapEntity)).with_children(|p| {
+        p.spawn((TextBundle::from_section("FPS: 0", TextStyle { font: font.clone(), font_size: 18.0, color: Color::WHITE }), HudText));
+    });
     
     client_assets.highlight_material = materials.add(StandardMaterial {
         base_color: Color::srgba(0.0, 1.0, 1.0, 0.1),
@@ -143,7 +155,7 @@ pub fn setup_editor(
     box_config.render_layers = RenderLayers::layer(1);
     
     #[cfg(not(target_arch = "wasm32"))]
-    if let Ok(content) = std::fs::read_to_string("map.json") {
+    if let Ok(content) = std::fs::read_to_string("assets/map.json") {
         if let Ok(loaded) = serde_json::from_str::<Project>(&content) {
             *project = loaded;
             println!("Loaded project with {} rooms", project.rooms.len());
@@ -166,11 +178,18 @@ pub fn setup_editor(
 
     // HUD
     commands.spawn((NodeBundle {
-        style: Style { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(8.0)), flex_direction: FlexDirection::Column, ..default() },
+        style: Style { 
+            position_type: PositionType::Absolute, 
+            top: Val::Px(10.0), left: Val::Px(10.0), 
+            padding: UiRect::all(Val::Px(10.0)), 
+            flex_direction: FlexDirection::Column, 
+            row_gap: Val::Px(5.0),
+            ..default() 
+        },
         background_color: Color::srgba(0.0, 0.0, 0.0, 0.8).into(), ..default()
     }, MapEntity)).with_children(|p| {
-        p.spawn((TextBundle::from_section("CAM:", TextStyle { font: font.clone(), font_size: 18.0, color: Color::WHITE }), CameraDebugText));
-        p.spawn((TextBundle::from_section("ROOM:", TextStyle { font: font.clone(), font_size: 18.0, color: Color::srgb(1.0, 1.0, 0.0) }), HudText));
+        p.spawn((TextBundle::from_section("CAM:", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }), CameraDebugText));
+        p.spawn((TextBundle::from_section("FPS: 0", TextStyle { font: font.clone(), font_size: 16.0, color: Color::srgb(1.0, 1.0, 0.0) }), HudText));
     });
 
     // RTT Previews
@@ -623,134 +642,10 @@ pub fn auto_save_system(project: Res<Project>) {
     if project.is_changed() {
         #[cfg(not(target_arch = "wasm32"))]
         if let Ok(json) = serde_json::to_string_pretty(&*project) {
-            let _ = std::fs::write("map.json", json);
+            let _ = std::fs::write("assets/map.json", json);
         }
     }
 }
 
-#[derive(Resource, Default)]
-pub struct MaterialCache {
-    pub map: std::collections::HashMap<(i32, bool), (Handle<StandardMaterial>, Handle<StandardMaterial>)>,
-}
-
-pub fn map_rendering_system(
-    mut commands: Commands,
-    project: Res<Project>,
-    client_assets: Res<ClientAssets>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    tile_query: Query<Entity, With<TileEntity>>,
-    mut cache: Local<MaterialCache>,
-) {
-    if !project.is_changed() { return; }
-    for entity in tile_query.iter() { commands.entity(entity).despawn_recursive(); }
-
-    let room = &project.rooms[project.current_room_idx];
-    let mut ramp_cache: std::collections::HashMap<(usize, usize), i32> = std::collections::HashMap::with_capacity(64);
-
-    for x in 0..16 {
-        for z in 0..16 {
-            let cell = room.cells[x][z];
-            if cell.h < 0 { continue; }
-            
-            let is_even = (x + z) % 2 == 0;
-
-            // Determine the "target terrace height" by following the ramp
-            // If the ramp eventually leads to a Cube, use that Cube's height.
-            let target_h = *ramp_cache.entry((x, z)).or_insert_with(|| {
-                let mut tx = x as i32;
-                let mut tz = z as i32;
-                let mut steps = 0;
-                let mut found_cube_h = None;
-                while steps < 16 {
-                    let c = room.cells[tx as usize][tz as usize];
-                    if matches!(c.tt, TileType::Cube) {
-                        found_cube_h = Some(c.h);
-                        break;
-                    }
-                    let (dx, dz) = match c.tt {
-                        TileType::WedgeN => (0, -1),
-                        TileType::WedgeE => (1, 0),
-                        TileType::WedgeS => (0, 1),
-                        TileType::WedgeW => (-1, 0),
-                        _ => break,
-                    };
-                    tx += dx;
-                    tz += dz;
-                    if tx < 0 || tx >= 16 || tz < 0 || tz >= 16 { break; }
-                    steps += 1;
-                }
-                found_cube_h.unwrap_or(cell.h)
-            });
-
-            // Parity is always local to keep the checkerboard consistent
-            let target_is_even = is_even;
-
-            let (mat_top, mat_side) = cache.map.entry((target_h, target_is_even)).or_insert_with(|| {
-                let hue = (target_h as f32 * 30.0) % 360.0; 
-                let base_light = 0.4 + (target_h as f32 * 0.02).min(0.2);
-                let top_light = if target_is_even { base_light } else { base_light * 0.85 };
-                
-                let top = materials.add(StandardMaterial { 
-                    base_color: Color::hsla(hue, 0.7, top_light, 1.0), 
-                    perceptual_roughness: 0.6,
-                    metallic: 0.1,
-                    ..default() 
-                });
-                let side = materials.add(StandardMaterial { 
-                    base_color: Color::hsla(hue, 0.6, top_light * 0.5, 1.0), 
-                    perceptual_roughness: 0.9, 
-                    ..default() 
-                });
-                (top, side)
-            }).clone();
-
-            let top_pos = Vec3::new(x as f32, (cell.h as f32 - 0.5) * TILE_H, z as f32);
-            let (mesh, rot) = match cell.tt {
-                TileType::WedgeN => (client_assets.wedge_mesh.clone(), 0.0),
-                TileType::WedgeE => (client_assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
-                TileType::WedgeS => (client_assets.wedge_mesh.clone(), std::f32::consts::PI),
-                TileType::WedgeW => (client_assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
-                _ => (client_assets.cube_mesh.clone(), 0.0),
-            };
-
-            commands.spawn((PbrBundle {
-                mesh, material: mat_top,
-                transform: Transform::from_translation(top_pos)
-                    .with_scale(Vec3::new(1.0, 0.5, 1.0))
-                    .with_rotation(Quat::from_rotation_y(rot)),
-                ..default()
-            }, TileEntity));
-
-            if cell.h > 0 {
-                let p_h = cell.h as f32 * TILE_H;
-                // For sides, we use the "local" is_even to keep consistent vertical lines
-                let (_, mat_side_local) = cache.map.entry((cell.h, is_even)).or_insert_with(|| {
-                    let hue = (cell.h as f32 * 30.0) % 360.0;
-                    let base_light = 0.4 + (cell.h as f32 * 0.02).min(0.2);
-                    let top_light = if is_even { base_light } else { base_light * 0.85 };
-                    let top = materials.add(StandardMaterial { base_color: Color::hsla(hue, 0.7, top_light, 1.0), ..default() });
-                    let side = materials.add(StandardMaterial { base_color: Color::hsla(hue, 0.6, top_light * 0.5, 1.0), ..default() });
-                    (top, side)
-                }).clone();
-
-                commands.spawn((PbrBundle {
-                    mesh: client_assets.cube_mesh.clone(), material: mat_side_local,
-                    transform: Transform::from_translation(Vec3::new(x as f32, (p_h - TILE_H)/2.0, z as f32))
-                        .with_scale(Vec3::new(1.0, p_h - TILE_H, 1.0)),
-                    ..default()
-                }, TileEntity));
-            }
-        }
-    }
-}
-
-pub fn hud_update_system(diagnostics: Res<DiagnosticsStore>, project: Res<Project>, selection: Res<Selection>, mut query: Query<&mut Text, With<HudText>>) {
-    let fps = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS).and_then(|d| d.smoothed()).unwrap_or(0.0);
-    let room = &project.rooms[project.current_room_idx];
-    let cell = room.cells[selection.x][selection.z];
-    if let Ok(mut text) = query.get_single_mut() {
-        text.sections[0].value = format!("FPS: {:.0} | ROOM: {} | POS: {}, {}, {}", fps, project.current_room_idx, selection.x, selection.z, cell.h);
-    }
-}
 
 

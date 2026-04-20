@@ -11,6 +11,6 @@ fn main() {
             ..default()
         }))
         .add_plugins(bevy_obj::ObjPlugin)
-        .add_plugins(ClientCorePlugin)
+        .add_plugins(ClientCorePlugin::default())
         .run();
 }

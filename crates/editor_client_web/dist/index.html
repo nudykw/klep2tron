@@ -19,16 +19,16 @@
             background-color: black;
         }
     </style>
-<link rel="modulepreload" href="/client_web-85a40c2c0d6dda7f.js" crossorigin="anonymous" integrity="sha384-2hpDKsobNMfilL/hK0zZHOMlgUrgaKyWFzSY1xpjMwNlybigWQHz+A1h9wW3BML/"><link rel="preload" href="/client_web-85a40c2c0d6dda7f_bg.wasm" crossorigin="anonymous" integrity="sha384-/fXGa1oCr61TTMeJ7TrrR+ZaksDbvQ2GCJNLqYCke0PCu4YMumbSfwN92nJ2pPur" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/editor_client_web-3ea3fab0faeadcfc.js" crossorigin="anonymous" integrity="sha384-vBBmVLEEX0eI8w/mFLfi/7jsmf23niXsPjIPusMLhCXfltK79dmF1GH8/3H6C+Qm"><link rel="preload" href="/editor_client_web-3ea3fab0faeadcfc_bg.wasm" crossorigin="anonymous" integrity="sha384-rDlSrC0rpiUYULgv3+Sp6T/Eet32w7LPSo1D953DIyfnAPKqlPRPFCDpSWG9BgPh" as="fetch" type="application/wasm"></head>
 <body>
     <script type="module">
-        import init from './client_web.js';
+        import init from './editor_client_web.js';
         init();
     </script>
 
 <script type="module">
-import init, * as bindings from '/client_web-85a40c2c0d6dda7f.js';
-const wasm = await init({ module_or_path: '/client_web-85a40c2c0d6dda7f_bg.wasm' });
+import init, * as bindings from '/editor_client_web-3ea3fab0faeadcfc.js';
+const wasm = await init({ module_or_path: '/editor_client_web-3ea3fab0faeadcfc_bg.wasm' });
 
 
 window.wasmBindings = bindings;

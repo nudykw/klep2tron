@@ -17,4 +17,8 @@ build_counter.tmp
 
 # OS
 .DS_Store
-Thumbs.db
+# Web build
+dist/
+**/dist/
+*.js
+*.wasm
