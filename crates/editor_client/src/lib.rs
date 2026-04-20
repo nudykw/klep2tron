@@ -49,6 +49,9 @@ impl Default for EditorState {
 #[derive(Resource)]
 pub struct LoadingTimer(pub Timer);
 
+#[derive(Component)]
+pub struct RttCamera;
+
 pub fn run_game() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
@@ -78,6 +81,9 @@ pub fn run_game() {
         .init_gizmo_group::<BoxGizmos>()
         .add_systems(OnEnter(GameState::InGame), setup_editor)
         .add_systems(Update, (
+            update_window_title, 
+            handle_menu_input, 
+            deactivate_rtt_cameras,
             camera_control_system,
             sync_overlay_camera_system,
             selection_system,
@@ -160,7 +166,7 @@ pub fn setup_editor(
     // Lighting
     commands.insert_resource(AmbientLight { color: Color::WHITE, brightness: 500.0 });
     commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight { illuminance: 5000.0, shadows_enabled: true, ..default() },
+        directional_light: DirectionalLight { illuminance: 5000.0, shadows_enabled: false, ..default() },
         transform: Transform::from_xyz(10.0, 20.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -652,3 +658,16 @@ pub fn auto_save_system(project: Res<Project>) {
 
 
 
+
+fn deactivate_rtt_cameras(
+    mut query: Query<&mut Camera, With<RttCamera>>,
+    mut count: Local<u32>,
+) {
+    if *count > 10 { // Wait 10 frames to ensure RTT is captured
+        for mut camera in query.iter_mut() {
+            camera.is_active = false;
+        }
+    } else {
+        *count += 1;
+    }
+}
