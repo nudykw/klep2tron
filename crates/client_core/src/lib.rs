@@ -177,6 +177,7 @@ impl Plugin for ClientCorePlugin {
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_plugins(MaterialPlugin::<StarrySkyMaterial>::default())
            .add_plugins(benchmark::BenchmarkPlugin)
+           .add_plugins(actor_editor::ActorEditorPlugin)
            .init_resource::<ExitConfirmationActive>()
            .add_systems(OnEnter(GameState::Menu), setup_menu)
            .add_systems(Startup, (load_app_icon, setup_starry_sky))
@@ -198,13 +199,10 @@ impl Plugin for ClientCorePlugin {
 
            .add_systems(OnEnter(GameState::Loading), start_loading)
             .add_systems(OnEnter(GameState::Benchmark), start_loading)
-            .add_systems(OnEnter(GameState::ActorEditor), setup_actor_editor)
            .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
-           .add_systems(Update, actor_editor_input_system.run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::Loading), (cleanup_loading, setup_game_world))
            .add_systems(OnExit(GameState::Menu), cleanup_menu)
            .add_systems(OnExit(GameState::InGame), (cleanup_game, cleanup_menu, reset_ambient_light))
-           .add_systems(OnExit(GameState::ActorEditor), (cleanup_actor_editor, reset_ambient_light))
            .add_systems(Last, save_perf_history)
             .add_systems(Update, finish_loading_settings_on_menu.run_if(in_state(GameState::Menu)));
     }
