@@ -87,8 +87,13 @@ pub fn gizmo_sync_system(
 ) {
     if let Ok(main_transform) = main_camera.get_single() {
         if let Ok(mut gizmo_transform) = gizmo_camera.get_single_mut() {
-            // Only sync rotation, keep gizmo camera at its fixed distance
-            gizmo_transform.rotation = main_transform.rotation;
+            // Position gizmo camera on a sphere around origin to match main camera's relative angle
+            let distance = 3.0; // Fixed distance for the gizmo UI
+            let rotation = main_transform.rotation;
+            
+            // The gizmo camera should look at origin (0,0,0) from the same direction as main camera
+            gizmo_transform.translation = rotation * (Vec3::Z * distance);
+            gizmo_transform.look_at(Vec3::ZERO, Vec3::Y);
         }
     }
 }
