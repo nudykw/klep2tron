@@ -12,6 +12,7 @@ pub mod input;
 pub mod history;
 pub mod settings;
 pub mod benchmark;
+pub mod actor_editor;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::winit::WinitWindows;
@@ -30,6 +31,7 @@ pub use crate::transition::*;
 pub use crate::input::*;
 pub use crate::history::*;
 pub use crate::settings::*;
+pub use crate::actor_editor::*;
 
 // --- Core Data Structures (The "Project Contract") ---
 
@@ -67,7 +69,11 @@ pub enum GameState {
     Loading,
     InGame,
     Benchmark,
+    ActorEditor,
 }
+
+#[derive(Component)]
+pub struct ActorEditorEntity;
 
 #[derive(Resource, Default)]
 pub struct ExitConfirmationActive(pub bool);
@@ -190,12 +196,15 @@ impl Plugin for ClientCorePlugin {
                 starry_sky_follow_system,
            ))
 
-            .add_systems(OnEnter(GameState::Loading), start_loading)
+           .add_systems(OnEnter(GameState::Loading), start_loading)
             .add_systems(OnEnter(GameState::Benchmark), start_loading)
+            .add_systems(OnEnter(GameState::ActorEditor), setup_actor_editor)
            .add_systems(Update, check_loading_system.run_if(in_state(GameState::Loading)))
+           .add_systems(Update, actor_editor_input_system.run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::Loading), (cleanup_loading, setup_game_world))
            .add_systems(OnExit(GameState::Menu), cleanup_menu)
-           .add_systems(OnExit(GameState::InGame), (cleanup_game, cleanup_menu))
+           .add_systems(OnExit(GameState::InGame), (cleanup_game, cleanup_menu, reset_ambient_light))
+           .add_systems(OnExit(GameState::ActorEditor), (cleanup_actor_editor, reset_ambient_light))
            .add_systems(Last, save_perf_history)
             .add_systems(Update, finish_loading_settings_on_menu.run_if(in_state(GameState::Menu)));
     }
@@ -268,8 +277,24 @@ pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<Loading
     for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
 }
 
-pub fn cleanup_game(mut commands: Commands, query: Query<Entity, With<MapEntity>>) {
-    for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
+pub fn reset_ambient_light(mut commands: Commands) {
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 100.0,
+    });
+}
+
+pub fn cleanup_game(
+    mut commands: Commands, 
+    query: Query<Entity, Or<(With<MapEntity>, With<TileEntity>)>>,
+    mut tile_map: ResMut<TileMap>,
+) {
+    for entity in query.iter() { 
+        if let Some(e) = commands.get_entity(entity) {
+            e.despawn_recursive(); 
+        }
+    }
+    tile_map.entities.clear();
 }
 
 #[cfg(not(target_arch = "wasm32"))]

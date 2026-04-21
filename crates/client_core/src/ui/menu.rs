@@ -37,6 +37,7 @@ pub enum MenuAction {
     ToggleFpsLimit,
     NextFpsLimit, PrevFpsLimit,
     RunBenchmark,
+    OpenActorEditor,
     None,
 }
 
@@ -646,6 +647,9 @@ pub fn handle_menu_action(
         MenuAction::RunBenchmark => {
             next_game_state.set(GameState::Benchmark);
         },
+        MenuAction::OpenActorEditor => {
+            next_game_state.set(GameState::ActorEditor);
+        },
         MenuAction::ToggleVSync => {
             pending.vsync = !pending.vsync;
         },
@@ -1127,6 +1131,13 @@ fn menu_item_system(
                             spawn_menu_button(scroll_p, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()), false);
                             
                             let mut count = 1;
+
+                            #[cfg(not(target_arch = "wasm32"))]
+                            {
+                                spawn_menu_button(scroll_p, &font, "ACTOR EDITOR", None, count, MenuItemType::Action, MenuAction::OpenActorEditor, Some("Modular character editor".to_string()), false);
+                                count += 1;
+                            }
+                            
                             for (_i, (name, action)) in extra_buttons.buttons.iter().enumerate() {
                                 spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), None, false);
                                 count += 1;
