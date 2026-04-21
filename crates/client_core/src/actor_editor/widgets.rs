@@ -486,14 +486,18 @@ pub fn spawn_status_bar(
         ..default()
     }).with_children(|p| {
         // Left: Status
-        p.spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
+        p.spawn((
+            NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        }).with_children(|left| {
+            Interaction::default(),
+            Tooltip("Current Editor State".to_string()),
+        )).with_children(|left| {
             left.spawn(TextBundle::from_section(
                 "\u{f05a} ",
                 TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.3, 0.6, 1.0) },
@@ -501,35 +505,64 @@ pub fn spawn_status_bar(
             left.spawn((
                 TextBundle::from_section(
                     "READY",
-                    TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.8, 0.8, 0.8) },
+                    TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.7, 0.7, 0.7) },
                 ),
                 StatusText,
             ));
         });
 
-        // Center: Key Hints
+        // Center: Key Hints & Legend
         p.spawn((
-            TextBundle::from_sections(vec![
-                TextSection::new("TAB: Mode | G: Grid | R: Reset | ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-                TextSection::new("GIZMO: ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.8, 0.8, 0.8) }),
-                TextSection::new("X", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(1.0, 0.3, 0.3) }),
-                TextSection::new(":Red ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-                TextSection::new("Y", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.3, 1.0, 0.3) }),
-                TextSection::new(":Green ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-                TextSection::new("Z", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.4, 0.4, 1.0) }),
-                TextSection::new(":Blue", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-            ]),
-            KeyHintText,
-        ));
+            NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                ..default()
+            },
+            Interaction::default(),
+            Tooltip("Keyboard Shortcuts & Gizmo Legend (Red:X, Green:Y, Blue:Z)".to_string()),
+        )).with_children(|mid| {
+            mid.spawn((
+                TextBundle::from_sections(vec![
+                    TextSection::new("TAB: Mode | G: Grid | R: Reset | ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
+                    TextSection::new("X", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(1.0, 0.3, 0.3) }),
+                    TextSection::new(":R ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
+                    TextSection::new("Y", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.3, 1.0, 0.3) }),
+                    TextSection::new(":G ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
+                    TextSection::new("Z", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.4, 0.4, 1.0) }),
+                    TextSection::new(":B", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
+                ]),
+                KeyHintText,
+            ));
+        });
 
-        // Right: Stats
+        // Right: Polycount
         p.spawn((
-            TextBundle::from_section(
-                "POLYS: 0",
-                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
-            ),
-            PolycountText,
-        ));
+            NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                ..default()
+            },
+            Interaction::default(),
+            Tooltip("Total Scene Complexity (Triangle Count)".to_string()),
+        )).with_children(|right| {
+            right.spawn(TextBundle::from_section(
+                "\u{f1b2} ",
+                TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.7, 0.7, 0.7) },
+            ));
+            right.spawn((
+                TextBundle::from_section(
+                    "POLYS: 0",
+                    TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.7, 0.7, 0.7) },
+                ),
+                PolycountText,
+            ));
+        });
     });
 }
 
