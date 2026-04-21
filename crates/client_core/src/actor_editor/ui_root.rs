@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use super::{ActorEditorEntity, ActorEditorBackButton};
-use super::widgets::{ScrollingList, ResizablePanel, PanelResizer, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root};
+use super::{ActorEditorEntity, ActorEditorBackButton, MainEditorCamera, GizmoCamera, GizmoEntity, GIZMO_LAYER};
+use super::widgets::{ScrollingList, ResizablePanel, PanelResizer, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton};
 
 pub fn setup_actor_editor(
     mut commands: Commands,
@@ -8,7 +8,8 @@ pub fn setup_actor_editor(
     panel_settings: Res<PanelSettings>,
 ) {
     // 3D Camera
-    commands.spawn((
+    // 3D Main Camera
+    let main_camera_entity = commands.spawn((
         Camera3dBundle {
             camera: Camera {
                 order: 5,
@@ -19,6 +20,71 @@ pub fn setup_actor_editor(
             ..default()
         },
         ActorEditorEntity,
+        MainEditorCamera,
+    )).id();
+
+    // Gizmo Camera (Sub-view)
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                order: 10,
+                viewport: Some(bevy::render::camera::Viewport {
+                    physical_position: UVec2::new(20, 20),
+                    physical_size: UVec2::new(120, 120),
+                    depth: 0.0..1.0,
+                }),
+                clear_color: ClearColorConfig::None,
+                ..default()
+            },
+            camera_3d: Camera3d::default(),
+            transform: Transform::from_xyz(0.0, 0.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        ActorEditorEntity,
+        GizmoCamera,
+        GIZMO_LAYER,
+    ));
+
+    // Spawn Gizmo Axes
+    let mesh_handle = asset_server.add(Mesh::from(Cuboid::new(0.02, 0.02, 0.8)));
+    
+    // X - Red
+    commands.spawn((
+        PbrBundle {
+            mesh: mesh_handle.clone(),
+            material: asset_server.add(StandardMaterial { base_color: Color::srgb(1.0, 0.2, 0.2), unlit: true, ..default() }),
+            transform: Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2))
+                        .with_translation(Vec3::X * 0.4),
+            ..default()
+        },
+        ActorEditorEntity,
+        GizmoEntity,
+        GIZMO_LAYER,
+    ));
+    // Y - Green
+    commands.spawn((
+        PbrBundle {
+            mesh: mesh_handle.clone(),
+            material: asset_server.add(StandardMaterial { base_color: Color::srgb(0.2, 1.0, 0.2), unlit: true, ..default() }),
+            transform: Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2))
+                        .with_translation(Vec3::Y * 0.4),
+            ..default()
+        },
+        ActorEditorEntity,
+        GizmoEntity,
+        GIZMO_LAYER,
+    ));
+    // Z - Blue
+    commands.spawn((
+        PbrBundle {
+            mesh: mesh_handle.clone(),
+            material: asset_server.add(StandardMaterial { base_color: Color::srgb(0.2, 0.2, 1.0), unlit: true, ..default() }),
+            transform: Transform::from_translation(Vec3::Z * 0.4),
+            ..default()
+        },
+        ActorEditorEntity,
+        GizmoEntity,
+        GIZMO_LAYER,
     ));
 
     // Light
@@ -58,6 +124,7 @@ pub fn setup_actor_editor(
             ..default()
         },
         ActorEditorEntity,
+        bevy::ui::TargetCamera(main_camera_entity),
     )).with_children(|parent| {
         // --- LEFT SIDEBAR ---
         parent.spawn((
@@ -135,6 +202,49 @@ pub fn setup_actor_editor(
                     "ACTOR EDITOR",
                     TextStyle { font: font.clone(), font_size: 28.0, color: Color::WHITE },
                 ));
+            });
+
+            // --- TOP TOOLBAR ---
+            p.spawn(NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(70.0),
+                    width: Val::Percent(100.0),
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                ..default()
+            }).with_children(|toolbar| {
+                toolbar.spawn(NodeBundle {
+                    style: Style {
+                        padding: UiRect::all(Val::Px(4.0)),
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color::srgba(0.1, 0.1, 0.1, 0.8).into(),
+                    border_radius: BorderRadius::all(Val::Px(8.0)),
+                    ..default()
+                }).with_children(|btns| {
+                    spawn_viewport_button(btns, ViewportToggleType::Grid, "\u{f00a}", "Toggle Grid (G)", &icon_font);
+                    spawn_viewport_button(btns, ViewportToggleType::Slices, "\u{f121}", "Toggle Slices (S)", &icon_font);
+                    spawn_viewport_button(btns, ViewportToggleType::Sockets, "\u{f1e0}", "Toggle Sockets (K)", &icon_font);
+                    spawn_viewport_button(btns, ViewportToggleType::Gizmos, "\u{f047}", "Toggle Gizmos (Z)", &icon_font);
+                    
+                    // Separator
+                    btns.spawn(NodeBundle {
+                        style: Style {
+                            width: Val::Px(2.0),
+                            height: Val::Px(20.0),
+                            margin: UiRect::horizontal(Val::Px(8.0)),
+                            ..default()
+                        },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
+                        ..default()
+                    });
+
+                    spawn_viewport_button(btns, ViewportToggleType::Reset, "\u{f01e}", "Reset Camera (R)", &icon_font);
+                });
             });
 
             // Toggle Visibility Buttons
@@ -278,4 +388,35 @@ pub fn cleanup_actor_editor(
     for entity in query.iter() {
         commands.entity(entity).despawn_recursive();
     }
+}
+
+fn spawn_viewport_button(
+    parent: &mut ChildBuilder,
+    toggle_type: ViewportToggleType,
+    icon: &str,
+    tooltip: &str,
+    icon_font: &Handle<Font>,
+) {
+    parent.spawn((
+        ButtonBundle {
+            style: Style {
+                width: Val::Px(36.0),
+                height: Val::Px(36.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: UiRect::horizontal(Val::Px(2.0)),
+                ..default()
+            },
+            background_color: Color::srgba(0.2, 0.2, 0.2, 0.9).into(),
+            border_radius: BorderRadius::all(Val::Px(6.0)),
+            ..default()
+        },
+        ViewportToggleButton(toggle_type),
+        Tooltip(tooltip.to_string()),
+    )).with_children(|btn| {
+        btn.spawn(TextBundle::from_section(
+            icon,
+            TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::WHITE },
+        ));
+    });
 }

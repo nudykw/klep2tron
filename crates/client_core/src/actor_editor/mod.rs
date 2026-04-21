@@ -16,6 +16,8 @@ impl Plugin for ActorEditorPlugin {
         app.init_resource::<ui_inspector::SocketFilter>()
            .init_resource::<ui_inspector::SelectedSocket>()
            .init_resource::<widgets::PanelSettings>()
+           .init_resource::<ViewportSettings>()
+           .add_event::<ResetCameraEvent>()
            .add_systems(OnEnter(GameState::ActorEditor), ui_root::setup_actor_editor)
            .add_systems(Update, (
                 systems_logic::actor_editor_input_system,
@@ -28,6 +30,10 @@ impl Plugin for ActorEditorPlugin {
                 widgets::tooltip_system,
                 ui_inspector::socket_filter_system,
                 ui_inspector::socket_transform_update_system,
+                systems_logic::gizmo_sync_system,
+                systems_logic::camera_reset_system,
+                systems_logic::gizmo_viewport_system,
+                widgets::viewport_button_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
     }
@@ -36,6 +42,28 @@ impl Plugin for ActorEditorPlugin {
 // Events for decoupling (SOLID)
 pub struct ActorSaveEvent;
 pub struct ActorImportEvent;
+
+#[derive(Event)]
+pub struct ResetCameraEvent;
+
+#[derive(Resource)]
+pub struct ViewportSettings {
+    pub grid: bool,
+    pub slices: bool,
+    pub sockets: bool,
+    pub gizmos: bool,
+}
+
+impl Default for ViewportSettings {
+    fn default() -> Self {
+        Self {
+            grid: true,
+            slices: true,
+            sockets: true,
+            gizmos: true,
+        }
+    }
+}
 
 #[derive(Event)]
 pub struct SocketUpdateEvent {
@@ -54,4 +82,15 @@ pub struct MaterialUpdateEvent {
 pub struct ActorEditorEntity;
 
 #[derive(Component)]
+pub struct MainEditorCamera;
+
+#[derive(Component)]
+pub struct GizmoCamera;
+
+#[derive(Component)]
+pub struct GizmoEntity;
+
+#[derive(Component)]
 pub struct ActorEditorBackButton;
+
+pub const GIZMO_LAYER: bevy::render::view::RenderLayers = bevy::render::view::RenderLayers::layer(1);

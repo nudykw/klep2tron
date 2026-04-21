@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::input::ButtonState;
+use super::{ViewportSettings, ResetCameraEvent};
 
 #[derive(Component)]
 pub struct CollapsibleSection {
@@ -320,6 +321,57 @@ pub fn panel_toggle_system(
                 PanelResizer::Left => panel_settings.left_visible = !panel_settings.left_visible,
                 PanelResizer::Right => panel_settings.right_visible = !panel_settings.right_visible,
             }
+        }
+    }
+}
+
+#[derive(Component, Clone, Copy)]
+pub enum ViewportToggleType {
+    Grid,
+    Slices,
+    Sockets,
+    Gizmos,
+    Reset,
+}
+
+#[derive(Component)]
+pub struct ViewportToggleButton(pub ViewportToggleType);
+
+pub fn viewport_button_system(
+    mut interaction_query: Query<(&Interaction, &ViewportToggleButton), Changed<Interaction>>,
+    mut viewport_settings: ResMut<ViewportSettings>,
+    mut reset_events: EventWriter<ResetCameraEvent>,
+    mut all_buttons: Query<(&ViewportToggleButton, &mut BackgroundColor), Without<Interaction>>,
+) {
+    for (interaction, toggle) in interaction_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                match toggle.0 {
+                    ViewportToggleType::Grid => viewport_settings.grid = !viewport_settings.grid,
+                    ViewportToggleType::Slices => viewport_settings.slices = !viewport_settings.slices,
+                    ViewportToggleType::Sockets => viewport_settings.sockets = !viewport_settings.sockets,
+                    ViewportToggleType::Gizmos => viewport_settings.gizmos = !viewport_settings.gizmos,
+                    ViewportToggleType::Reset => { reset_events.send(ResetCameraEvent); }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Update visuals based on state
+    for (toggle, mut bg) in all_buttons.iter_mut() {
+        let active = match toggle.0 {
+            ViewportToggleType::Grid => viewport_settings.grid,
+            ViewportToggleType::Slices => viewport_settings.slices,
+            ViewportToggleType::Sockets => viewport_settings.sockets,
+            ViewportToggleType::Gizmos => viewport_settings.gizmos,
+            ViewportToggleType::Reset => false,
+        };
+
+        if active {
+            *bg = Color::srgba(0.3, 0.6, 1.0, 0.8).into();
+        } else {
+            *bg = Color::srgba(0.2, 0.2, 0.2, 0.9).into();
         }
     }
 }
