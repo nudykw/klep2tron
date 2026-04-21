@@ -1,3 +1,6 @@
+[build]
+no_sri = true
+
 [serve]
 port = 8082
 address = "127.0.0.1"
