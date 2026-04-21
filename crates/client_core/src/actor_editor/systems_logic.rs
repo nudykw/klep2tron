@@ -12,7 +12,37 @@ pub fn actor_editor_input_system(
     mut viewport_settings: ResMut<ViewportSettings>,
     mut reset_events: EventWriter<ResetCameraEvent>,
     mut modal_events: EventWriter<super::ConfirmationRequestEvent>,
+    mut import_events: EventWriter<ActorImportEvent>,
+    mut save_events: EventWriter<super::ActorSaveEvent>,
+    mut toast_events: EventWriter<ToastEvent>,
 ) {
+    let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight) 
+               || keyboard.pressed(KeyCode::SuperLeft) || keyboard.pressed(KeyCode::SuperRight);
+
+    // Global Hotkeys
+    if ctrl {
+        if keyboard.just_pressed(KeyCode::KeyI) {
+            if let Some(path) = FileDialog::new()
+                .add_filter("Models", &["gltf", "glb", "obj"])
+                .pick_file() {
+                import_events.send(ActorImportEvent(path));
+            }
+        }
+        if keyboard.just_pressed(KeyCode::KeyS) {
+            save_events.send(super::ActorSaveEvent);
+            toast_events.send(ToastEvent {
+                message: "Save feature coming soon!".to_string(),
+                toast_type: ToastType::Info,
+            });
+        }
+        if keyboard.just_pressed(KeyCode::KeyO) {
+            toast_events.send(ToastEvent {
+                message: "Open project feature coming soon!".to_string(),
+                toast_type: ToastType::Info,
+            });
+        }
+    }
+
     // Menu navigation
     let mut trigger_back = false;
     if keyboard.just_pressed(KeyCode::Escape) {
@@ -101,7 +131,7 @@ pub fn status_update_system(
 pub fn polycount_update_system(
     meshes: Res<Assets<Mesh>>,
     mesh_query: Query<&Handle<Mesh>>,
-    root_query: Query<Entity, With<super::ActorEditorEntity>>,
+    root_query: Query<Entity, (With<super::ActorEditorEntity>, Without<super::EditorHelper>)>,
     children_query: Query<&Children>,
     mut text_query: Query<&mut Text, With<super::widgets::PolycountText>>,
 ) {
@@ -352,29 +382,31 @@ pub fn actor_import_processing_system(
     mut status: ResMut<EditorStatus>,
     _meshes: Res<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut progress_fill: Query<&mut Style, With<super::widgets::ProgressBarFill>>,
-    mut progress_text: Query<&mut Text, With<super::widgets::ProgressBarText>>,
+    mut progress: ResMut<super::ImportProgress>,
+    time: Res<Time>,
     mut toast_events: EventWriter<ToastEvent>,
-    actor_entities: Query<Entity, (With<super::ActorEditorEntity>, Without<Camera>, Without<Node>)>,
+    actor_entities: Query<Entity, (With<super::ActorEditorEntity>, Without<Camera>, Without<Node>, Without<super::EditorHelper>)>,
 ) {
     if *status != EditorStatus::Loading { return; }
 
-    let mut progress = 0.0;
+    let mut target_progress = progress.0;
     let mut finished = false;
     let mut loaded_mesh: Option<Handle<Mesh>> = None;
 
     if let Some(ref handle) = pending.mesh_handle {
         match asset_server.get_load_state(handle) {
             Some(bevy::asset::LoadState::Loaded) => {
-                progress = 1.0;
+                target_progress = 0.7; // Transition to processing
                 finished = true;
                 loaded_mesh = Some(handle.clone());
             }
             Some(bevy::asset::LoadState::Loading) => {
-                progress = 0.5;
+                // Smoothly approach 0.7
+                target_progress = (progress.0 + time.delta_seconds() * 0.1).min(0.65);
             }
             Some(bevy::asset::LoadState::Failed(_)) => {
                 *status = EditorStatus::Ready;
+                progress.0 = 0.0;
                 pending.mesh_handle = None;
                 toast_events.send(ToastEvent {
                     message: "Failed to load OBJ model".to_string(),
@@ -387,14 +419,16 @@ pub fn actor_import_processing_system(
     } else if let Some(ref handle) = pending.handle {
         match asset_server.get_load_state(handle) {
             Some(bevy::asset::LoadState::Loaded) => {
-                progress = 1.0;
+                target_progress = 0.7;
                 finished = true;
             }
             Some(bevy::asset::LoadState::Loading) => {
-                progress = 0.7; 
+                // For GLTF we use a more detailed smooth progress
+                target_progress = (progress.0 + time.delta_seconds() * 0.05).min(0.68);
             }
             Some(bevy::asset::LoadState::Failed(_)) => {
                 *status = EditorStatus::Ready;
+                progress.0 = 0.0;
                 pending.handle = None;
                 toast_events.send(ToastEvent {
                     message: "Failed to load GLTF model".to_string(),
@@ -406,12 +440,7 @@ pub fn actor_import_processing_system(
         }
     }
 
-    if let Ok(mut style) = progress_fill.get_single_mut() {
-        style.width = Val::Percent(progress * 100.0);
-    }
-    if let Ok(mut text) = progress_text.get_single_mut() {
-        text.sections[0].value = format!("{:.0}%", progress * 100.0);
-    }
+    progress.0 = target_progress;
 
     if finished {
         for entity in actor_entities.iter() {
@@ -434,7 +463,7 @@ pub fn actor_import_processing_system(
             ));
 
             toast_events.send(ToastEvent {
-                message: "Model imported successfully".to_string(),
+                message: "Model file loaded".to_string(),
                 toast_type: ToastType::Success,
             });
         } else if pending.handle.is_some() {
@@ -446,29 +475,80 @@ pub fn actor_import_processing_system(
                 super::ActorEditorEntity,
                 super::AwaitingNormalization,
             ));
+            
+            toast_events.send(ToastEvent {
+                message: "Scene file loaded".to_string(),
+                toast_type: ToastType::Success,
+            });
         }
 
-        *status = EditorStatus::Ready;
+        *status = EditorStatus::Processing;
         pending.handle = None;
         pending.mesh_handle = None;
     }
 }
 
+pub fn progress_bar_update_system(
+    progress: Res<super::ImportProgress>,
+    mut progress_fill: Query<&mut Style, With<super::widgets::ProgressBarFill>>,
+    mut progress_text: Query<&mut Text, With<super::widgets::ProgressBarText>>,
+) {
+    if !progress.is_changed() { return; }
+    
+    if let Ok(mut style) = progress_fill.get_single_mut() {
+        style.width = Val::Percent(progress.0 * 100.0);
+    }
+    if let Ok(mut text) = progress_text.get_single_mut() {
+        text.sections[0].value = format!("{:.0}%", progress.0 * 100.0);
+    }
+}
+
 pub fn normalization_system(
     mut commands: Commands,
-    query: Query<(Entity, &GlobalTransform), With<super::AwaitingNormalization>>,
+    query: Query<Entity, With<super::AwaitingNormalization>>,
+    mut state_query: Query<(Entity, &mut super::NormalizationState)>,
     children_query: Query<&Children>,
     mesh_query: Query<(&Aabb, &GlobalTransform, &Handle<Mesh>)>,
+    mut progress: ResMut<super::ImportProgress>,
+    mut status: ResMut<super::EditorStatus>,
+    mut toast_events: EventWriter<ToastEvent>,
 ) {
-    for (root_entity, _root_transform) in query.iter() {
-        let mut min = Vec3::splat(f32::MAX);
-        let mut max = Vec3::splat(f32::MIN);
-        let mut found = false;
-        let mut found_meshes = Vec::new();
-
-        // Recursively find all AABBs in world space
+    // 1. Initial Discovery
+    for root_entity in query.iter() {
         let mut stack = vec![root_entity];
+        let mut entities_to_process = Vec::new();
+        
         while let Some(entity) = stack.pop() {
+            entities_to_process.push(entity);
+            if let Ok(children) = children_query.get(entity) {
+                for child in children.iter() {
+                    stack.push(*child);
+                }
+            }
+        }
+        
+        commands.entity(root_entity).remove::<super::AwaitingNormalization>();
+        commands.entity(root_entity).insert(super::NormalizationState {
+            entities_to_process,
+            processed_count: 0,
+            min: Vec3::splat(f32::MAX),
+            max: Vec3::splat(f32::MIN),
+            found_meshes: Vec::new(),
+        });
+        
+        progress.0 = 0.7;
+        *status = super::EditorStatus::Processing;
+    }
+
+    // 2. Incremental Processing
+    for (root_entity, mut state) in state_query.iter_mut() {
+        // Process a chunk of entities per frame (e.g., 50)
+        let chunk_size = 50;
+        let mut processed_this_frame = 0;
+        
+        while processed_this_frame < chunk_size && state.processed_count < state.entities_to_process.len() {
+            let entity = state.entities_to_process[state.processed_count];
+            
             if let Ok((aabb, transform, mesh_handle)) = mesh_query.get(entity) {
                 let matrix = transform.compute_matrix();
                 let world_aabb = Aabb {
@@ -479,42 +559,52 @@ pub fn normalization_system(
                 let aabb_min = Vec3::from(world_aabb.center - world_aabb.half_extents);
                 let aabb_max = Vec3::from(world_aabb.center + world_aabb.half_extents);
                 
-                min = min.min(aabb_min);
-                max = max.max(aabb_max);
-                found = true;
-                found_meshes.push((entity, mesh_handle.clone()));
+                state.min = state.min.min(aabb_min);
+                state.max = state.max.max(aabb_max);
+                state.found_meshes.push((entity, mesh_handle.clone()));
             }
             
-            if let Ok(children) = children_query.get(entity) {
-                for child in children.iter() {
-                    stack.push(*child);
-                }
-            }
+            state.processed_count += 1;
+            processed_this_frame += 1;
         }
 
-        if found {
-            let center = (min + max) / 2.0;
-            let size = max - min;
-            let max_dim = size.x.max(size.y).max(size.z);
-            
-            if max_dim > 0.0 {
-                let scale = 2.0 / max_dim;
-                let offset = -center;
-                let y_offset = size.y * 0.5;
+        // Update progress (0.7 -> 0.95)
+        let ratio = state.processed_count as f32 / state.entities_to_process.len() as f32;
+        progress.0 = 0.7 + ratio * 0.25;
+
+        // 3. Finalization
+        if state.processed_count >= state.entities_to_process.len() {
+            let found = !state.found_meshes.is_empty();
+            if found {
+                let center = (state.min + state.max) / 2.0;
+                let size = state.max - state.min;
+                let max_dim = size.x.max(size.y).max(size.z);
                 
-                commands.entity(root_entity).insert(Transform {
-                    translation: (offset + Vec3::Y * y_offset) * scale,
-                    scale: Vec3::splat(scale),
-                    rotation: Quat::IDENTITY,
-                });
-                
-                // Attach OriginalMeshComponent to each entity with a mesh
-                for (entity, handle) in found_meshes {
-                    commands.entity(entity).insert(super::OriginalMeshComponent(handle));
+                if max_dim > 0.0 {
+                    let scale = 2.0 / max_dim;
+                    let offset = -center;
+                    let y_offset = size.y * 0.5;
+                    
+                    commands.entity(root_entity).insert(Transform {
+                        translation: (offset + Vec3::Y * y_offset) * scale,
+                        scale: Vec3::splat(scale),
+                        rotation: Quat::IDENTITY,
+                    });
+                    
+                    for (entity, handle) in &state.found_meshes {
+                        commands.entity(*entity).insert(super::OriginalMeshComponent(handle.clone()));
+                    }
+                    
+                    toast_events.send(ToastEvent {
+                        message: "Actor ready for editing".to_string(),
+                        toast_type: ToastType::Success,
+                    });
                 }
-                
-                commands.entity(root_entity).remove::<super::AwaitingNormalization>();
             }
+            
+            commands.entity(root_entity).remove::<super::NormalizationState>();
+            progress.0 = 1.0;
+            *status = super::EditorStatus::Ready;
         }
     }
 }

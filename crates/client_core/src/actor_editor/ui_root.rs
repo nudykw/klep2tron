@@ -59,6 +59,7 @@ pub fn setup_actor_editor(
         },
         ActorEditorEntity,
         GizmoEntity,
+        super::EditorHelper,
         GIZMO_LAYER,
     ));
     // Y - Green
@@ -72,6 +73,7 @@ pub fn setup_actor_editor(
         },
         ActorEditorEntity,
         GizmoEntity,
+        super::EditorHelper,
         GIZMO_LAYER,
     ));
     // Z - Blue
@@ -84,6 +86,7 @@ pub fn setup_actor_editor(
         },
         ActorEditorEntity,
         GizmoEntity,
+        super::EditorHelper,
         GIZMO_LAYER,
     ));
 

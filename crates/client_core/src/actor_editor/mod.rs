@@ -22,6 +22,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<EditorStatus>()
            .init_resource::<EditorMaterialColor>()
            .init_resource::<PendingImport>()
+           .init_resource::<ImportProgress>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -55,6 +56,7 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::actor_import_button_system,
                 systems_logic::actor_import_event_system,
                 systems_logic::actor_import_processing_system,
+                systems_logic::progress_bar_update_system,
                 systems_logic::import_loading_overlay_system,
                 systems_logic::normalization_system,
            ).run_if(in_state(GameState::ActorEditor)))
@@ -167,6 +169,9 @@ pub struct GizmoCamera;
 pub struct GizmoEntity;
 
 #[derive(Component)]
+pub struct EditorHelper;
+
+#[derive(Component)]
 pub struct ActorEditorBackButton;
 
 #[derive(Component)]
@@ -180,5 +185,17 @@ pub struct PendingImport {
 
 #[derive(Component)]
 pub struct AwaitingNormalization;
+
+#[derive(Component)]
+pub struct NormalizationState {
+    pub entities_to_process: Vec<Entity>,
+    pub processed_count: usize,
+    pub min: Vec3,
+    pub max: Vec3,
+    pub found_meshes: Vec<(Entity, Handle<Mesh>)>,
+}
+
+#[derive(Resource, Default)]
+pub struct ImportProgress(pub f32);
 
 pub const GIZMO_LAYER: bevy::render::view::RenderLayers = bevy::render::view::RenderLayers::layer(1);
