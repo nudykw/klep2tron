@@ -510,7 +510,7 @@ pub fn spawn_status_bar(
         // Center: Key Hints
         p.spawn((
             TextBundle::from_section(
-                "TAB: Switch Mode | G: Toggle Grid | R: Reset View",
+                "TAB: Switch Mode | G: Grid | R: Reset | X: Red | Y: Green | Z: Blue",
                 TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) },
             ),
             KeyHintText,

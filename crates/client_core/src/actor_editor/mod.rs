@@ -57,7 +57,6 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::actor_import_event_system,
                 systems_logic::actor_import_processing_system,
                 systems_logic::progress_bar_update_system,
-                systems_logic::gizmo_label_billboard_system,
                 systems_logic::import_loading_overlay_system,
                 systems_logic::normalization_system,
            ).run_if(in_state(GameState::ActorEditor)))
@@ -171,9 +170,6 @@ pub struct GizmoEntity;
 
 #[derive(Component)]
 pub struct EditorHelper;
-
-#[derive(Component)]
-pub struct GizmoLabel;
 
 #[derive(Component)]
 pub struct ActorEditorBackButton;

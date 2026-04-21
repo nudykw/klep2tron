@@ -63,20 +63,6 @@ pub fn setup_actor_editor(
         GIZMO_LAYER,
     ));
 
-    let font_bold = asset_server.load("fonts/Roboto-Regular.ttf");
-
-    // Labels
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("X", TextStyle { font: font_bold.clone(), font_size: 48.0, color: Color::srgb(1.0, 0.4, 0.4) }),
-            transform: Transform::from_translation(Vec3::X * 0.6).with_scale(Vec3::splat(0.005)),
-            ..default()
-        },
-        ActorEditorEntity,
-        super::EditorHelper,
-        super::GizmoLabel,
-        GIZMO_LAYER,
-    ));
     // Y - Green
     commands.spawn((
         PbrBundle {
@@ -91,17 +77,6 @@ pub fn setup_actor_editor(
         super::EditorHelper,
         GIZMO_LAYER,
     ));
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("Y", TextStyle { font: font_bold.clone(), font_size: 48.0, color: Color::srgb(0.4, 1.0, 0.4) }),
-            transform: Transform::from_translation(Vec3::Y * 0.6).with_scale(Vec3::splat(0.005)),
-            ..default()
-        },
-        ActorEditorEntity,
-        super::EditorHelper,
-        super::GizmoLabel,
-        GIZMO_LAYER,
-    ));
     // Z - Blue
     commands.spawn((
         PbrBundle {
@@ -113,17 +88,6 @@ pub fn setup_actor_editor(
         ActorEditorEntity,
         GizmoEntity,
         super::EditorHelper,
-        GIZMO_LAYER,
-    ));
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("Z", TextStyle { font: font_bold.clone(), font_size: 48.0, color: Color::srgb(0.4, 0.4, 1.0) }),
-            transform: Transform::from_translation(Vec3::Z * 0.6).with_scale(Vec3::splat(0.005)),
-            ..default()
-        },
-        ActorEditorEntity,
-        super::EditorHelper,
-        super::GizmoLabel,
         GIZMO_LAYER,
     ));
 
