@@ -18,6 +18,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<widgets::PanelSettings>()
            .init_resource::<ViewportSettings>()
            .init_resource::<EditorStatus>()
+           .init_resource::<EditorMaterialColor>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -43,6 +44,8 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::polycount_update_system,
                 systems_logic::toast_manager_system,
                 systems_logic::modal_manager_system,
+                systems_logic::color_picker_system,
+                systems_logic::material_sync_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
     }
@@ -64,6 +67,23 @@ pub enum EditorStatus {
     Saving,
     Loading,
     Processing,
+}
+
+#[derive(Resource)]
+pub struct EditorMaterialColor {
+    pub color: Color,
+    pub hue: f32,
+    pub is_open: bool,
+}
+
+impl Default for EditorMaterialColor {
+    fn default() -> Self {
+        Self {
+            color: Color::srgb(0.7, 0.7, 0.7),
+            hue: 0.0,
+            is_open: false,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

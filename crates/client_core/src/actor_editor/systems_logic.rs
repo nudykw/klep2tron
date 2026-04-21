@@ -211,3 +211,67 @@ pub fn modal_manager_system(
         }
     }
 }
+
+pub fn color_picker_system(
+    mut color_res: ResMut<super::EditorMaterialColor>,
+    button_query: Query<&Interaction, (Changed<Interaction>, With<super::widgets::ColorPickerButton>)>,
+    hue_query: Query<(&Interaction, &Node, &GlobalTransform), With<super::widgets::ColorHueSlider>>,
+    preset_query: Query<(&Interaction, &super::widgets::ColorPreset)>,
+    mut container_query: Query<&mut Style, With<super::widgets::ColorPickerContainer>>,
+    mut preview_query: Query<&mut BackgroundColor, (With<super::widgets::ColorPickerButton>, Without<super::widgets::ColorPreset>)>,
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+) {
+    // Toggle
+    for interaction in button_query.iter() {
+        if *interaction == Interaction::Pressed {
+            color_res.is_open = !color_res.is_open;
+            if let Ok(mut style) = container_query.get_single_mut() {
+                style.display = if color_res.is_open { Display::Flex } else { Display::None };
+            }
+        }
+    }
+
+    // Hue Slider
+    let Ok(window) = window_query.get_single() else { return; };
+    if let Some(cursor) = window.cursor_position() {
+        for (interaction, node, transform) in hue_query.iter() {
+            if *interaction == Interaction::Pressed || *interaction == Interaction::Hovered {
+                if *interaction == Interaction::Pressed {
+                    let rect = node.size();
+                    let pos = transform.translation().truncate();
+                    let local_x = cursor.x - (pos.x - rect.x / 2.0);
+                    let hue = (local_x / rect.x).clamp(0.0, 1.0) * 360.0;
+                    color_res.hue = hue;
+                    color_res.color = Color::hsla(hue, 0.8, 0.5, 1.0);
+                }
+            }
+        }
+    }
+
+    // Presets
+    for (interaction, preset) in preset_query.iter() {
+        if *interaction == Interaction::Pressed {
+            color_res.color = preset.0;
+        }
+    }
+
+    // Update Preview
+    if color_res.is_changed() {
+        if let Ok(mut bg) = preview_query.get_single_mut() {
+            bg.0 = color_res.color;
+        }
+    }
+}
+
+pub fn material_sync_system(
+    color_res: Res<super::EditorMaterialColor>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mesh_query: Query<&Handle<StandardMaterial>, With<super::ActorEditorEntity>>,
+) {
+    if !color_res.is_changed() { return; }
+    for handle in mesh_query.iter() {
+        if let Some(mat) = materials.get_mut(handle) {
+            mat.base_color = color_res.color;
+        }
+    }
+}

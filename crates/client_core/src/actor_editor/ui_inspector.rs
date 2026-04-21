@@ -51,17 +51,11 @@ pub fn setup_inspector(
             true,
             (),
             |content| {
-                content.spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Px(40.0),
-                        margin: UiRect::bottom(Val::Px(10.0)),
-                        ..default()
-                    },
-                    background_color: Color::srgb(0.5, 0.2, 0.2).into(),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
-                    ..default()
-                });
+                content.spawn(TextBundle::from_section(
+                    "Color",
+                    TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
+                ));
+                super::widgets::spawn_color_picker(content, font, Color::srgb(0.7, 0.7, 0.7), false);
 
                 content.spawn(TextBundle::from_section(
                     "Metallic",
