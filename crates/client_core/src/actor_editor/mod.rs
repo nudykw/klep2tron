@@ -5,6 +5,7 @@ pub mod ui_root;
 pub mod ui_inspector;
 pub mod ui_project;
 pub mod systems_logic;
+pub mod navigation;
 pub mod widgets;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -13,7 +14,8 @@ pub struct ActorEditorPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ui_inspector::SocketFilter>()
+        app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
+           .init_resource::<ui_inspector::SocketFilter>()
            .init_resource::<ui_inspector::SelectedSocket>()
            .init_resource::<widgets::PanelSettings>()
            .init_resource::<ViewportSettings>()
@@ -25,7 +27,7 @@ impl Plugin for ActorEditorPlugin {
            .add_event::<ActorImportEvent>()
            .add_event::<ToastEvent>()
            .add_event::<ConfirmationRequestEvent>()
-           .add_systems(OnEnter(GameState::ActorEditor), ui_root::setup_actor_editor)
+           .add_systems(OnEnter(GameState::ActorEditor), (ui_root::setup_actor_editor, navigation::setup_navigation).chain())
            .add_systems(Update, (
                 systems_logic::actor_editor_input_system,
                 widgets::collapsible_system,
@@ -38,7 +40,8 @@ impl Plugin for ActorEditorPlugin {
                 ui_inspector::socket_filter_system,
                 ui_inspector::socket_transform_update_system,
                 systems_logic::gizmo_sync_system,
-                systems_logic::camera_reset_system,
+                navigation::camera_reset_handler,
+                navigation::grid_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
                 systems_logic::gizmo_viewport_system,

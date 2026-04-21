@@ -87,23 +87,67 @@ pub fn setup_actor_editor(
         GIZMO_LAYER,
     ));
 
-    // Light
+    // --- 3-POINT LIGHTING ---
+    // Key Light (Main light from front-top-right)
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
-                illuminance: 10000.0,
+                illuminance: 25000.0, // Increased
                 shadows_enabled: true,
                 ..default()
             },
-            transform: Transform::from_xyz(2.0, 5.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(4.0, 10.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         ActorEditorEntity,
     ));
 
+    // Fill Light (Softer light from the opposite side to soften shadows)
+    commands.spawn((
+        DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                illuminance: 12000.0, // Increased
+                shadows_enabled: false,
+                ..default()
+            },
+            transform: Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        ActorEditorEntity,
+    ));
+
+    // Back/Rim Light (Light from behind to create highlights on edges)
+    commands.spawn((
+        DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                illuminance: 15000.0, // Increased
+                shadows_enabled: false,
+                ..default()
+            },
+            transform: Transform::from_xyz(0.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        ActorEditorEntity,
+    ));
+
+    // Camera "Headlamp" (Point light attached to the main camera)
+    commands.entity(main_camera_entity).with_children(|parent| {
+        parent.spawn(PointLightBundle {
+            point_light: PointLight {
+                intensity: 80000.0, // Reduced from 500k
+                range: 15.0,
+                shadows_enabled: false,
+                ..default()
+            },
+            // Offset slightly to the top-right of camera to create subtle shadows
+            transform: Transform::from_xyz(0.8, 0.8, 0.0),
+            ..default()
+        });
+    });
+
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 300.0,
+        brightness: 400.0, // Reduced from 800
     });
 
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
@@ -196,6 +240,7 @@ pub fn setup_actor_editor(
                     flex_grow: 1.0,
                     ..default()
                 },
+                focus_policy: bevy::ui::FocusPolicy::Pass,
                 ..default()
             }).with_children(|p| {
                 p.spawn(NodeBundle {
@@ -206,12 +251,22 @@ pub fn setup_actor_editor(
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
+                    focus_policy: bevy::ui::FocusPolicy::Pass,
                     ..default()
                 }).with_children(|header| {
-                    header.spawn(TextBundle::from_section(
-                        "ACTOR EDITOR",
-                        TextStyle { font: font.clone(), font_size: 28.0, color: Color::WHITE },
-                    ));
+                    header.spawn(NodeBundle {
+                        style: Style {
+                            padding: UiRect::all(Val::Px(4.0)),
+                            ..default()
+                        },
+                        focus_policy: bevy::ui::FocusPolicy::Pass,
+                        ..default()
+                    }).with_children(|inner| {
+                        inner.spawn(TextBundle::from_section(
+                            "ACTOR EDITOR",
+                            TextStyle { font: font.clone(), font_size: 28.0, color: Color::WHITE },
+                        ));
+                    });
                 });
 
                 // --- TOP TOOLBAR ---
@@ -223,6 +278,7 @@ pub fn setup_actor_editor(
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
+                    focus_policy: bevy::ui::FocusPolicy::Pass,
                     ..default()
                 }).with_children(|toolbar| {
                     toolbar.spawn(NodeBundle {
@@ -234,6 +290,8 @@ pub fn setup_actor_editor(
                         },
                         background_color: Color::srgba(0.1, 0.1, 0.1, 0.8).into(),
                         border_radius: BorderRadius::all(Val::Px(8.0)),
+                        // This node has icons, but it's a container.
+                        focus_policy: bevy::ui::FocusPolicy::Pass,
                         ..default()
                     }).with_children(|btns| {
                         spawn_viewport_button(btns, ViewportToggleType::Grid, "\u{f00a}", "Toggle Grid (G)", &icon_font);

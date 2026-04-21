@@ -63,16 +63,6 @@ pub fn gizmo_sync_system(
     }
 }
 
-pub fn camera_reset_system(
-    mut reset_events: EventReader<ResetCameraEvent>,
-    mut camera_query: Query<&mut Transform, With<MainEditorCamera>>,
-) {
-    for _ in reset_events.read() {
-        if let Ok(mut transform) = camera_query.get_single_mut() {
-            *transform = Transform::from_xyz(0.0, 1.5, 4.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y);
-        }
-    }
-}
 
 pub fn gizmo_viewport_system(
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
