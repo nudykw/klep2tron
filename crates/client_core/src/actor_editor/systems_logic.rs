@@ -613,3 +613,14 @@ pub fn normalization_system(
         }
     }
 }
+
+pub fn gizmo_label_billboard_system(
+    gizmo_camera: Query<&Transform, (With<GizmoCamera>, Without<super::GizmoLabel>)>,
+    mut labels: Query<&mut Transform, With<super::GizmoLabel>>,
+) {
+    if let Ok(camera_transform) = gizmo_camera.get_single() {
+        for mut label_transform in labels.iter_mut() {
+            label_transform.rotation = camera_transform.rotation;
+        }
+    }
+}
