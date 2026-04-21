@@ -396,6 +396,9 @@ pub fn setup_actor_editor(
 
     // Spawn Toast Container
     super::widgets::spawn_toast_container(&mut commands, Some(main_camera_entity));
+
+    // Spawn Loading Overlay
+    super::widgets::spawn_loading_overlay(&mut commands, &font, Some(main_camera_entity));
 }
 
 pub fn cleanup_actor_editor(

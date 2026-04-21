@@ -1,3 +1,7 @@
+use rfd::FileDialog;
+use bevy::render::primitives::Aabb;
+use super::ui_project::ProjectAction;
+use super::{ActorImportEvent, PendingImport, OriginalMeshComponent, EditorStatus, ToastEvent, ToastType};
 use bevy::prelude::*;
 use crate::GameState;
 use super::{ActorEditorBackButton, ViewportSettings, ResetCameraEvent, MainEditorCamera, GizmoCamera};
@@ -106,18 +110,28 @@ pub fn status_update_system(
 
 pub fn polycount_update_system(
     meshes: Res<Assets<Mesh>>,
-    mesh_query: Query<&Handle<Mesh>, With<super::ActorEditorEntity>>,
+    mesh_query: Query<&Handle<Mesh>>,
+    root_query: Query<Entity, With<super::ActorEditorEntity>>,
+    children_query: Query<&Children>,
     mut text_query: Query<&mut Text, With<super::widgets::PolycountText>>,
 ) {
     let mut total_polys = 0;
-    for handle in mesh_query.iter() {
-        if let Some(mesh) = meshes.get(handle) {
-            if let Some(indices) = mesh.indices() {
-                total_polys += indices.len() / 3;
-            } else {
-                // If no indices, assume it's a triangle list and use vertex count
-                if let Some(pos) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
-                    total_polys += pos.len() / 3;
+    
+    for root_entity in root_query.iter() {
+        let mut stack = vec![root_entity];
+        while let Some(entity) = stack.pop() {
+            if let Ok(handle) = mesh_query.get(entity) {
+                if let Some(mesh) = meshes.get(handle) {
+                    if let Some(indices) = mesh.indices() {
+                        total_polys += indices.len() / 3;
+                    } else if let Some(pos) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+                        total_polys += pos.len() / 3;
+                    }
+                }
+            }
+            if let Ok(children) = children_query.get(entity) {
+                for child in children.iter() {
+                    stack.push(*child);
                 }
             }
         }
@@ -272,6 +286,245 @@ pub fn material_sync_system(
     for handle in mesh_query.iter() {
         if let Some(mat) = materials.get_mut(handle) {
             mat.base_color = color_res.color;
+        }
+    }
+}
+
+pub fn actor_import_button_system(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<ProjectAction>)>,
+    mut import_events: EventWriter<ActorImportEvent>,
+) {
+    for interaction in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            if let Some(path) = FileDialog::new()
+                .add_filter("Models", &["gltf", "glb", "obj"])
+                .pick_file() {
+                import_events.send(ActorImportEvent(path));
+            }
+        }
+    }
+}
+
+pub fn actor_import_event_system(
+    mut events: EventReader<ActorImportEvent>,
+    asset_server: Res<AssetServer>,
+    mut status: ResMut<EditorStatus>,
+    mut pending: ResMut<PendingImport>,
+    mut toast_events: EventWriter<ToastEvent>,
+) {
+    for event in events.read() {
+        let path = &event.0;
+        let current_dir = std::env::current_dir().unwrap_or_default();
+        let assets_dir = current_dir.join("assets");
+        
+        let relative_path = if let Ok(rel) = path.strip_prefix(&assets_dir) {
+            rel.to_string_lossy().to_string()
+        } else {
+            toast_events.send(ToastEvent {
+                message: "Please select a file inside the project assets folder".to_string(),
+                toast_type: ToastType::Error,
+            });
+            continue;
+        };
+
+        *status = EditorStatus::Loading;
+        
+        if relative_path.ends_with(".obj") {
+            pending.mesh_handle = Some(asset_server.load(relative_path));
+            pending.handle = None;
+        } else {
+            // For GLTF/GLB we need to specify a label to load it as a Scene
+            let scene_path = format!("{}#Scene0", relative_path);
+            pending.handle = Some(asset_server.load(scene_path));
+            pending.mesh_handle = None;
+        }
+    }
+}
+
+pub fn import_loading_overlay_system(
+    status: Res<EditorStatus>,
+    mut query: Query<&mut Style, With<super::widgets::LoadingOverlay>>,
+) {
+    if !status.is_changed() { return; }
+    if let Ok(mut style) = query.get_single_mut() {
+        style.display = if *status == EditorStatus::Loading {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
+}
+
+pub fn actor_import_processing_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut pending: ResMut<PendingImport>,
+    mut status: ResMut<EditorStatus>,
+    _meshes: Res<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut progress_fill: Query<&mut Style, With<super::widgets::ProgressBarFill>>,
+    mut progress_text: Query<&mut Text, With<super::widgets::ProgressBarText>>,
+    mut toast_events: EventWriter<ToastEvent>,
+    actor_entities: Query<Entity, (With<super::ActorEditorEntity>, Without<Camera>, Without<Node>)>,
+) {
+    if *status != EditorStatus::Loading { return; }
+
+    let mut progress = 0.0;
+    let mut finished = false;
+    let mut loaded_mesh: Option<Handle<Mesh>> = None;
+
+    if let Some(ref handle) = pending.mesh_handle {
+        match asset_server.get_load_state(handle) {
+            Some(bevy::asset::LoadState::Loaded) => {
+                progress = 1.0;
+                finished = true;
+                loaded_mesh = Some(handle.clone());
+            }
+            Some(bevy::asset::LoadState::Loading) => {
+                progress = 0.5;
+            }
+            Some(bevy::asset::LoadState::Failed(_)) => {
+                *status = EditorStatus::Ready;
+                pending.mesh_handle = None;
+                toast_events.send(ToastEvent {
+                    message: "Failed to load OBJ model".to_string(),
+                    toast_type: ToastType::Error,
+                });
+                return;
+            }
+            _ => {}
+        }
+    } else if let Some(ref handle) = pending.handle {
+        match asset_server.get_load_state(handle) {
+            Some(bevy::asset::LoadState::Loaded) => {
+                progress = 1.0;
+                finished = true;
+            }
+            Some(bevy::asset::LoadState::Loading) => {
+                progress = 0.7; 
+            }
+            Some(bevy::asset::LoadState::Failed(_)) => {
+                *status = EditorStatus::Ready;
+                pending.handle = None;
+                toast_events.send(ToastEvent {
+                    message: "Failed to load GLTF model".to_string(),
+                    toast_type: ToastType::Error,
+                });
+                return;
+            }
+            _ => {}
+        }
+    }
+
+    if let Ok(mut style) = progress_fill.get_single_mut() {
+        style.width = Val::Percent(progress * 100.0);
+    }
+    if let Ok(mut text) = progress_text.get_single_mut() {
+        text.sections[0].value = format!("{:.0}%", progress * 100.0);
+    }
+
+    if finished {
+        for entity in actor_entities.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        if let Some(mesh_handle) = loaded_mesh {
+            commands.spawn((
+                PbrBundle {
+                    mesh: mesh_handle.clone(),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::WHITE,
+                        ..default()
+                    }),
+                    ..default()
+                },
+                super::ActorEditorEntity,
+                super::AwaitingNormalization,
+                OriginalMeshComponent(mesh_handle),
+            ));
+
+            toast_events.send(ToastEvent {
+                message: "Model imported successfully".to_string(),
+                toast_type: ToastType::Success,
+            });
+        } else if pending.handle.is_some() {
+             commands.spawn((
+                SceneBundle {
+                    scene: pending.handle.clone().unwrap(),
+                    ..default()
+                },
+                super::ActorEditorEntity,
+                super::AwaitingNormalization,
+            ));
+        }
+
+        *status = EditorStatus::Ready;
+        pending.handle = None;
+        pending.mesh_handle = None;
+    }
+}
+
+pub fn normalization_system(
+    mut commands: Commands,
+    query: Query<(Entity, &GlobalTransform), With<super::AwaitingNormalization>>,
+    children_query: Query<&Children>,
+    mesh_query: Query<(&Aabb, &GlobalTransform, &Handle<Mesh>)>,
+) {
+    for (root_entity, _root_transform) in query.iter() {
+        let mut min = Vec3::splat(f32::MAX);
+        let mut max = Vec3::splat(f32::MIN);
+        let mut found = false;
+        let mut found_meshes = Vec::new();
+
+        // Recursively find all AABBs in world space
+        let mut stack = vec![root_entity];
+        while let Some(entity) = stack.pop() {
+            if let Ok((aabb, transform, mesh_handle)) = mesh_query.get(entity) {
+                let matrix = transform.compute_matrix();
+                let world_aabb = Aabb {
+                    center: matrix.transform_point3a(aabb.center),
+                    half_extents: matrix.transform_vector3a(aabb.half_extents).abs(),
+                };
+                
+                let aabb_min = Vec3::from(world_aabb.center - world_aabb.half_extents);
+                let aabb_max = Vec3::from(world_aabb.center + world_aabb.half_extents);
+                
+                min = min.min(aabb_min);
+                max = max.max(aabb_max);
+                found = true;
+                found_meshes.push((entity, mesh_handle.clone()));
+            }
+            
+            if let Ok(children) = children_query.get(entity) {
+                for child in children.iter() {
+                    stack.push(*child);
+                }
+            }
+        }
+
+        if found {
+            let center = (min + max) / 2.0;
+            let size = max - min;
+            let max_dim = size.x.max(size.y).max(size.z);
+            
+            if max_dim > 0.0 {
+                let scale = 2.0 / max_dim;
+                let offset = -center;
+                let y_offset = size.y * 0.5;
+                
+                commands.entity(root_entity).insert(Transform {
+                    translation: (offset + Vec3::Y * y_offset) * scale,
+                    scale: Vec3::splat(scale),
+                    rotation: Quat::IDENTITY,
+                });
+                
+                // Attach OriginalMeshComponent to each entity with a mesh
+                for (entity, handle) in found_meshes {
+                    commands.entity(entity).insert(super::OriginalMeshComponent(handle));
+                }
+                
+                commands.entity(root_entity).remove::<super::AwaitingNormalization>();
+            }
         }
     }
 }

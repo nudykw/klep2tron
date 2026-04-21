@@ -845,3 +845,103 @@ pub fn spawn_color_picker(
         });
     });
 }
+
+#[derive(Component)]
+pub struct ProgressBarFill;
+
+#[derive(Component)]
+pub struct LoadingOverlay;
+
+#[derive(Component)]
+pub struct ProgressBarText;
+
+pub fn spawn_progress_bar(
+    parent: &mut ChildBuilder,
+    font: &Handle<Font>,
+) {
+    parent.spawn(NodeBundle {
+        style: Style {
+            width: Val::Px(300.0),
+            height: Val::Px(40.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        ..default()
+    }).with_children(|p| {
+        // Background
+        p.spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Px(8.0),
+                ..default()
+            },
+            background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
+            border_radius: BorderRadius::all(Val::Px(4.0)),
+            ..default()
+        }).with_children(|bg| {
+            // Fill
+            bg.spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Percent(0.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                    background_color: Color::srgb(0.3, 0.6, 1.0).into(),
+                    border_radius: BorderRadius::all(Val::Px(4.0)),
+                    ..default()
+                },
+                ProgressBarFill,
+            ));
+        });
+
+        // Text
+        p.spawn((
+            TextBundle::from_section(
+                "0%",
+                TextStyle { font: font.clone(), font_size: 14.0, color: Color::srgb(0.7, 0.7, 0.7) },
+            ).with_style(Style { margin: UiRect::top(Val::Px(8.0)), align_self: AlignSelf::Center, ..default() }),
+            ProgressBarText,
+        ));
+    });
+}
+
+pub fn spawn_loading_overlay(
+    commands: &mut Commands,
+    font: &Handle<Font>,
+    target_camera: Option<Entity>,
+) {
+    let mut cmd = commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                display: Display::None,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.85).into(),
+            z_index: ZIndex::Global(300),
+            ..default()
+        },
+        LoadingOverlay,
+        super::ActorEditorEntity,
+    ));
+
+    if let Some(camera) = target_camera {
+        cmd.insert(bevy::ui::TargetCamera(camera));
+    }
+
+    cmd.with_children(|p| {
+        p.spawn(TextBundle::from_section(
+            "IMPORTING MODEL",
+            TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
+        ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));
+
+        spawn_progress_bar(p, font);
+    });
+}

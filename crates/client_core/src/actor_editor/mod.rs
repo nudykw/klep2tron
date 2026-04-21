@@ -19,6 +19,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<ViewportSettings>()
            .init_resource::<EditorStatus>()
            .init_resource::<EditorMaterialColor>()
+           .init_resource::<PendingImport>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -38,6 +39,8 @@ impl Plugin for ActorEditorPlugin {
                 ui_inspector::socket_transform_update_system,
                 systems_logic::gizmo_sync_system,
                 systems_logic::camera_reset_system,
+           ).run_if(in_state(GameState::ActorEditor)))
+           .add_systems(Update, (
                 systems_logic::gizmo_viewport_system,
                 widgets::viewport_button_system,
                 systems_logic::status_update_system,
@@ -46,6 +49,11 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::modal_manager_system,
                 systems_logic::color_picker_system,
                 systems_logic::material_sync_system,
+                systems_logic::actor_import_button_system,
+                systems_logic::actor_import_event_system,
+                systems_logic::actor_import_processing_system,
+                systems_logic::import_loading_overlay_system,
+                systems_logic::normalization_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
     }
@@ -55,7 +63,7 @@ impl Plugin for ActorEditorPlugin {
 #[derive(Event)]
 pub struct ActorSaveEvent;
 #[derive(Event)]
-pub struct ActorImportEvent;
+pub struct ActorImportEvent(pub std::path::PathBuf);
 
 #[derive(Event)]
 pub struct ResetCameraEvent;
@@ -157,5 +165,17 @@ pub struct GizmoEntity;
 
 #[derive(Component)]
 pub struct ActorEditorBackButton;
+
+#[derive(Component)]
+pub struct OriginalMeshComponent(pub Handle<Mesh>);
+
+#[derive(Resource, Default)]
+pub struct PendingImport {
+    pub handle: Option<Handle<Scene>>,
+    pub mesh_handle: Option<Handle<Mesh>>,
+}
+
+#[derive(Component)]
+pub struct AwaitingNormalization;
 
 pub const GIZMO_LAYER: bevy::render::view::RenderLayers = bevy::render::view::RenderLayers::layer(1);
