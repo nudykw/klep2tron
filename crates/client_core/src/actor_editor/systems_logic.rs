@@ -1,7 +1,7 @@
 use rfd::FileDialog;
 use bevy::render::primitives::Aabb;
 use super::ui_project::ProjectAction;
-use super::{ActorImportEvent, PendingImport, OriginalMeshComponent, EditorStatus, ToastEvent, ToastType};
+use super::{ActorImportEvent, PendingImport, OriginalMeshComponent, EditorStatus, ToastEvent, ToastType, ActorBounds, SlicingGizmoType};
 use bevy::prelude::*;
 use crate::GameState;
 use super::{ActorEditorBackButton, ViewportSettings, ResetCameraEvent, MainEditorCamera, GizmoCamera, SlicingSettings, ActorPart};
@@ -15,6 +15,7 @@ pub fn actor_editor_input_system(
     mut import_events: EventWriter<ActorImportEvent>,
     mut save_events: EventWriter<super::ActorSaveEvent>,
     mut toast_events: EventWriter<ToastEvent>,
+    mut slicing_settings: ResMut<SlicingSettings>,
 ) {
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight) 
                || keyboard.pressed(KeyCode::SuperLeft) || keyboard.pressed(KeyCode::SuperRight);
@@ -30,17 +31,15 @@ pub fn actor_editor_input_system(
         }
         if keyboard.just_pressed(KeyCode::KeyS) {
             save_events.send(super::ActorSaveEvent);
-            toast_events.send(ToastEvent {
-                message: "Save feature coming soon!".to_string(),
-                toast_type: ToastType::Info,
-            });
         }
-        if keyboard.just_pressed(KeyCode::KeyO) {
-            toast_events.send(ToastEvent {
-                message: "Open project feature coming soon!".to_string(),
-                toast_type: ToastType::Info,
-            });
-        }
+    }
+
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        slicing_settings.locked = !slicing_settings.locked;
+        toast_events.send(ToastEvent {
+            message: if slicing_settings.locked { "Slicer Locked" } else { "Slicer Unlocked" }.to_string(),
+            toast_type: ToastType::Info,
+        });
     }
 
     // Menu navigation
@@ -64,21 +63,11 @@ pub fn actor_editor_input_system(
     }
 
     // Viewport Hotkeys
-    if keyboard.just_pressed(KeyCode::KeyG) {
-        viewport_settings.grid = !viewport_settings.grid;
-    }
-    if keyboard.just_pressed(KeyCode::KeyS) {
-        viewport_settings.slices = !viewport_settings.slices;
-    }
-    if keyboard.just_pressed(KeyCode::KeyK) {
-        viewport_settings.sockets = !viewport_settings.sockets;
-    }
-    if keyboard.just_pressed(KeyCode::KeyZ) {
-        viewport_settings.gizmos = !viewport_settings.gizmos;
-    }
-    if keyboard.just_pressed(KeyCode::KeyR) {
-        reset_events.send(ResetCameraEvent);
-    }
+    if keyboard.just_pressed(KeyCode::KeyG) { viewport_settings.grid = !viewport_settings.grid; }
+    if keyboard.just_pressed(KeyCode::KeyS) { viewport_settings.slices = !viewport_settings.slices; }
+    if keyboard.just_pressed(KeyCode::KeyK) { viewport_settings.sockets = !viewport_settings.sockets; }
+    if keyboard.just_pressed(KeyCode::KeyZ) { viewport_settings.gizmos = !viewport_settings.gizmos; }
+    if keyboard.just_pressed(KeyCode::KeyR) { reset_events.send(ResetCameraEvent); }
 }
 
 pub fn gizmo_sync_system(
@@ -87,11 +76,8 @@ pub fn gizmo_sync_system(
 ) {
     if let Ok(main_transform) = main_camera.get_single() {
         if let Ok(mut gizmo_transform) = gizmo_camera.get_single_mut() {
-            // Position gizmo camera on a sphere around origin to match main camera's relative angle
-            let distance = 3.0; // Fixed distance for the gizmo UI
+            let distance = 3.0;
             let rotation = main_transform.rotation;
-            
-            // The gizmo camera should look at origin (0,0,0) from the same direction as main camera
             gizmo_transform.translation = rotation * (Vec3::Z * distance);
             gizmo_transform.look_at(Vec3::ZERO, Vec3::Y);
         }
@@ -181,7 +167,6 @@ pub fn toast_manager_system(
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
 
-    // Spawn new toasts
     if let Ok(container) = container_query.get_single() {
         for event in toast_events.read() {
             commands.entity(container).with_children(|p| {
@@ -190,17 +175,13 @@ pub fn toast_manager_system(
         }
     }
 
-    // Update timers and despawn
     for (entity, mut timer, mut bg) in timer_query.iter_mut() {
         timer.0.tick(time.delta());
-        
-        // Simple fade out in last 0.5s
         let rem = timer.0.remaining_secs();
         if rem < 0.5 {
             let alpha = (rem / 0.5).clamp(0.0, 1.0);
             bg.0.set_alpha(alpha * 0.95);
         }
-
         if timer.0.finished() {
             commands.entity(entity).despawn_recursive();
         }
@@ -221,32 +202,20 @@ pub fn modal_manager_system(
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
     let target_camera = camera_query.get_single().ok();
 
-    // Spawn modal
     for event in modal_events.read() {
         super::widgets::spawn_confirmation_modal(&mut commands, &font, &icon_font, &event.title, &event.message, event.action, target_camera);
     }
 
-    // Handle Cancel
     for interaction in cancel_query.iter() {
         if *interaction == Interaction::Pressed {
-            for entity in overlay_query.iter() {
-                commands.entity(entity).despawn_recursive();
-            }
+            for entity in overlay_query.iter() { commands.entity(entity).despawn_recursive(); }
         }
     }
 
-    // Handle Confirm
     for (interaction, confirm) in confirm_query.iter() {
         if *interaction == Interaction::Pressed {
-            match confirm.0 {
-                super::EditorAction::BackToMenu => {
-                    next_state.set(GameState::Menu);
-                }
-            }
-            // Close modal
-            for entity in overlay_query.iter() {
-                commands.entity(entity).despawn_recursive();
-            }
+            match confirm.0 { super::EditorAction::BackToMenu => { next_state.set(GameState::Menu); } }
+            for entity in overlay_query.iter() { commands.entity(entity).despawn_recursive(); }
         }
     }
 }
@@ -260,7 +229,6 @@ pub fn color_picker_system(
     mut preview_query: Query<&mut BackgroundColor, (With<super::widgets::ColorPickerButton>, Without<super::widgets::ColorPreset>)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
-    // Toggle
     for interaction in button_query.iter() {
         if *interaction == Interaction::Pressed {
             color_res.is_open = !color_res.is_open;
@@ -270,7 +238,6 @@ pub fn color_picker_system(
         }
     }
 
-    // Hue Slider
     let Ok(window) = window_query.get_single() else { return; };
     if let Some(cursor) = window.cursor_position() {
         for (interaction, node, transform) in hue_query.iter() {
@@ -287,18 +254,12 @@ pub fn color_picker_system(
         }
     }
 
-    // Presets
     for (interaction, preset) in preset_query.iter() {
-        if *interaction == Interaction::Pressed {
-            color_res.color = preset.0;
-        }
+        if *interaction == Interaction::Pressed { color_res.color = preset.0; }
     }
 
-    // Update Preview
     if color_res.is_changed() {
-        if let Ok(mut bg) = preview_query.get_single_mut() {
-            bg.0 = color_res.color;
-        }
+        if let Ok(mut bg) = preview_query.get_single_mut() { bg.0 = color_res.color; }
     }
 }
 
@@ -309,9 +270,7 @@ pub fn material_sync_system(
 ) {
     if !color_res.is_changed() { return; }
     for handle in mesh_query.iter() {
-        if let Some(mat) = materials.get_mut(handle) {
-            mat.base_color = color_res.color;
-        }
+        if let Some(mat) = materials.get_mut(handle) { mat.base_color = color_res.color; }
     }
 }
 
@@ -358,7 +317,6 @@ pub fn actor_import_event_system(
             pending.mesh_handle = Some(asset_server.load(relative_path));
             pending.handle = None;
         } else {
-            // For GLTF/GLB we need to specify a label to load it as a Scene
             let scene_path = format!("{}#Scene0", relative_path);
             pending.handle = Some(asset_server.load(scene_path));
             pending.mesh_handle = None;
@@ -372,11 +330,7 @@ pub fn import_loading_overlay_system(
 ) {
     if !status.is_changed() { return; }
     if let Ok(mut style) = query.get_single_mut() {
-        style.display = if *status == EditorStatus::Loading {
-            Display::Flex
-        } else {
-            Display::None
-        };
+        style.display = if *status == EditorStatus::Loading { Display::Flex } else { Display::None };
     }
 }
 
@@ -401,44 +355,25 @@ pub fn actor_import_processing_system(
     if let Some(ref handle) = pending.mesh_handle {
         match asset_server.get_load_state(handle) {
             Some(bevy::asset::LoadState::Loaded) => {
-                target_progress = 0.7; // Transition to processing
+                target_progress = 0.7;
                 finished = true;
                 loaded_mesh = Some(handle.clone());
             }
-            Some(bevy::asset::LoadState::Loading) => {
-                // Smoothly approach 0.7
-                target_progress = (progress.0 + time.delta_seconds() * 0.1).min(0.65);
-            }
+            Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_seconds() * 0.1).min(0.65); }
             Some(bevy::asset::LoadState::Failed(_)) => {
-                *status = EditorStatus::Ready;
-                progress.0 = 0.0;
-                pending.mesh_handle = None;
-                toast_events.send(ToastEvent {
-                    message: "Failed to load OBJ model".to_string(),
-                    toast_type: ToastType::Error,
-                });
+                *status = EditorStatus::Ready; progress.0 = 0.0; pending.mesh_handle = None;
+                toast_events.send(ToastEvent { message: "Failed to load OBJ model".to_string(), toast_type: ToastType::Error });
                 return;
             }
             _ => {}
         }
     } else if let Some(ref handle) = pending.handle {
         match asset_server.get_load_state(handle) {
-            Some(bevy::asset::LoadState::Loaded) => {
-                target_progress = 0.7;
-                finished = true;
-            }
-            Some(bevy::asset::LoadState::Loading) => {
-                // For GLTF we use a more detailed smooth progress
-                target_progress = (progress.0 + time.delta_seconds() * 0.05).min(0.68);
-            }
+            Some(bevy::asset::LoadState::Loaded) => { target_progress = 0.7; finished = true; }
+            Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_seconds() * 0.05).min(0.68); }
             Some(bevy::asset::LoadState::Failed(_)) => {
-                *status = EditorStatus::Ready;
-                progress.0 = 0.0;
-                pending.handle = None;
-                toast_events.send(ToastEvent {
-                    message: "Failed to load GLTF model".to_string(),
-                    toast_type: ToastType::Error,
-                });
+                *status = EditorStatus::Ready; progress.0 = 0.0; pending.handle = None;
+                toast_events.send(ToastEvent { message: "Failed to load GLTF model".to_string(), toast_type: ToastType::Error });
                 return;
             }
             _ => {}
@@ -448,45 +383,16 @@ pub fn actor_import_processing_system(
     progress.0 = target_progress;
 
     if finished {
-        for entity in actor_entities.iter() {
-            commands.entity(entity).despawn_recursive();
-        }
+        for entity in actor_entities.iter() { commands.entity(entity).despawn_recursive(); }
 
         if let Some(mesh_handle) = loaded_mesh {
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh_handle.clone(),
-                    material: materials.add(StandardMaterial {
-                        base_color: Color::WHITE,
-                        ..default()
-                    }),
-                    ..default()
-                },
-                super::ActorEditorEntity,
-                super::AwaitingNormalization,
-                OriginalMeshComponent(mesh_handle),
+                PbrBundle { mesh: mesh_handle.clone(), material: materials.add(StandardMaterial { base_color: Color::WHITE, ..default() }), ..default() },
+                super::ActorEditorEntity, super::AwaitingNormalization, OriginalMeshComponent(mesh_handle),
             ));
-
-            toast_events.send(ToastEvent {
-                message: "Model file loaded".to_string(),
-                toast_type: ToastType::Success,
-            });
         } else if pending.handle.is_some() {
-             commands.spawn((
-                SceneBundle {
-                    scene: pending.handle.clone().unwrap(),
-                    ..default()
-                },
-                super::ActorEditorEntity,
-                super::AwaitingNormalization,
-            ));
-            
-            toast_events.send(ToastEvent {
-                message: "Scene file loaded".to_string(),
-                toast_type: ToastType::Success,
-            });
+             commands.spawn(( SceneBundle { scene: pending.handle.clone().unwrap(), ..default() }, super::ActorEditorEntity, super::AwaitingNormalization, ));
         }
-
         *status = EditorStatus::Processing;
         pending.handle = None;
         pending.mesh_handle = None;
@@ -499,13 +405,8 @@ pub fn progress_bar_update_system(
     mut progress_text: Query<&mut Text, With<super::widgets::ProgressBarText>>,
 ) {
     if !progress.is_changed() { return; }
-    
-    if let Ok(mut style) = progress_fill.get_single_mut() {
-        style.width = Val::Percent(progress.0 * 100.0);
-    }
-    if let Ok(mut text) = progress_text.get_single_mut() {
-        text.sections[0].value = format!("{:.0}%", progress.0 * 100.0);
-    }
+    if let Ok(mut style) = progress_fill.get_single_mut() { style.width = Val::Percent(progress.0 * 100.0); }
+    if let Ok(mut text) = progress_text.get_single_mut() { text.sections[0].value = format!("{:.0}%", progress.0 * 100.0); }
 }
 
 pub fn normalization_system(
@@ -516,100 +417,53 @@ pub fn normalization_system(
     mesh_query: Query<(&Aabb, &GlobalTransform, &Handle<Mesh>)>,
     mut progress: ResMut<super::ImportProgress>,
     mut status: ResMut<super::EditorStatus>,
-    mut toast_events: EventWriter<ToastEvent>,
+    _toast_events: EventWriter<ToastEvent>,
 ) {
-    // 1. Initial Discovery
     for root_entity in query.iter() {
         let mut stack = vec![root_entity];
         let mut entities_to_process = Vec::new();
-        
         while let Some(entity) = stack.pop() {
             entities_to_process.push(entity);
-            if let Ok(children) = children_query.get(entity) {
-                for child in children.iter() {
-                    stack.push(*child);
-                }
-            }
+            if let Ok(children) = children_query.get(entity) { for child in children.iter() { stack.push(*child); } }
         }
-        
         commands.entity(root_entity).remove::<super::AwaitingNormalization>();
-        commands.entity(root_entity).insert(super::NormalizationState {
-            entities_to_process,
-            processed_count: 0,
-            min: Vec3::splat(f32::MAX),
-            max: Vec3::splat(f32::MIN),
-            found_meshes: Vec::new(),
-        });
-        
-        progress.0 = 0.7;
-        *status = super::EditorStatus::Processing;
+        commands.entity(root_entity).insert(super::NormalizationState { entities_to_process, processed_count: 0, min: Vec3::splat(f32::MAX), max: Vec3::splat(f32::MIN), found_meshes: Vec::new(), });
+        progress.0 = 0.7; *status = super::EditorStatus::Processing;
     }
 
-    // 2. Incremental Processing
     for (root_entity, mut state) in state_query.iter_mut() {
-        // Process a chunk of entities per frame (e.g., 50)
         let chunk_size = 50;
         let mut processed_this_frame = 0;
-        
         while processed_this_frame < chunk_size && state.processed_count < state.entities_to_process.len() {
             let entity = state.entities_to_process[state.processed_count];
-            
             if let Ok((aabb, transform, mesh_handle)) = mesh_query.get(entity) {
                 let matrix = transform.compute_matrix();
-                let world_aabb = Aabb {
-                    center: matrix.transform_point3a(aabb.center),
-                    half_extents: matrix.transform_vector3a(aabb.half_extents).abs(),
-                };
-                
+                let world_aabb = Aabb { center: matrix.transform_point3a(aabb.center), half_extents: matrix.transform_vector3a(aabb.half_extents).abs(), };
                 let aabb_min = Vec3::from(world_aabb.center - world_aabb.half_extents);
                 let aabb_max = Vec3::from(world_aabb.center + world_aabb.half_extents);
-                
-                state.min = state.min.min(aabb_min);
-                state.max = state.max.max(aabb_max);
+                state.min = state.min.min(aabb_min); state.max = state.max.max(aabb_max);
                 state.found_meshes.push((entity, mesh_handle.clone()));
             }
-            
-            state.processed_count += 1;
-            processed_this_frame += 1;
+            state.processed_count += 1; processed_this_frame += 1;
         }
-
-        // Update progress (0.7 -> 0.95)
         let ratio = state.processed_count as f32 / state.entities_to_process.len() as f32;
         progress.0 = 0.7 + ratio * 0.25;
-
-        // 3. Finalization
         if state.processed_count >= state.entities_to_process.len() {
-            let found = !state.found_meshes.is_empty();
-            if found {
+            if !state.found_meshes.is_empty() {
                 let center = (state.min + state.max) / 2.0;
                 let size = state.max - state.min;
                 let max_dim = size.x.max(size.y).max(size.z);
-                
                 if max_dim > 0.0 {
                     let scale = 2.0 / max_dim;
                     let offset = -center;
                     let y_offset = size.y * 0.5;
-                    
-                    commands.entity(root_entity).insert(Transform {
-                        translation: (offset + Vec3::Y * y_offset) * scale,
-                        scale: Vec3::splat(scale),
-                        rotation: Quat::IDENTITY,
-                    });
-                    
-                    for (entity, handle) in &state.found_meshes {
-                        commands.entity(*entity).insert(super::OriginalMeshComponent(handle.clone()));
-                    }
-                    
-                    toast_events.send(ToastEvent {
-                        message: "Actor ready for editing".to_string(),
-                        toast_type: ToastType::Success,
-                    });
+                    commands.entity(root_entity).insert(Transform { translation: (offset + Vec3::Y * y_offset) * scale, scale: Vec3::splat(scale), rotation: Quat::IDENTITY, });
+                    commands.entity(root_entity).insert(ActorBounds { min: Vec3::ZERO, max: Vec3::new(size.x * scale, size.y * scale, size.z * scale), });
+                    for (entity, handle) in &state.found_meshes { commands.entity(*entity).insert(super::OriginalMeshComponent(handle.clone())); }
                 }
             }
-            
             commands.entity(root_entity).remove::<super::NormalizationState>();
-            progress.0 = 1.0;
-            *status = super::EditorStatus::Ready;
+            progress.0 = 1.0; *status = super::EditorStatus::Ready;
         }
     }
 }
@@ -624,133 +478,220 @@ pub fn mesh_slicing_system(
     parts_query: Query<Entity, With<ActorPart>>,
 ) {
     if !slicing_settings.is_changed() { return; }
-
     for (root_entity, original_mesh_handle) in actor_query.iter() {
-        // 1. Cleanup old parts
         if let Ok(children) = children_query.get(root_entity) {
-            for child in children.iter() {
-                if parts_query.contains(*child) {
-                    commands.entity(*child).despawn_recursive();
-                }
-            }
+            for child in children.iter() { if parts_query.contains(*child) { commands.entity(*child).despawn_recursive(); } }
         }
-
-        // 2. Prepare meshes
-        let mut head_mesh = None;
-        let mut body_mesh = None;
-        let mut engine_mesh = None;
-
+        let mut head_mesh = None; let mut body_mesh = None; let mut engine_mesh = None;
         {
             let Some(original_mesh) = meshes.get(&original_mesh_handle.0) else { continue; };
-            
             let aabb = original_mesh.compute_aabb().unwrap_or(Aabb::default());
             let y_min = aabb.center.y - aabb.half_extents.y;
             let y_max = aabb.center.y + aabb.half_extents.y;
             let height = y_max - y_min;
-
             let top_y = y_min + slicing_settings.top_cut * height;
             let bottom_y = y_min + slicing_settings.bottom_cut * height;
-
-            // Slicing Logic (Vertex Classification)
             let positions = original_mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().as_float3().unwrap();
             let indices = match original_mesh.indices().unwrap() {
                 bevy::render::mesh::Indices::U16(idx) => idx.iter().map(|&i| i as usize).collect::<Vec<_>>(),
                 bevy::render::mesh::Indices::U32(idx) => idx.iter().map(|&i| i as usize).collect::<Vec<_>>(),
             };
-
-            let mut head_indices = Vec::new();
-            let mut body_indices = Vec::new();
-            let mut engine_indices = Vec::new();
-
+            let mut head_indices = Vec::new(); let mut body_indices = Vec::new(); let mut engine_indices = Vec::new();
             for chunk in indices.chunks(3) {
                 if chunk.len() < 3 { continue; }
-                let v1 = positions[chunk[0]];
-                let v2 = positions[chunk[1]];
-                let v3 = positions[chunk[2]];
-                
+                let v1 = positions[chunk[0]]; let v2 = positions[chunk[1]]; let v3 = positions[chunk[2]];
                 let centroid_y = (v1[1] + v2[1] + v3[1]) / 3.0;
-
-                if centroid_y > top_y {
-                    head_indices.extend_from_slice(chunk);
-                } else if centroid_y < bottom_y {
-                    engine_indices.extend_from_slice(chunk);
-                } else {
-                    body_indices.extend_from_slice(chunk);
-                }
+                if centroid_y > top_y { head_indices.extend_from_slice(chunk); }
+                else if centroid_y < bottom_y { engine_indices.extend_from_slice(chunk); }
+                else { body_indices.extend_from_slice(chunk); }
             }
-
             fn create_part_mesh(original: &Mesh, new_indices: Vec<usize>) -> Mesh {
                 let mut mesh = original.clone();
                 mesh.insert_indices(bevy::render::mesh::Indices::U32(new_indices.iter().map(|&i| i as u32).collect()));
                 mesh
             }
-
-            if !head_indices.is_empty() {
-                head_mesh = Some(create_part_mesh(original_mesh, head_indices));
-            }
-            if !body_indices.is_empty() {
-                body_mesh = Some(create_part_mesh(original_mesh, body_indices));
-            }
-            if !engine_indices.is_empty() {
-                engine_mesh = Some(create_part_mesh(original_mesh, engine_indices));
-            }
+            if !head_indices.is_empty() { head_mesh = Some(create_part_mesh(original_mesh, head_indices)); }
+            if !body_indices.is_empty() { body_mesh = Some(create_part_mesh(original_mesh, body_indices)); }
+            if !engine_indices.is_empty() { engine_mesh = Some(create_part_mesh(original_mesh, engine_indices)); }
         }
-
-        // 3. Add meshes to assets and spawn
         let head_handle = head_mesh.map(|m| meshes.add(m));
         let body_handle = body_mesh.map(|m| meshes.add(m));
         let engine_handle = engine_mesh.map(|m| meshes.add(m));
-
         commands.entity(root_entity).with_children(|p| {
-            if let Some(h) = head_handle {
-                p.spawn((
-                    PbrBundle {
-                        mesh: h, 
-                        material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 0.6, 1.0), ..default() }),
-                        ..default()
-                    },
-                    ActorPart::Head,
-                ));
-            }
-            
-            if let Some(h) = body_handle {
-                p.spawn((
-                    PbrBundle {
-                        mesh: h,
-                        material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 1.0, 0.3), ..default() }),
-                        ..default()
-                    },
-                    ActorPart::Body,
-                ));
-            }
-
-            if let Some(h) = engine_handle {
-                p.spawn((
-                    PbrBundle {
-                        mesh: h,
-                        material: materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.6, 0.2), ..default() }),
-                        ..default()
-                    },
-                    ActorPart::Engine,
-                ));
-            }
+            if let Some(h) = head_handle { p.spawn(( PbrBundle { mesh: h, material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 0.6, 1.0), ..default() }), ..default() }, ActorPart::Head, )); }
+            if let Some(h) = body_handle { p.spawn(( PbrBundle { mesh: h, material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 1.0, 0.3), ..default() }), ..default() }, ActorPart::Body, )); }
+            if let Some(h) = engine_handle { p.spawn(( PbrBundle { mesh: h, material: materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.6, 0.2), ..default() }), ..default() }, ActorPart::Engine, )); }
         });
     }
 }
 
 pub fn slicing_ui_sync_system(
     mut slicing_settings: ResMut<SlicingSettings>,
-    range_slider_query: Query<(&super::widgets::RangeSlider, &Parent)>,
-    marker_query: Query<Entity, With<super::ui_inspector::SlicingRangeSlider>>,
+    range_slider_query: Query<&super::widgets::RangeSlider>,
 ) {
-    for (slider, parent) in range_slider_query.iter() {
-        if marker_query.contains(parent.get()) {
-            // Min is Bottom Cut, Max is Top Cut
-            if (slicing_settings.bottom_cut - slider.min_value).abs() > 0.001 ||
-               (slicing_settings.top_cut - slider.max_value).abs() > 0.001 {
-                slicing_settings.bottom_cut = slider.min_value;
-                slicing_settings.top_cut = slider.max_value;
-            }
+    for slider in range_slider_query.iter() {
+        if (slicing_settings.bottom_cut - slider.min_value).abs() > 0.001 ||
+           (slicing_settings.top_cut - slider.max_value).abs() > 0.001 {
+            slicing_settings.bottom_cut = slider.min_value;
+            slicing_settings.top_cut = slider.max_value;
+        }
+        let hovered = slider.hovered_thumb.map(|t| match t {
+            super::widgets::RangeSliderThumb::Min => SlicingGizmoType::Bottom,
+            super::widgets::RangeSliderThumb::Max => SlicingGizmoType::Top,
+        });
+        if slicing_settings.hovered_gizmo != hovered { slicing_settings.hovered_gizmo = hovered; }
+    }
+}
+
+pub fn slicer_lock_system(
+    mut slicing_settings: ResMut<SlicingSettings>,
+    mut button_query: Query<(Ref<Interaction>, &mut BackgroundColor, &Children), With<super::widgets::SlicerLockButton>>,
+    mut text_query: Query<&mut Text>,
+) {
+    for (interaction, mut bg, children) in button_query.iter_mut() {
+        // Toggle only on the frame the interaction changes to Pressed
+        if interaction.is_changed() && *interaction == Interaction::Pressed {
+            slicing_settings.locked = !slicing_settings.locked;
+        }
+        
+        // Consistent visual feedback (responds to both button and 'L' hotkey)
+        let (color, icon) = if slicing_settings.locked {
+            (Color::srgb(0.8, 0.2, 0.2), "\u{f023}") // Red / Locked
+        } else {
+            (Color::srgb(0.2, 0.8, 0.2), "\u{f09c}") // Green / Unlocked
+        };
+
+        *bg = color.with_alpha(if *interaction == Interaction::Hovered { 0.9 } else { 0.7 }).into();
+
+        if let Ok(mut text) = text_query.get_mut(children[0]) {
+            text.sections[0].value = icon.to_string();
+        }
+    }
+}
+
+// Marker to ensure auto-slicing only runs once per model load
+#[derive(Component)]
+pub struct AutoSlicingApplied;
+
+pub fn auto_slicing_setup_system(
+    mut commands: Commands,
+    actor_query: Query<(Entity, &super::ActorBounds), (Added<super::ActorBounds>, Without<AutoSlicingApplied>)>,
+    mut slicing_settings: ResMut<SlicingSettings>,
+    mut slider_query: Query<&mut super::widgets::RangeSlider>,
+) {
+    for (entity, _bounds) in actor_query.iter() {
+        // Smart defaults for a typical humanoid/robot (75% head, 25% legs)
+        slicing_settings.top_cut = 0.75;
+        slicing_settings.bottom_cut = 0.25;
+        
+        // Sync sliders visually
+        for mut slider in slider_query.iter_mut() {
+            slider.min_value = 0.25;
+            slider.max_value = 0.75;
+        }
+        
+        commands.entity(entity).insert(AutoSlicingApplied);
+    }
+}
+
+pub fn slicing_ui_visibility_system(
+    actor_query: Query<&super::ActorBounds>,
+    mut container_query: Query<&mut Visibility, With<super::widgets::SlicerContainer>>,
+    mut gizmo_query: Query<&mut Visibility, (With<super::SlicingGizmo>, Without<super::widgets::SlicerContainer>)>,
+    viewport_settings: Res<ViewportSettings>,
+) {
+    let has_model = actor_query.get_single().is_ok();
+    let show_slicer = has_model && viewport_settings.slices;
+    let target_visibility = if show_slicer { Visibility::Visible } else { Visibility::Hidden };
+    
+    if let Ok(mut vis) = container_query.get_single_mut() {
+        if *vis != target_visibility { *vis = target_visibility; }
+    }
+    for mut vis in gizmo_query.iter_mut() {
+        if *vis != target_visibility { *vis = target_visibility; }
+    }
+}
+
+// Removed redundant slicing_tooltip_system, now handled in range_slider_system
+
+pub fn slicing_gizmo_manager_system(
+    mut commands: Commands,
+    viewport_settings: Res<ViewportSettings>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    gizmo_query: Query<Entity, With<super::SlicingGizmo>>,
+) {
+    let gizmo_count = gizmo_query.iter().count();
+    
+    if viewport_settings.slices && gizmo_count == 0 {
+        for gizmo_type in [SlicingGizmoType::Top, SlicingGizmoType::Bottom] {
+            let color = match gizmo_type {
+                SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, 0.1),
+                SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, 0.1),
+            };
+            
+            // Plane Gizmo (Glassy Disk)
+            commands.spawn((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.0))),
+                    material: materials.add(StandardMaterial {
+                        base_color: color,
+                        alpha_mode: AlphaMode::Blend,
+                        unlit: true,
+                        double_sided: true,
+                        cull_mode: None,
+                        ..default()
+                    }),
+                    transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+                    visibility: Visibility::Hidden,
+                    ..default()
+                },
+                gizmo_type, 
+                super::SlicingGizmo, 
+                super::EditorHelper,
+            ));
+        }
+    } else if !viewport_settings.slices && gizmo_count > 0 {
+        for entity in gizmo_query.iter() { commands.entity(entity).despawn_recursive(); }
+    }
+}
+
+pub fn slicing_gizmo_sync_system(
+    slicing_settings: Res<SlicingSettings>,
+    actor_query: Query<(&ActorBounds, &GlobalTransform), With<super::ActorEditorEntity>>,
+    mut gizmo_query: Query<(&mut Transform, &Handle<StandardMaterial>, &SlicingGizmoType), With<super::SlicingGizmo>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let Ok((bounds, transform)) = actor_query.get_single() else { return; };
+    let height = bounds.max.y;
+    let world_base_y = transform.translation().y - (height * 0.5);
+
+    for (mut gizmo_transform, mat_handle, gizmo_type) in gizmo_query.iter_mut() {
+        let cut_val = match gizmo_type {
+            SlicingGizmoType::Top => slicing_settings.top_cut,
+            SlicingGizmoType::Bottom => slicing_settings.bottom_cut,
+        };
+        
+        gizmo_transform.translation.y = world_base_y + (cut_val * height);
+        gizmo_transform.translation.x = transform.translation().x;
+        gizmo_transform.translation.z = transform.translation().z;
+        
+        // Use a reasonable scale multiplier (1.1x model width)
+        let scale = bounds.max.x.max(bounds.max.z) * 1.1; 
+        gizmo_transform.scale = Vec3::new(scale, scale, 1.0);
+
+        if let Some(mat) = materials.get_mut(mat_handle) {
+            let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);
+            
+            let alpha = if is_hovered { 0.8 } else { 0.1 };
+            
+            let color = match gizmo_type {
+                SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, alpha),
+                SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, alpha),
+            };
+
+            mat.base_color = color;
+            mat.emissive = Color::BLACK.into(); // No more ring emission logic here
         }
     }
 }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use super::{ActorEditorEntity, ActorEditorBackButton, MainEditorCamera, GizmoCamera, GizmoEntity, GIZMO_LAYER};
-use super::widgets::{ScrollingList, ResizablePanel, PanelResizer, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton};
+use super::{ActorEditorEntity, ActorEditorBackButton, MainEditorCamera, GizmoCamera, GizmoEntity, GIZMO_LAYER, PanelResizer};
+use super::widgets::{ScrollingList, ResizablePanel, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton, spawn_viewport_slicer};
 
 pub fn setup_actor_editor(
     mut commands: Commands,
@@ -92,11 +92,10 @@ pub fn setup_actor_editor(
     ));
 
     // --- 3-POINT LIGHTING ---
-    // Key Light (Main light from front-top-right)
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
-                illuminance: 25000.0, // Increased
+                illuminance: 25000.0,
                 shadows_enabled: true,
                 ..default()
             },
@@ -106,11 +105,10 @@ pub fn setup_actor_editor(
         ActorEditorEntity,
     ));
 
-    // Fill Light (Softer light from the opposite side to soften shadows)
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
-                illuminance: 12000.0, // Increased
+                illuminance: 12000.0,
                 shadows_enabled: false,
                 ..default()
             },
@@ -120,11 +118,10 @@ pub fn setup_actor_editor(
         ActorEditorEntity,
     ));
 
-    // Back/Rim Light (Light from behind to create highlights on edges)
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
-                illuminance: 15000.0, // Increased
+                illuminance: 15000.0,
                 shadows_enabled: false,
                 ..default()
             },
@@ -134,16 +131,14 @@ pub fn setup_actor_editor(
         ActorEditorEntity,
     ));
 
-    // Camera "Headlamp" (Point light attached to the main camera)
     commands.entity(main_camera_entity).with_children(|parent| {
         parent.spawn(PointLightBundle {
             point_light: PointLight {
-                intensity: 80000.0, // Reduced from 500k
+                intensity: 80000.0,
                 range: 15.0,
                 shadows_enabled: false,
                 ..default()
             },
-            // Offset slightly to the top-right of camera to create subtle shadows
             transform: Transform::from_xyz(0.8, 0.8, 0.0),
             ..default()
         });
@@ -151,7 +146,7 @@ pub fn setup_actor_editor(
 
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 400.0, // Reduced from 800
+        brightness: 400.0,
     });
 
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
@@ -174,7 +169,7 @@ pub fn setup_actor_editor(
         ActorEditorEntity,
         bevy::ui::TargetCamera(main_camera_entity),
     )).with_children(|root| {
-        // --- MAIN AREA (SIDEBARS + VIEWPORT) ---
+        // --- MAIN AREA ---
         root.spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.0),
@@ -222,7 +217,6 @@ pub fn setup_actor_editor(
                 });
             });
 
-            // LEFT RESIZER HANDLE
             parent.spawn((
                 ButtonBundle {
                     style: Style {
@@ -247,6 +241,7 @@ pub fn setup_actor_editor(
                 focus_policy: bevy::ui::FocusPolicy::Pass,
                 ..default()
             }).with_children(|p| {
+                // Header
                 p.spawn(NodeBundle {
                     style: Style {
                         position_type: PositionType::Absolute,
@@ -258,19 +253,10 @@ pub fn setup_actor_editor(
                     focus_policy: bevy::ui::FocusPolicy::Pass,
                     ..default()
                 }).with_children(|header| {
-                    header.spawn(NodeBundle {
-                        style: Style {
-                            padding: UiRect::all(Val::Px(4.0)),
-                            ..default()
-                        },
-                        focus_policy: bevy::ui::FocusPolicy::Pass,
-                        ..default()
-                    }).with_children(|inner| {
-                        inner.spawn(TextBundle::from_section(
-                            "ACTOR EDITOR",
-                            TextStyle { font: font.clone(), font_size: 28.0, color: Color::WHITE },
-                        ));
-                    });
+                    header.spawn(TextBundle::from_section(
+                        "ACTOR EDITOR",
+                        TextStyle { font: font.clone(), font_size: 28.0, color: Color::WHITE },
+                    ));
                 });
 
                 // --- TOP TOOLBAR ---
@@ -294,7 +280,6 @@ pub fn setup_actor_editor(
                         },
                         background_color: Color::srgba(0.1, 0.1, 0.1, 0.8).into(),
                         border_radius: BorderRadius::all(Val::Px(8.0)),
-                        // This node has icons, but it's a container.
                         focus_policy: bevy::ui::FocusPolicy::Pass,
                         ..default()
                     }).with_children(|btns| {
@@ -302,24 +287,19 @@ pub fn setup_actor_editor(
                         spawn_viewport_button(btns, ViewportToggleType::Slices, "\u{f121}", "Toggle Slices (S)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Sockets, "\u{f1e0}", "Toggle Sockets (K)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Gizmos, "\u{f047}", "Toggle Gizmos (Z)", &icon_font);
-                        
-                        // Separator
                         btns.spawn(NodeBundle {
-                            style: Style {
-                                width: Val::Px(2.0),
-                                height: Val::Px(20.0),
-                                margin: UiRect::horizontal(Val::Px(8.0)),
-                                ..default()
-                            },
+                            style: Style { width: Val::Px(2.0), height: Val::Px(20.0), margin: UiRect::horizontal(Val::Px(8.0)), ..default() },
                             background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
                             ..default()
                         });
-
                         spawn_viewport_button(btns, ViewportToggleType::Reset, "\u{f01e}", "Reset Camera (R)", &icon_font);
                     });
                 });
 
-                // Toggle Visibility Buttons
+                // VIEWPORT SLICER
+                spawn_viewport_slicer(p, &icon_font, 0.0, 1.0);
+
+                // Toggle Sidebars
                 p.spawn((
                     ButtonBundle {
                         style: Style {
@@ -371,7 +351,6 @@ pub fn setup_actor_editor(
                 });
             });
 
-            // RIGHT RESIZER HANDLE
             parent.spawn((
                 ButtonBundle {
                     style: Style {
@@ -425,7 +404,6 @@ pub fn setup_actor_editor(
                 });
             });
             
-            // Back Button
             parent.spawn((
                 ButtonBundle {
                     style: Style {
@@ -452,14 +430,10 @@ pub fn setup_actor_editor(
             });
         });
 
-        // --- BOTTOM STATUS BAR ---
         super::widgets::spawn_status_bar(root, &font, &icon_font);
     });
 
-    // Spawn Toast Container
     super::widgets::spawn_toast_container(&mut commands, Some(main_camera_entity));
-
-    // Spawn Loading Overlay
     super::widgets::spawn_loading_overlay(&mut commands, &font, Some(main_camera_entity));
 }
 

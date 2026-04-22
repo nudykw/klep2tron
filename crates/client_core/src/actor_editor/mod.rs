@@ -63,8 +63,15 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::import_loading_overlay_system,
                 systems_logic::normalization_system,
                 systems_logic::mesh_slicing_system,
-                systems_logic::slicing_ui_sync_system,
            ).run_if(in_state(GameState::ActorEditor)))
+           .add_systems(Update, (
+                    systems_logic::auto_slicing_setup_system,
+                    systems_logic::slicing_ui_sync_system,
+                    systems_logic::slicing_ui_visibility_system,
+                    systems_logic::slicing_gizmo_manager_system,
+                    systems_logic::slicing_gizmo_sync_system,
+                    systems_logic::slicer_lock_system,
+                ).chain().run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
     }
 }
@@ -153,16 +160,41 @@ pub struct SlicingSettings {
     pub top_cut: f32,
     pub bottom_cut: f32,
     pub preview: bool,
+    pub locked: bool,
+    pub hovered_gizmo: Option<SlicingGizmoType>,
 }
 
 impl Default for SlicingSettings {
     fn default() -> Self {
         Self {
-            top_cut: 0.75,
-            bottom_cut: 0.25,
+            top_cut: 1.0,
+            bottom_cut: 0.0,
             preview: true,
+            locked: false,
+            hovered_gizmo: None,
         }
     }
+}
+
+#[derive(Component)]
+pub struct ActorBounds {
+    pub min: Vec3,
+    pub max: Vec3,
+}
+
+#[derive(Component)]
+pub struct SlicingGizmo;
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PanelResizer {
+    Left,
+    Right,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SlicingGizmoType {
+    Top,
+    Bottom,
 }
 
 #[derive(Component)]

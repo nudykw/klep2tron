@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::widgets::{spawn_collapsible_section, spawn_slider, spawn_range_slider};
+use super::widgets::{spawn_collapsible_section, spawn_slider};
 
 #[derive(Component)]
 pub struct InspectorPanel;
@@ -14,9 +14,6 @@ pub struct SocketListItem {
 
 #[derive(Component)]
 pub struct MaterialColorPreview;
-
-#[derive(Component)]
-pub struct SlicingRangeSlider;
 
 #[derive(Resource, Default)]
 pub struct SocketFilter(pub String);
@@ -74,40 +71,6 @@ pub fn setup_inspector(
             }
         );
         
-        // --- SLICING SECTION ---
-        spawn_collapsible_section(
-            p,
-            font,
-            icon_font,
-            "SLICING (HEAD/BODY/ENGINE)",
-            true,
-            (),
-            |content| {
-                content.spawn(TextBundle::from_section(
-                    "Cut Ranges (Top / Bottom)",
-                    TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
-                ));
-                
-                content.spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Percent(100.0),
-                            ..default()
-                        },
-                        ..default()
-                    },
-                    SlicingRangeSlider,
-                )).with_children(|p| {
-                    spawn_range_slider(p, 0.25, 0.75); // Min is Bottom Cut, Max is Top Cut
-                });
-                
-                content.spawn(TextBundle::from_section(
-                    "Top Thumb: Head | Bottom Thumb: Engine",
-                    TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.5, 0.5, 0.5) },
-                ));
-            }
-        );
-
         // --- SOCKETS SECTION ---
         spawn_collapsible_section(
             p,
