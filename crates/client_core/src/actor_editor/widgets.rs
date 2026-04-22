@@ -217,6 +217,154 @@ pub fn slider_system(
     }
 }
 
+#[derive(Component)]
+pub struct RangeSlider {
+    pub min_value: f32,
+    pub max_value: f32,
+}
+
+#[derive(Component)]
+pub struct RangeSliderThumbMin;
+
+#[derive(Component)]
+pub struct RangeSliderThumbMax;
+
+#[derive(Component)]
+pub struct RangeSliderHighlight;
+
+pub fn spawn_range_slider(
+    parent: &mut ChildBuilder,
+    initial_min: f32,
+    initial_max: f32,
+) {
+    parent.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Px(20.0),
+                margin: UiRect::vertical(Val::Px(10.0)),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ..default()
+        },
+        RangeSlider { min_value: initial_min, max_value: initial_max },
+        Interaction::default(),
+    )).with_children(|p| {
+        // Track
+        p.spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Px(4.0),
+                ..default()
+            },
+            background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
+            ..default()
+        }).with_children(|track| {
+            // Selected range highlight
+            track.spawn((
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        height: Val::Percent(100.0),
+                        left: Val::Percent(initial_min * 100.0),
+                        width: Val::Percent((initial_max - initial_min) * 100.0),
+                        ..default()
+                    },
+                    background_color: Color::srgb(0.3, 0.6, 1.0).into(),
+                    ..default()
+                },
+                RangeSliderHighlight,
+            ));
+
+            // Min Thumb
+            track.spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(12.0),
+                        height: Val::Px(12.0),
+                        position_type: PositionType::Absolute,
+                        left: Val::Percent(initial_min * 100.0),
+                        top: Val::Px(-4.0),
+                        ..default()
+                    },
+                    background_color: Color::WHITE.into(),
+                    border_radius: BorderRadius::all(Val::Px(6.0)),
+                    ..default()
+                },
+                RangeSliderThumbMin,
+            ));
+
+            // Max Thumb
+            track.spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(12.0),
+                        height: Val::Px(12.0),
+                        position_type: PositionType::Absolute,
+                        left: Val::Percent(initial_max * 100.0),
+                        top: Val::Px(-4.0),
+                        ..default()
+                    },
+                    background_color: Color::WHITE.into(),
+                    border_radius: BorderRadius::all(Val::Px(6.0)),
+                    ..default()
+                },
+                RangeSliderThumbMax,
+            ));
+        });
+    });
+}
+
+pub fn range_slider_system(
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut RangeSlider, &Children)>,
+    mut thumb_min_query: Query<&mut Style, (With<RangeSliderThumbMin>, Without<RangeSliderThumbMax>, Without<RangeSliderHighlight>)>,
+    mut thumb_max_query: Query<&mut Style, (With<RangeSliderThumbMax>, Without<RangeSliderThumbMin>, Without<RangeSliderHighlight>)>,
+    mut highlight_query: Query<&mut Style, With<RangeSliderHighlight>>,
+    node_query: Query<&Children>,
+) {
+    let Ok(window) = window_query.get_single() else { return; };
+    let Some(cursor_position) = window.cursor_position() else { return; };
+
+    for (interaction, node, transform, mut slider, children) in interaction_query.iter_mut() {
+        if *interaction == Interaction::Pressed {
+            let rect = node.size();
+            let pos = transform.translation().truncate();
+            let local_x = (cursor_position.x - (pos.x - rect.x / 2.0)) / rect.x;
+            let val = local_x.clamp(0.0, 1.0);
+
+            // Determine which thumb to move based on proximity
+            let dist_min = (val - slider.min_value).abs();
+            let dist_max = (val - slider.max_value).abs();
+
+            if dist_min < dist_max {
+                slider.min_value = val.min(slider.max_value - 0.01);
+            } else {
+                slider.max_value = val.max(slider.min_value + 0.01);
+            }
+
+            // Update visual state
+            for &track_entity in children.iter() {
+                if let Ok(track_children) = node_query.get(track_entity) {
+                    for &child in track_children.iter() {
+                        if let Ok(mut style) = highlight_query.get_mut(child) {
+                            style.left = Val::Percent(slider.min_value * 100.0);
+                            style.width = Val::Percent((slider.max_value - slider.min_value) * 100.0);
+                        }
+                        if let Ok(mut style) = thumb_min_query.get_mut(child) {
+                            style.left = Val::Percent(slider.min_value * 100.0);
+                        }
+                        if let Ok(mut style) = thumb_max_query.get_mut(child) {
+                            style.left = Val::Percent(slider.max_value * 100.0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[derive(Component, Clone, Copy)]
 pub enum PanelResizer {
     Left,

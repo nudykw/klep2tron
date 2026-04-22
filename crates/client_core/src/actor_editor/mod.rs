@@ -19,6 +19,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<ui_inspector::SelectedSocket>()
            .init_resource::<widgets::PanelSettings>()
            .init_resource::<ViewportSettings>()
+           .init_resource::<SlicingSettings>()
            .init_resource::<EditorStatus>()
            .init_resource::<EditorMaterialColor>()
            .init_resource::<PendingImport>()
@@ -43,10 +44,12 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::gizmo_sync_system,
                 navigation::camera_reset_handler,
                 navigation::grid_system,
+                navigation::camera_control_blocking_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
                 systems_logic::gizmo_viewport_system,
                 widgets::viewport_button_system,
+                widgets::range_slider_system,
                 systems_logic::status_update_system,
                 systems_logic::polycount_update_system,
                 systems_logic::toast_manager_system,
@@ -59,6 +62,8 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::progress_bar_update_system,
                 systems_logic::import_loading_overlay_system,
                 systems_logic::normalization_system,
+                systems_logic::mesh_slicing_system,
+                systems_logic::slicing_ui_sync_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
     }
@@ -143,10 +148,28 @@ impl Default for ViewportSettings {
     }
 }
 
-#[derive(Event)]
-pub struct SocketUpdateEvent {
-    pub entity: Entity,
-    pub transform: Transform,
+#[derive(Resource)]
+pub struct SlicingSettings {
+    pub top_cut: f32,
+    pub bottom_cut: f32,
+    pub preview: bool,
+}
+
+impl Default for SlicingSettings {
+    fn default() -> Self {
+        Self {
+            top_cut: 0.75,
+            bottom_cut: 0.25,
+            preview: true,
+        }
+    }
+}
+
+#[derive(Component)]
+pub enum ActorPart {
+    Head,
+    Body,
+    Engine,
 }
 
 #[derive(Event)]

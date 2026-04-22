@@ -4,7 +4,7 @@ use super::ui_project::ProjectAction;
 use super::{ActorImportEvent, PendingImport, OriginalMeshComponent, EditorStatus, ToastEvent, ToastType};
 use bevy::prelude::*;
 use crate::GameState;
-use super::{ActorEditorBackButton, ViewportSettings, ResetCameraEvent, MainEditorCamera, GizmoCamera};
+use super::{ActorEditorBackButton, ViewportSettings, ResetCameraEvent, MainEditorCamera, GizmoCamera, SlicingSettings, ActorPart};
 
 pub fn actor_editor_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -614,3 +614,143 @@ pub fn normalization_system(
     }
 }
 
+pub fn mesh_slicing_system(
+    mut commands: Commands,
+    slicing_settings: Res<SlicingSettings>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    actor_query: Query<(Entity, &OriginalMeshComponent), With<super::ActorEditorEntity>>,
+    children_query: Query<&Children>,
+    parts_query: Query<Entity, With<ActorPart>>,
+) {
+    if !slicing_settings.is_changed() { return; }
+
+    for (root_entity, original_mesh_handle) in actor_query.iter() {
+        // 1. Cleanup old parts
+        if let Ok(children) = children_query.get(root_entity) {
+            for child in children.iter() {
+                if parts_query.contains(*child) {
+                    commands.entity(*child).despawn_recursive();
+                }
+            }
+        }
+
+        // 2. Prepare meshes
+        let mut head_mesh = None;
+        let mut body_mesh = None;
+        let mut engine_mesh = None;
+
+        {
+            let Some(original_mesh) = meshes.get(&original_mesh_handle.0) else { continue; };
+            
+            let aabb = original_mesh.compute_aabb().unwrap_or(Aabb::default());
+            let y_min = aabb.center.y - aabb.half_extents.y;
+            let y_max = aabb.center.y + aabb.half_extents.y;
+            let height = y_max - y_min;
+
+            let top_y = y_min + slicing_settings.top_cut * height;
+            let bottom_y = y_min + slicing_settings.bottom_cut * height;
+
+            // Slicing Logic (Vertex Classification)
+            let positions = original_mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().as_float3().unwrap();
+            let indices = match original_mesh.indices().unwrap() {
+                bevy::render::mesh::Indices::U16(idx) => idx.iter().map(|&i| i as usize).collect::<Vec<_>>(),
+                bevy::render::mesh::Indices::U32(idx) => idx.iter().map(|&i| i as usize).collect::<Vec<_>>(),
+            };
+
+            let mut head_indices = Vec::new();
+            let mut body_indices = Vec::new();
+            let mut engine_indices = Vec::new();
+
+            for chunk in indices.chunks(3) {
+                if chunk.len() < 3 { continue; }
+                let v1 = positions[chunk[0]];
+                let v2 = positions[chunk[1]];
+                let v3 = positions[chunk[2]];
+                
+                let centroid_y = (v1[1] + v2[1] + v3[1]) / 3.0;
+
+                if centroid_y > top_y {
+                    head_indices.extend_from_slice(chunk);
+                } else if centroid_y < bottom_y {
+                    engine_indices.extend_from_slice(chunk);
+                } else {
+                    body_indices.extend_from_slice(chunk);
+                }
+            }
+
+            fn create_part_mesh(original: &Mesh, new_indices: Vec<usize>) -> Mesh {
+                let mut mesh = original.clone();
+                mesh.insert_indices(bevy::render::mesh::Indices::U32(new_indices.iter().map(|&i| i as u32).collect()));
+                mesh
+            }
+
+            if !head_indices.is_empty() {
+                head_mesh = Some(create_part_mesh(original_mesh, head_indices));
+            }
+            if !body_indices.is_empty() {
+                body_mesh = Some(create_part_mesh(original_mesh, body_indices));
+            }
+            if !engine_indices.is_empty() {
+                engine_mesh = Some(create_part_mesh(original_mesh, engine_indices));
+            }
+        }
+
+        // 3. Add meshes to assets and spawn
+        let head_handle = head_mesh.map(|m| meshes.add(m));
+        let body_handle = body_mesh.map(|m| meshes.add(m));
+        let engine_handle = engine_mesh.map(|m| meshes.add(m));
+
+        commands.entity(root_entity).with_children(|p| {
+            if let Some(h) = head_handle {
+                p.spawn((
+                    PbrBundle {
+                        mesh: h, 
+                        material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 0.6, 1.0), ..default() }),
+                        ..default()
+                    },
+                    ActorPart::Head,
+                ));
+            }
+            
+            if let Some(h) = body_handle {
+                p.spawn((
+                    PbrBundle {
+                        mesh: h,
+                        material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 1.0, 0.3), ..default() }),
+                        ..default()
+                    },
+                    ActorPart::Body,
+                ));
+            }
+
+            if let Some(h) = engine_handle {
+                p.spawn((
+                    PbrBundle {
+                        mesh: h,
+                        material: materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.6, 0.2), ..default() }),
+                        ..default()
+                    },
+                    ActorPart::Engine,
+                ));
+            }
+        });
+    }
+}
+
+pub fn slicing_ui_sync_system(
+    mut slicing_settings: ResMut<SlicingSettings>,
+    range_slider_query: Query<(&super::widgets::RangeSlider, &Parent)>,
+    marker_query: Query<Entity, With<super::ui_inspector::SlicingRangeSlider>>,
+) {
+    for (slider, parent) in range_slider_query.iter() {
+        if marker_query.contains(parent.get()) {
+            // Min is Bottom Cut, Max is Top Cut
+            if (slicing_settings.bottom_cut - slider.min_value).abs() > 0.001 ||
+               (slicing_settings.top_cut - slider.max_value).abs() > 0.001 {
+                slicing_settings.bottom_cut = slider.min_value;
+                slicing_settings.top_cut = slider.max_value;
+            }
+        }
+    }
+}
