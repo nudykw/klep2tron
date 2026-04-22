@@ -5,6 +5,7 @@ pub mod ui_root;
 pub mod ui_inspector;
 pub mod ui_project;
 pub mod systems_logic;
+pub mod geometry;
 pub mod navigation;
 pub mod widgets;
 
@@ -71,6 +72,7 @@ impl Plugin for ActorEditorPlugin {
                     systems_logic::slicing_gizmo_manager_system,
                     systems_logic::slicing_gizmo_sync_system,
                     systems_logic::slicer_lock_system,
+                    systems_logic::draw_slicing_contours_system,
                 ).chain().run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
     }
@@ -174,6 +176,11 @@ impl Default for SlicingSettings {
             hovered_gizmo: None,
         }
     }
+}
+
+#[derive(Component, Default)]
+pub struct SlicingContours {
+    pub segments: Vec<[Vec3; 2]>,
 }
 
 #[derive(Component)]

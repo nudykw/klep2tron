@@ -1,10 +1,11 @@
 use rfd::FileDialog;
 use bevy::render::primitives::Aabb;
+use bevy::render::mesh::VertexAttributeValues;
 use super::ui_project::ProjectAction;
-use super::{ActorImportEvent, PendingImport, OriginalMeshComponent, EditorStatus, ToastEvent, ToastType, ActorBounds, SlicingGizmoType};
+use super::{ActorImportEvent, PendingImport, OriginalMeshComponent, EditorStatus, ToastEvent, ToastType, ActorBounds, SlicingGizmoType, geometry};
 use bevy::prelude::*;
 use crate::GameState;
-use super::{ActorEditorBackButton, ViewportSettings, ResetCameraEvent, MainEditorCamera, GizmoCamera, SlicingSettings, ActorPart};
+use super::{ActorEditorBackButton, ViewportSettings, ResetCameraEvent, MainEditorCamera, GizmoCamera, SlicingSettings, ActorPart, ActorEditorEntity};
 
 pub fn actor_editor_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -135,7 +136,7 @@ pub fn polycount_update_system(
                 if let Some(mesh) = meshes.get(handle) {
                     if let Some(indices) = mesh.indices() {
                         total_polys += indices.len() / 3;
-                    } else if let Some(pos) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+                    } else if let Some(VertexAttributeValues::Float32x3(pos)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
                         total_polys += pos.len() / 3;
                     }
                 }
@@ -471,57 +472,64 @@ pub fn normalization_system(
 pub fn mesh_slicing_system(
     mut commands: Commands,
     slicing_settings: Res<SlicingSettings>,
+    actor_query: Query<(Entity, &Handle<Mesh>, &Handle<StandardMaterial>, &ActorBounds, &GlobalTransform, Option<&mut super::SlicingContours>), (With<ActorEditorEntity>, With<OriginalMeshComponent>)>,
+    child_query: Query<Entity, With<ActorPart>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    actor_query: Query<(Entity, &OriginalMeshComponent), With<super::ActorEditorEntity>>,
-    children_query: Query<&Children>,
-    parts_query: Query<Entity, With<ActorPart>>,
 ) {
     if !slicing_settings.is_changed() { return; }
-    for (root_entity, original_mesh_handle) in actor_query.iter() {
-        if let Ok(children) = children_query.get(root_entity) {
-            for child in children.iter() { if parts_query.contains(*child) { commands.entity(*child).despawn_recursive(); } }
+    let Ok((parent_entity, mesh_handle, mat_handle, bounds, transform, contours_opt)) = actor_query.get_single_mut() else { return; };
+    let Some(mesh) = meshes.get(mesh_handle) else { return; };
+
+    // Despawn old parts
+    for child in child_query.iter() { commands.entity(child).despawn_recursive(); }
+
+    // Calculate world space Y values for slicing
+    let height = bounds.max.y - bounds.min.y;
+    let world_base_y = transform.translation().y - (height * 0.5);
+    let top_y = world_base_y + (slicing_settings.top_cut * height);
+    let bottom_y = world_base_y + (slicing_settings.bottom_cut * height);
+
+    // Perform geometric split
+    let parts = geometry::slicer::split_mesh_by_planes(mesh, top_y, bottom_y);
+
+    // Spawn new parts
+    let mut spawn_part = |cmds: &mut Commands, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart| {
+        if let Some(m) = mesh_opt {
+            cmds.spawn((
+                PbrBundle {
+                    mesh: meshes.add(m),
+                    material: mat_handle.clone(),
+                    ..default()
+                },
+                part_type,
+                Name::new(name.to_string()),
+            )).set_parent(parent_entity);
         }
-        let mut head_mesh = None; let mut body_mesh = None; let mut engine_mesh = None;
-        {
-            let Some(original_mesh) = meshes.get(&original_mesh_handle.0) else { continue; };
-            let aabb = original_mesh.compute_aabb().unwrap_or(Aabb::default());
-            let y_min = aabb.center.y - aabb.half_extents.y;
-            let y_max = aabb.center.y + aabb.half_extents.y;
-            let height = y_max - y_min;
-            let top_y = y_min + slicing_settings.top_cut * height;
-            let bottom_y = y_min + slicing_settings.bottom_cut * height;
-            let positions = original_mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().as_float3().unwrap();
-            let indices = match original_mesh.indices().unwrap() {
-                bevy::render::mesh::Indices::U16(idx) => idx.iter().map(|&i| i as usize).collect::<Vec<_>>(),
-                bevy::render::mesh::Indices::U32(idx) => idx.iter().map(|&i| i as usize).collect::<Vec<_>>(),
-            };
-            let mut head_indices = Vec::new(); let mut body_indices = Vec::new(); let mut engine_indices = Vec::new();
-            for chunk in indices.chunks(3) {
-                if chunk.len() < 3 { continue; }
-                let v1 = positions[chunk[0]]; let v2 = positions[chunk[1]]; let v3 = positions[chunk[2]];
-                let centroid_y = (v1[1] + v2[1] + v3[1]) / 3.0;
-                if centroid_y > top_y { head_indices.extend_from_slice(chunk); }
-                else if centroid_y < bottom_y { engine_indices.extend_from_slice(chunk); }
-                else { body_indices.extend_from_slice(chunk); }
-            }
-            fn create_part_mesh(original: &Mesh, new_indices: Vec<usize>) -> Mesh {
-                let mut mesh = original.clone();
-                mesh.insert_indices(bevy::render::mesh::Indices::U32(new_indices.iter().map(|&i| i as u32).collect()));
-                mesh
-            }
-            if !head_indices.is_empty() { head_mesh = Some(create_part_mesh(original_mesh, head_indices)); }
-            if !body_indices.is_empty() { body_mesh = Some(create_part_mesh(original_mesh, body_indices)); }
-            if !engine_indices.is_empty() { engine_mesh = Some(create_part_mesh(original_mesh, engine_indices)); }
+    };
+
+    spawn_part(&mut commands, parts.head, "Head", ActorPart::Head);
+    spawn_part(&mut commands, parts.body, "Body", ActorPart::Body);
+    spawn_part(&mut commands, parts.legs, "Legs", ActorPart::Engine);
+
+    // Visualization: Laser Engraving (Store for persistent drawing)
+    if let Some(mut contours) = contours_opt {
+        contours.segments = parts.contours;
+    } else {
+        commands.entity(parent_entity).insert(super::SlicingContours { segments: parts.contours });
+    }
+}
+
+pub fn draw_slicing_contours_system(
+    contour_query: Query<&super::SlicingContours>,
+    viewport_settings: Res<ViewportSettings>,
+    mut gizmos: Gizmos,
+) {
+    if !viewport_settings.slices { return; }
+    
+    for contours in contour_query.iter() {
+        for segment in &contours.segments {
+            gizmos.line(segment[0], segment[1], Color::srgb(0.0, 1.0, 1.0));
         }
-        let head_handle = head_mesh.map(|m| meshes.add(m));
-        let body_handle = body_mesh.map(|m| meshes.add(m));
-        let engine_handle = engine_mesh.map(|m| meshes.add(m));
-        commands.entity(root_entity).with_children(|p| {
-            if let Some(h) = head_handle { p.spawn(( PbrBundle { mesh: h, material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 0.6, 1.0), ..default() }), ..default() }, ActorPart::Head, )); }
-            if let Some(h) = body_handle { p.spawn(( PbrBundle { mesh: h, material: materials.add(StandardMaterial { base_color: Color::srgb(0.3, 1.0, 0.3), ..default() }), ..default() }, ActorPart::Body, )); }
-            if let Some(h) = engine_handle { p.spawn(( PbrBundle { mesh: h, material: materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.6, 0.2), ..default() }), ..default() }, ActorPart::Engine, )); }
-        });
     }
 }
 
@@ -612,8 +620,6 @@ pub fn slicing_ui_visibility_system(
     }
 }
 
-// Removed redundant slicing_tooltip_system, now handled in range_slider_system
-
 pub fn slicing_gizmo_manager_system(
     mut commands: Commands,
     viewport_settings: Res<ViewportSettings>,
@@ -626,8 +632,8 @@ pub fn slicing_gizmo_manager_system(
     if viewport_settings.slices && gizmo_count == 0 {
         for gizmo_type in [SlicingGizmoType::Top, SlicingGizmoType::Bottom] {
             let color = match gizmo_type {
-                SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, 0.1),
-                SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, 0.1),
+                SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, 0.05),
+                SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, 0.05),
             };
             
             // Plane Gizmo (Glassy Disk)
@@ -658,40 +664,39 @@ pub fn slicing_gizmo_manager_system(
 
 pub fn slicing_gizmo_sync_system(
     slicing_settings: Res<SlicingSettings>,
-    actor_query: Query<(&ActorBounds, &GlobalTransform), With<super::ActorEditorEntity>>,
-    mut gizmo_query: Query<(&mut Transform, &Handle<StandardMaterial>, &SlicingGizmoType), With<super::SlicingGizmo>>,
+    actor_query: Query<(&super::ActorBounds, &GlobalTransform)>,
+    mut gizmo_query: Query<(&mut Transform, &SlicingGizmoType, &Handle<StandardMaterial>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Ok((bounds, transform)) = actor_query.get_single() else { return; };
-    let height = bounds.max.y;
+    
+    let height = bounds.max.y - bounds.min.y;
+    let radius = (bounds.max.x - bounds.min.x).max(bounds.max.z - bounds.min.z) * 0.7;
     let world_base_y = transform.translation().y - (height * 0.5);
 
-    for (mut gizmo_transform, mat_handle, gizmo_type) in gizmo_query.iter_mut() {
-        let cut_val = match gizmo_type {
+    for (mut gizmo_transform, gizmo_type, mat_handle) in gizmo_query.iter_mut() {
+        let ratio = match *gizmo_type {
             SlicingGizmoType::Top => slicing_settings.top_cut,
             SlicingGizmoType::Bottom => slicing_settings.bottom_cut,
         };
-        
-        gizmo_transform.translation.y = world_base_y + (cut_val * height);
-        gizmo_transform.translation.x = transform.translation().x;
-        gizmo_transform.translation.z = transform.translation().z;
-        
-        // Use a reasonable scale multiplier (1.1x model width)
-        let scale = bounds.max.x.max(bounds.max.z) * 1.1; 
-        gizmo_transform.scale = Vec3::new(scale, scale, 1.0);
 
+        let y = world_base_y + (ratio * height);
+        gizmo_transform.translation = Vec3::new(transform.translation().x, y, transform.translation().z);
+        gizmo_transform.scale = Vec3::splat(radius);
+        gizmo_transform.rotation = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
+
+        // Hover feedback
         if let Some(mat) = materials.get_mut(mat_handle) {
             let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);
             
-            let alpha = if is_hovered { 0.8 } else { 0.1 };
+            let alpha = if is_hovered { 0.8 } else { 0.05 };
             
-            let color = match gizmo_type {
+            let color = match *gizmo_type {
                 SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, alpha),
                 SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, alpha),
             };
-
             mat.base_color = color;
-            mat.emissive = Color::BLACK.into(); // No more ring emission logic here
         }
     }
 }
+
