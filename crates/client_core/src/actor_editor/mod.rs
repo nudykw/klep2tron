@@ -66,13 +66,13 @@ impl Plugin for ActorEditorPlugin {
                 systems::normalization_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
-                    systems::auto_slicing_setup_system,
                     systems::slicing_ui_sync_system,
                     systems::slicing_ui_visibility_system,
                     systems::slicing_gizmo_manager_system,
                     systems::slicing_gizmo_sync_system,
                     systems::slicer_lock_system,
                 ).chain().run_if(in_state(GameState::ActorEditor)))
+
            .add_systems(PostUpdate, (
                 systems::mesh_slicing_system,
                 systems::draw_slicing_contours_system,

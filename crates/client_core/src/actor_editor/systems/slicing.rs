@@ -97,18 +97,29 @@ pub fn mesh_slicing_system(
     for child in child_query.iter() { commands.entity(child).despawn_recursive(); }
 
     // Use LOCAL coordinates for slicing to avoid rotation issues
+    // Apply defaults for the first run BEFORE calculating planes
+    if needs_initial_slice {
+        slicing_settings.top_cut = 0.75;
+        slicing_settings.bottom_cut = 0.25;
+        info!("Applied auto-slicing defaults (0.75 / 0.25)");
+    }
+
     let local_height = bounds.max.y - bounds.min.y;
     let plane_top_local = bounds.min.y + slicing_settings.top_cut * local_height;
     let plane_bottom_local = bounds.min.y + slicing_settings.bottom_cut * local_height;
 
     info!("Slicing (Local): top={}, bottom={}", plane_top_local, plane_bottom_local);
 
+
     // Capture data for thread
     let mut mesh_data = Vec::new();
-    for (entity, original, transform, _, _) in mesh_query.iter() {
+    for (entity, original, transform, _, contours_opt) in mesh_query.iter() {
         if let Some(mesh) = meshes.get(&original.0) {
-            let local_matrix = transform.compute_matrix();
-            mesh_data.push((entity, mesh.clone(), local_matrix.inverse()));
+            // Collect data if we have the component OR if it's the very first slice
+            if contours_opt.is_some() || needs_initial_slice {
+                let local_matrix = transform.compute_matrix();
+                mesh_data.push((entity, mesh.clone(), local_matrix.inverse()));
+            }
         }
     }
     
@@ -135,22 +146,3 @@ pub fn mesh_slicing_system(
     info!("Started async slicing task...");
 }
 
-// Marker to ensure auto-slicing only runs once per model load
-#[derive(Component)]
-pub struct AutoSlicingApplied;
-
-pub fn auto_slicing_setup_system(
-    mut commands: Commands,
-    actor_query: Query<(Entity, &ActorBounds), (Added<ActorBounds>, Without<AutoSlicingApplied>)>,
-    mut slicing_settings: ResMut<SlicingSettings>,
-    _slider_query: Query<&mut super::super::widgets::RangeSlider>,
-) {
-    for (entity, _bounds) in actor_query.iter() {
-        slicing_settings.top_cut = 0.75;
-        slicing_settings.bottom_cut = 0.25;
-        slicing_settings.last_top = 0.75;
-        slicing_settings.last_bottom = 0.25;
-        commands.entity(entity).insert(AutoSlicingApplied);
-        info!("Applied auto-slicing defaults (0.75 / 0.25)");
-    }
-}
