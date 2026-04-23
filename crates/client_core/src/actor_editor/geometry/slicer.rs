@@ -29,22 +29,29 @@ pub fn split_mesh_by_planes(
     let positions = if let Some(VertexAttributeValues::Float32x3(p)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
         p
     } else {
-        panic!("Mesh must have positions");
+        return super::SlicedParts { head: None, body: None, legs: None, contours: Vec::new() };
     };
+    let normals_storage;
     let normals = if let Some(VertexAttributeValues::Float32x3(n)) = mesh.attribute(Mesh::ATTRIBUTE_NORMAL) {
         n
     } else {
-        panic!("Mesh must have normals");
+        normals_storage = vec![[0.0, 1.0, 0.0]; positions.len()];
+        &normals_storage
     };
-    let uvs = if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
-        uvs
+    let uvs_storage;
+    let uvs = if let Some(VertexAttributeValues::Float32x2(u)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
+        u
     } else {
-        return super::SlicedParts { head: None, body: None, legs: None, contours: Vec::new() };
+        uvs_storage = vec![[0.0, 0.0]; positions.len()];
+        &uvs_storage
     };
-    let indices = match mesh.indices().unwrap() {
-        Indices::U16(i) => i.iter().map(|&x| x as usize).collect::<Vec<usize>>(),
-        Indices::U32(i) => i.iter().map(|&x| x as usize).collect::<Vec<usize>>(),
+    let indices = match mesh.indices() {
+        Some(Indices::U16(i)) => i.iter().map(|&x| x as usize).collect::<Vec<usize>>(),
+        Some(Indices::U32(i)) => i.iter().map(|&x| x as usize).collect::<Vec<usize>>(),
+        None => (0..positions.len()).collect::<Vec<usize>>(),
     };
+
+    debug!("Slicer: Processing {} tris", indices.len() / 3);
 
     let mut head_tris = Vec::new();
     let mut body_tris = Vec::new();

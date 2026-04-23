@@ -4,6 +4,13 @@ use bevy::render::mesh::VertexAttributeValues;
 use super::ui_project::ProjectAction;
 use super::{ActorImportEvent, PendingImport, OriginalMeshComponent, EditorStatus, ToastEvent, ToastType, ActorBounds, SlicingGizmoType, geometry};
 use bevy::prelude::*;
+
+#[derive(Resource, Default)]
+pub struct SlicingTask(pub Option<bevy::tasks::Task<SlicingResult>>);
+
+pub struct SlicingResult {
+    pub mesh_parts: Vec<(Entity, geometry::SlicedParts)>,
+}
 use crate::GameState;
 use super::{ActorEditorBackButton, ViewportSettings, ResetCameraEvent, MainEditorCamera, GizmoCamera, SlicingSettings, ActorPart, ActorEditorEntity};
 
@@ -123,13 +130,16 @@ pub fn status_update_system(
 pub fn polycount_update_system(
     meshes: Res<Assets<Mesh>>,
     mesh_query: Query<&Handle<Mesh>>,
-    root_query: Query<Entity, (With<super::ActorEditorEntity>, Without<super::EditorHelper>)>,
+    root_query: Query<(Entity, Option<&super::ActorBounds>), (With<super::ActorEditorEntity>, Without<super::EditorHelper>)>,
     children_query: Query<&Children>,
     mut text_query: Query<&mut Text, With<super::widgets::PolycountText>>,
 ) {
     let mut total_polys = 0;
+    let mut original_polys = 0;
     
-    for root_entity in root_query.iter() {
+    for (root_entity, bounds_opt) in root_query.iter() {
+        if let Some(bounds) = bounds_opt { original_polys = bounds.original_polys; }
+
         let mut stack = vec![root_entity];
         while let Some(entity) = stack.pop() {
             if let Ok(handle) = mesh_query.get(entity) {
@@ -142,17 +152,16 @@ pub fn polycount_update_system(
                 }
             }
             if let Ok(children) = children_query.get(entity) {
-                for child in children.iter() {
-                    stack.push(*child);
-                }
+                for child in children.iter() { stack.push(*child); }
             }
         }
     }
     
     if let Ok(mut text) = text_query.get_single_mut() {
-        let new_val = format!("POLYS: {}", total_polys);
-        if text.sections[0].value != new_val {
-            text.sections[0].value = new_val;
+        if original_polys > 0 {
+            text.sections[0].value = format!("POLYS: {} / ORIG: {}", total_polys, original_polys);
+        } else {
+            text.sections[0].value = format!("POLYS: {}", total_polys);
         }
     }
 }
@@ -415,7 +424,10 @@ pub fn normalization_system(
     query: Query<Entity, With<super::AwaitingNormalization>>,
     mut state_query: Query<(Entity, &mut super::NormalizationState)>,
     children_query: Query<&Children>,
-    mesh_query: Query<(&Aabb, &GlobalTransform, &Handle<Mesh>)>,
+    parent_query: Query<&Parent>,
+    transform_query: Query<&Transform>,
+    mesh_query: Query<(Entity, &Aabb, &GlobalTransform, &Handle<Mesh>, Option<&Name>)>,
+    meshes: Res<Assets<Mesh>>,
     mut progress: ResMut<super::ImportProgress>,
     mut status: ResMut<super::EditorStatus>,
     _toast_events: EventWriter<ToastEvent>,
@@ -428,8 +440,13 @@ pub fn normalization_system(
             if let Ok(children) = children_query.get(entity) { for child in children.iter() { stack.push(*child); } }
         }
         commands.entity(root_entity).remove::<super::AwaitingNormalization>();
-        commands.entity(root_entity).insert(super::NormalizationState { entities_to_process, processed_count: 0, min: Vec3::splat(f32::MAX), max: Vec3::splat(f32::MIN), found_meshes: Vec::new(), });
-        progress.0 = 0.7; *status = super::EditorStatus::Processing;
+        commands.entity(root_entity).insert(super::NormalizationState { entities_to_process,                processed_count: 0, 
+                min: Vec3::splat(f32::MAX), 
+                max: Vec3::splat(f32::MIN), 
+                found_meshes: Vec::new(),
+                total_original_polys: 0,
+            });
+ progress.0 = 0.7; *status = super::EditorStatus::Processing;
     }
 
     for (root_entity, mut state) in state_query.iter_mut() {
@@ -437,19 +454,74 @@ pub fn normalization_system(
         let mut processed_this_frame = 0;
         while processed_this_frame < chunk_size && state.processed_count < state.entities_to_process.len() {
             let entity = state.entities_to_process[state.processed_count];
-            if let Ok((aabb, transform, mesh_handle)) = mesh_query.get(entity) {
-                let matrix = transform.compute_matrix();
-                let world_aabb = Aabb { center: matrix.transform_point3a(aabb.center), half_extents: matrix.transform_vector3a(aabb.half_extents).abs(), };
-                let aabb_min = Vec3::from(world_aabb.center - world_aabb.half_extents);
-                let aabb_max = Vec3::from(world_aabb.center + world_aabb.half_extents);
-                state.min = state.min.min(aabb_min); state.max = state.max.max(aabb_max);
-                state.found_meshes.push((entity, mesh_handle.clone()));
+            if let Ok((_entity, aabb, _transform, _mesh_handle, name_opt)) = mesh_query.get(entity) {
+                let name = name_opt.map(|n| n.as_str().to_lowercase()).unwrap_or_default();
+                let is_env = name.contains("shadow") || name.contains("floor") || name.contains("plane") ||
+                             name.contains("grid") || name.contains("background");
+                
+                if !is_env {
+                    // Manually compute transform relative to root_entity to avoid GlobalTransform lag
+                    let mut current_matrix = Mat4::IDENTITY;
+                    let mut curr = entity;
+                    let mut found_root = false;
+                    
+                    // Step up the hierarchy to root_entity
+                    for _ in 0..32 { // Safety limit
+                        if curr == root_entity { found_root = true; break; }
+                        if let Ok(transform) = transform_query.get(curr) {
+                            current_matrix = transform.compute_matrix() * current_matrix;
+                        }
+                        if let Ok(parent) = parent_query.get(curr) {
+                            curr = parent.get();
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if found_root {
+                        // Transform all 8 corners of the AABB to "root-local" space
+                        let min = aabb.min();
+                        let max = aabb.max();
+                        let corners = [
+                            Vec3::new(min.x, min.y, min.z),
+                            Vec3::new(min.x, min.y, max.z),
+                            Vec3::new(min.x, max.y, min.z),
+                            Vec3::new(min.x, max.y, max.z),
+                            Vec3::new(max.x, min.y, min.z),
+                            Vec3::new(max.x, min.y, max.z),
+                            Vec3::new(max.x, max.y, min.z),
+                            Vec3::new(max.x, max.y, max.z),
+                        ];
+
+                        let mut mesh_min = Vec3::splat(f32::MAX);
+                        let mut mesh_max = Vec3::splat(f32::MIN);
+                        for corner in corners {
+                            let pos = current_matrix.transform_point3(corner);
+                            mesh_min = mesh_min.min(pos);
+                            mesh_max = mesh_max.max(pos);
+                        }
+
+                        info!("Normalization: Tight mesh '{}' bounds: min={:?}, max={:?}", name, mesh_min, mesh_max);
+                        state.min = state.min.min(mesh_min);
+                        state.max = state.max.max(mesh_max);
+                        state.found_meshes.push((entity, _mesh_handle.clone()));
+                        
+                        if let Some(mesh) = meshes.get(_mesh_handle) {
+                            if let Some(indices) = mesh.indices() {
+                                state.total_original_polys += indices.len() / 3;
+                            } else if let Some(VertexAttributeValues::Float32x3(p)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+                                state.total_original_polys += p.len() / 3;
+                            }
+                        }
+                    }
+                }
             }
             state.processed_count += 1; processed_this_frame += 1;
         }
         let ratio = state.processed_count as f32 / state.entities_to_process.len() as f32;
         progress.0 = 0.7 + ratio * 0.25;
         if state.processed_count >= state.entities_to_process.len() {
+            info!("Normalization: Found {} valid meshes out of {} total entities", state.found_meshes.len(), state.entities_to_process.len());
             if !state.found_meshes.is_empty() {
                 let center = (state.min + state.max) / 2.0;
                 let size = state.max - state.min;
@@ -458,91 +530,227 @@ pub fn normalization_system(
                     let scale = 2.0 / max_dim;
                     let offset = -center;
                     let y_offset = size.y * 0.5;
-                    commands.entity(root_entity).insert(Transform { translation: (offset + Vec3::Y * y_offset) * scale, scale: Vec3::splat(scale), rotation: Quat::IDENTITY, });
-                    commands.entity(root_entity).insert(ActorBounds { min: Vec3::ZERO, max: Vec3::new(size.x * scale, size.y * scale, size.z * scale), });
-                    for (entity, handle) in &state.found_meshes { commands.entity(*entity).insert(super::OriginalMeshComponent(handle.clone())); }
+                    let translation = (offset + Vec3::Y * y_offset) * scale;
+                    
+                    // Create a normalization pivot so we don't overwrite the Scene's own transform
+                    let pivot = commands.spawn((
+                        SpatialBundle {
+                            transform: Transform {
+                                translation,
+                                rotation: Quat::IDENTITY,
+                                scale: Vec3::splat(scale),
+                            },
+                            ..default()
+                        },
+                        super::EditorHelper,
+                        Name::new("NormalizationPivot"),
+                    )).id();
+
+                    if let Ok(children) = children_query.get(root_entity) {
+                        for child in children.iter() {
+                            commands.entity(pivot).add_child(*child);
+                        }
+                    }
+                    commands.entity(root_entity).add_child(pivot);
+
+                    let s = size * scale;
+                    commands.entity(root_entity).insert(super::ActorBounds { 
+                        min: Vec3::new(-s.x * 0.5, 0.0, -s.z * 0.5), 
+                        max: Vec3::new(s.x * 0.5, s.y, s.z * 0.5),
+                        original_polys: state.total_original_polys,
+                    });
+                    for (entity, handle) in &state.found_meshes { 
+                        commands.entity(*entity).insert(super::OriginalMeshComponent(handle.clone())); 
+                    }
+                    info!("Normalization: Applied pivot transform: translation={:?}, scale={}", translation, scale);
                 }
             }
             commands.entity(root_entity).remove::<super::NormalizationState>();
-            progress.0 = 1.0; *status = super::EditorStatus::Ready;
+            if !state.found_meshes.is_empty() {
+                progress.0 = 0.95; // Keep visible until first slice
+            } else {
+                progress.0 = 1.0; *status = super::EditorStatus::Ready;
+            }
         }
     }
 }
 
 pub fn mesh_slicing_system(
     mut commands: Commands,
-    slicing_settings: Res<SlicingSettings>,
-    actor_query: Query<(Entity, &Handle<Mesh>, &Handle<StandardMaterial>, &ActorBounds, &GlobalTransform, Option<&mut super::SlicingContours>), (With<ActorEditorEntity>, With<OriginalMeshComponent>)>,
+    mut slicing_settings: ResMut<SlicingSettings>,
+    actor_root_query: Query<(&ActorBounds, &GlobalTransform), With<ActorEditorEntity>>,
+    mut mesh_query: Query<(Entity, &super::OriginalMeshComponent, &GlobalTransform, Option<&Handle<StandardMaterial>>, Option<&mut super::SlicingContours>)>,
     child_query: Query<Entity, With<ActorPart>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut slicing_task: ResMut<SlicingTask>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    mut progress: ResMut<super::ImportProgress>,
+    mut status: ResMut<super::EditorStatus>,
 ) {
-    if !slicing_settings.is_changed() { return; }
-    let Ok((parent_entity, mesh_handle, mat_handle, bounds, transform, contours_opt)) = actor_query.get_single_mut() else { return; };
-    let Some(mesh) = meshes.get(mesh_handle) else { return; };
+    // 1. Check if a task is already running
+    if let Some(ref mut task) = slicing_task.0 {
+        if let Some(result) = bevy::tasks::block_on(bevy::tasks::poll_once(task)) {
+            // Apply result
+            for (parent_entity, parts) in result.mesh_parts {
+                let mut spawn_part = |cmds: &mut Commands, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart, color: Color| {
+                    if let Some(m) = mesh_opt {
+                        cmds.spawn((
+                            PbrBundle {
+                                mesh: meshes.add(m),
+                                material: materials.add(StandardMaterial {
+                                    base_color: color,
+                                    perceptual_roughness: 0.5,
+                                    ..default()
+                                }),
+                                visibility: Visibility::Visible,
+                                ..default()
+                            },
+                            part_type,
+                            Name::new(name.to_string()),
+                        )).set_parent(parent_entity);
+                    }
+                };
 
-    // Despawn old parts
+                spawn_part(&mut commands, parts.head, "Head", ActorPart::Head, Color::srgba(0.2, 0.5, 1.0, 1.0));
+                spawn_part(&mut commands, parts.body, "Body", ActorPart::Body, Color::srgba(0.8, 0.8, 0.8, 1.0));
+                spawn_part(&mut commands, parts.legs, "Legs", ActorPart::Engine, Color::srgba(1.0, 0.5, 0.2, 1.0));
+
+                if let Ok((_, _, _, _, Some(mut contours))) = mesh_query.get_mut(parent_entity) {
+                    contours.segments = parts.contours;
+                } else {
+                    commands.entity(parent_entity).insert(super::SlicingContours { segments: parts.contours });
+                }
+
+                commands.entity(parent_entity).remove::<Handle<Mesh>>();
+                commands.entity(parent_entity).remove::<Handle<StandardMaterial>>();
+            }
+            slicing_task.0 = None;
+            info!("Async slicing completed and applied.");
+            
+            // Finish loading sequence if needed
+            if progress.0 < 1.0 {
+                progress.0 = 1.0;
+                *status = super::EditorStatus::Ready;
+            }
+        }
+        return; // Don't start a new task while one is running
+    }
+
+    // 2. Start new task if needed
+    let Ok((bounds, _)) = actor_root_query.get_single() else { return; };
+    
+    // Check if we need to apply initial slice (only after auto-setup)
+    let needs_initial_slice = child_query.is_empty() && !mesh_query.is_empty();
+    
+    // Check if values actually changed
+    let values_changed = (slicing_settings.top_cut - slicing_settings.last_top).abs() > 0.001 ||
+                         (slicing_settings.bottom_cut - slicing_settings.last_bottom).abs() > 0.001;
+
+    // Trigger ONLY on mouse release or initial load after setup
+    let trigger = mouse_button.just_released(MouseButton::Left) || (needs_initial_slice && !values_changed);
+
+    if !trigger || (!values_changed && !needs_initial_slice) { return; }
+    
+    // Update last values
+    slicing_settings.last_top = slicing_settings.top_cut;
+    slicing_settings.last_bottom = slicing_settings.bottom_cut;
+    
+    // Despawn old parts immediately to show we are working
     for child in child_query.iter() { commands.entity(child).despawn_recursive(); }
 
-    // Calculate world space Y values for slicing
-    let height = bounds.max.y - bounds.min.y;
-    let world_base_y = transform.translation().y - (height * 0.5);
-    let top_y = world_base_y + (slicing_settings.top_cut * height);
-    let bottom_y = world_base_y + (slicing_settings.bottom_cut * height);
+    // Use LOCAL coordinates for slicing to avoid rotation issues
+    let local_height = bounds.max.y - bounds.min.y;
+    let plane_top_local = bounds.min.y + slicing_settings.top_cut * local_height;
+    let plane_bottom_local = bounds.min.y + slicing_settings.bottom_cut * local_height;
 
-    // Perform geometric split
-    let parts = geometry::slicer::split_mesh_by_planes(mesh, top_y, bottom_y);
+    info!("Slicing (Local): top={}, bottom={}", plane_top_local, plane_bottom_local);
 
-    // Spawn new parts
-    let mut spawn_part = |cmds: &mut Commands, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart| {
-        if let Some(m) = mesh_opt {
-            cmds.spawn((
-                PbrBundle {
-                    mesh: meshes.add(m),
-                    material: mat_handle.clone(),
-                    ..default()
-                },
-                part_type,
-                Name::new(name.to_string()),
-            )).set_parent(parent_entity);
+    // Capture data for thread
+    let mut mesh_data = Vec::new();
+    for (entity, original, transform, _, _) in mesh_query.iter() {
+        if let Some(mesh) = meshes.get(&original.0) {
+            // Get local transform relative to actor root
+            // We can use the transform from the query because it's relative to its parent (the pivot/root)
+            let local_matrix = transform.compute_matrix();
+            mesh_data.push((entity, mesh.clone(), local_matrix.inverse()));
         }
-    };
-
-    spawn_part(&mut commands, parts.head, "Head", ActorPart::Head);
-    spawn_part(&mut commands, parts.body, "Body", ActorPart::Body);
-    spawn_part(&mut commands, parts.legs, "Legs", ActorPart::Engine);
-
-    // Visualization: Laser Engraving (Store for persistent drawing)
-    if let Some(mut contours) = contours_opt {
-        contours.segments = parts.contours;
-    } else {
-        commands.entity(parent_entity).insert(super::SlicingContours { segments: parts.contours });
     }
+
+    let thread_pool = bevy::tasks::AsyncComputeTaskPool::get();
+
+    let task = thread_pool.spawn(async move {
+        let mut results = Vec::new();
+        for (entity, mesh, inv_local) in mesh_data {
+            // Transform planes into the specific mesh's local space
+            let mesh_local_top = inv_local.transform_point3(Vec3::new(0.0, plane_top_local, 0.0)).y;
+            let mesh_local_bottom = inv_local.transform_point3(Vec3::new(0.0, plane_bottom_local, 0.0)).y;
+
+            let parts = geometry::slicer::split_mesh_by_planes(&mesh, mesh_local_top, mesh_local_bottom);
+            results.push((entity, parts));
+        }
+        SlicingResult { mesh_parts: results }
+    });
+
+    slicing_task.0 = Some(task);
+    info!("Started async slicing task...");
 }
 
 pub fn draw_slicing_contours_system(
-    contour_query: Query<&super::SlicingContours>,
+    contour_query: Query<(&super::SlicingContours, &GlobalTransform)>,
     viewport_settings: Res<ViewportSettings>,
     mut gizmos: Gizmos,
 ) {
     if !viewport_settings.slices { return; }
     
-    for contours in contour_query.iter() {
+    for (contours, transform) in contour_query.iter() {
+        let matrix = transform.compute_matrix();
         for segment in &contours.segments {
-            gizmos.line(segment[0], segment[1], Color::srgb(0.0, 1.0, 1.0));
+            let start = matrix.transform_point3(segment[0]);
+            let end = matrix.transform_point3(segment[1]);
+            gizmos.line(start, end, Color::srgb(1.0, 0.0, 0.0));
         }
+    }
+}
+
+pub fn draw_actor_bounds_debug_system(
+    query: Query<(&super::ActorBounds, &GlobalTransform)>,
+    mut gizmos: Gizmos,
+) {
+    for (bounds, transform) in query.iter() {
+        let center = (bounds.max + bounds.min) / 2.0;
+        let size = bounds.max - bounds.min;
+        let (root_scale, root_rotation, _root_translation) = transform.to_scale_rotation_translation();
+        
+        gizmos.cuboid(
+            Transform::from_translation(transform.transform_point(center))
+                .with_scale(size * root_scale)
+                .with_rotation(root_rotation),
+            Color::srgba(1.0, 1.0, 1.0, 0.5)
+        );
     }
 }
 
 pub fn slicing_ui_sync_system(
     mut slicing_settings: ResMut<SlicingSettings>,
-    range_slider_query: Query<&super::widgets::RangeSlider>,
+    mut range_slider_query: Query<&mut super::widgets::RangeSlider>,
 ) {
-    for slider in range_slider_query.iter() {
+    for mut slider in range_slider_query.iter_mut() {
+        // If slider is new or changed by user, sync to settings
+        // But if settings were just initialized by auto-slicing, sync to slider
         if (slicing_settings.bottom_cut - slider.min_value).abs() > 0.001 ||
            (slicing_settings.top_cut - slider.max_value).abs() > 0.001 {
-            slicing_settings.bottom_cut = slider.min_value;
-            slicing_settings.top_cut = slider.max_value;
+            
+            // Check if slider is being hovered/dragged - if not, it might need init from settings
+            if slider.hovered_thumb.is_none() {
+                slider.min_value = slicing_settings.bottom_cut;
+                slider.max_value = slicing_settings.top_cut;
+            } else {
+                slicing_settings.bottom_cut = slider.min_value;
+                slicing_settings.top_cut = slider.max_value;
+            }
         }
+        
         let hovered = slider.hovered_thumb.map(|t| match t {
             super::widgets::RangeSliderThumb::Min => SlicingGizmoType::Bottom,
             super::widgets::RangeSliderThumb::Max => SlicingGizmoType::Top,
@@ -672,7 +880,7 @@ pub fn slicing_gizmo_sync_system(
     
     let height = bounds.max.y - bounds.min.y;
     let radius = (bounds.max.x - bounds.min.x).max(bounds.max.z - bounds.min.z) * 0.7;
-    let world_base_y = transform.translation().y - (height * 0.5);
+    let world_base_y = transform.transform_point(Vec3::Y * bounds.min.y).y;
 
     for (mut gizmo_transform, gizmo_type, mat_handle) in gizmo_query.iter_mut() {
         let ratio = match *gizmo_type {

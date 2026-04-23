@@ -25,6 +25,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<EditorMaterialColor>()
            .init_resource::<PendingImport>()
            .init_resource::<ImportProgress>()
+           .init_resource::<systems_logic::SlicingTask>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -63,7 +64,6 @@ impl Plugin for ActorEditorPlugin {
                 systems_logic::progress_bar_update_system,
                 systems_logic::import_loading_overlay_system,
                 systems_logic::normalization_system,
-                systems_logic::mesh_slicing_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
                     systems_logic::auto_slicing_setup_system,
@@ -72,8 +72,13 @@ impl Plugin for ActorEditorPlugin {
                     systems_logic::slicing_gizmo_manager_system,
                     systems_logic::slicing_gizmo_sync_system,
                     systems_logic::slicer_lock_system,
-                    systems_logic::draw_slicing_contours_system,
                 ).chain().run_if(in_state(GameState::ActorEditor)))
+           .add_systems(PostUpdate, (
+                systems_logic::mesh_slicing_system,
+                systems_logic::draw_slicing_contours_system,
+                systems_logic::draw_actor_bounds_debug_system,
+            ).after(bevy::transform::TransformSystem::TransformPropagate)
+             .run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
     }
 }
@@ -164,6 +169,9 @@ pub struct SlicingSettings {
     pub preview: bool,
     pub locked: bool,
     pub hovered_gizmo: Option<SlicingGizmoType>,
+    // Internal state to track changes
+    pub last_top: f32,
+    pub last_bottom: f32,
 }
 
 impl Default for SlicingSettings {
@@ -174,6 +182,8 @@ impl Default for SlicingSettings {
             preview: true,
             locked: false,
             hovered_gizmo: None,
+            last_top: -1.0,
+            last_bottom: -1.0,
         }
     }
 }
@@ -187,6 +197,7 @@ pub struct SlicingContours {
 pub struct ActorBounds {
     pub min: Vec3,
     pub max: Vec3,
+    pub original_polys: usize,
 }
 
 #[derive(Component)]
@@ -255,6 +266,7 @@ pub struct NormalizationState {
     pub min: Vec3,
     pub max: Vec3,
     pub found_meshes: Vec<(Entity, Handle<Mesh>)>,
+    pub total_original_polys: usize,
 }
 
 #[derive(Resource, Default)]

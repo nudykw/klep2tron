@@ -403,6 +403,29 @@ pub fn range_slider_system(
         }
         slider.hovered_thumb = hovered;
 
+        // Sync visual styles and tooltips (Always, to reflect auto-init or logic changes)
+        for &track_entity in children.iter() {
+            if let Ok(track_children) = node_query.get(track_entity) {
+                for &child in track_children.iter() {
+                    if let Ok((_interaction, mut style, thumb, mut tooltip)) = thumb_query.get_mut(child) {
+                        let pct = match thumb { RangeSliderThumb::Min => slider.min_value, RangeSliderThumb::Max => slider.max_value, } * 100.0;
+                        if slider.is_vertical { 
+                            style.bottom = Val::Percent(pct); 
+                        } else { 
+                            style.left = Val::Percent(pct); 
+                        }
+                        // Update tooltip text with current value
+                        let base = match thumb { RangeSliderThumb::Min => "Bottom Cut (Engine)", RangeSliderThumb::Max => "Top Cut (Head)" };
+                        tooltip.0 = format!("{}: {:.0}%", base, pct);
+                    }
+                }
+            }
+        }
+
+        if *interaction != Interaction::None {
+            // ... interaction logic handled by hovered_thumb check ...
+        }
+
         if *interaction == Interaction::Pressed {
             let rect = node.size();
             let pos = transform.translation().truncate();
@@ -431,25 +454,6 @@ pub fn range_slider_system(
                 match target {
                     RangeSliderThumb::Min => slider.min_value = val.min(slider.max_value - 0.02),
                     RangeSliderThumb::Max => slider.max_value = val.max(slider.min_value + 0.02),
-                }
-            }
-
-            // Sync visual styles and tooltips
-            for &track_entity in children.iter() {
-                if let Ok(track_children) = node_query.get(track_entity) {
-                    for &child in track_children.iter() {
-                        if let Ok((_interaction, mut style, thumb, mut tooltip)) = thumb_query.get_mut(child) {
-                            let pct = match thumb { RangeSliderThumb::Min => slider.min_value, RangeSliderThumb::Max => slider.max_value, } * 100.0;
-                            if slider.is_vertical { 
-                                style.bottom = Val::Percent(pct); 
-                            } else { 
-                                style.left = Val::Percent(pct); 
-                            }
-                            // Update tooltip text
-                            let base = match thumb { RangeSliderThumb::Min => "Bottom Cut (Engine)", RangeSliderThumb::Max => "Top Cut (Head)" };
-                            tooltip.0 = base.to_string();
-                        }
-                    }
                 }
             }
         } else {
