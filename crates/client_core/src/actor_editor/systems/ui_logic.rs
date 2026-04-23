@@ -169,7 +169,7 @@ pub fn color_picker_system(
 pub fn material_sync_system(
     color_res: Res<EditorMaterialColor>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mesh_query: Query<&Handle<StandardMaterial>, With<ActorEditorEntity>>,
+    mesh_query: Query<&Handle<StandardMaterial>, (With<ActorEditorEntity>, Without<EditorHelper>)>,
 ) {
     if !color_res.is_changed() { return; }
     for handle in mesh_query.iter() {

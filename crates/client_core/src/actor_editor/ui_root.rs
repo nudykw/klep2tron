@@ -5,6 +5,8 @@ use super::widgets::{ScrollingList, ResizablePanel, PanelToggle, PanelSettings, 
 pub fn setup_actor_editor(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     panel_settings: Res<PanelSettings>,
 ) {
     // 3D Camera
@@ -46,13 +48,13 @@ pub fn setup_actor_editor(
     ));
 
     // Spawn Gizmo Axes
-    let mesh_handle = asset_server.add(Mesh::from(Cuboid::new(0.02, 0.02, 0.8)));
+    let mesh_handle = meshes.add(Mesh::from(Cuboid::new(0.02, 0.02, 0.8)));
     
     // X - Red
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle.clone(),
-            material: asset_server.add(StandardMaterial { base_color: Color::srgb(1.0, 0.2, 0.2), unlit: true, ..default() }),
+            material: materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.2, 0.2), unlit: true, ..default() }),
             transform: Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2))
                         .with_translation(Vec3::X * 0.4),
             ..default()
@@ -67,7 +69,7 @@ pub fn setup_actor_editor(
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle.clone(),
-            material: asset_server.add(StandardMaterial { base_color: Color::srgb(0.2, 1.0, 0.2), unlit: true, ..default() }),
+            material: materials.add(StandardMaterial { base_color: Color::srgb(0.2, 1.0, 0.2), unlit: true, ..default() }),
             transform: Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2))
                         .with_translation(Vec3::Y * 0.4),
             ..default()
@@ -81,7 +83,7 @@ pub fn setup_actor_editor(
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle.clone(),
-            material: asset_server.add(StandardMaterial { base_color: Color::srgb(0.2, 0.2, 1.0), unlit: true, ..default() }),
+            material: materials.add(StandardMaterial { base_color: Color::srgb(0.2, 0.2, 1.0), unlit: true, ..default() }),
             transform: Transform::from_translation(Vec3::Z * 0.4),
             ..default()
         },

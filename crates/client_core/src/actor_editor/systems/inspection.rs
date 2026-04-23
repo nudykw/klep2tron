@@ -241,6 +241,11 @@ pub fn inspection_ui_logic_system(
 
     // Update Button Backgrounds to show active state
     for (mut bg, solo_opt, toggle_opt, master_opt, interaction_opt) in btn_query.iter_mut() {
+        // ONLY update if it's actually one of our inspection buttons
+        if solo_opt.is_none() && toggle_opt.is_none() && master_opt.is_none() {
+            continue;
+        }
+
         let active = if let Some(solo) = solo_opt {
             settings.is_active && settings.isolated_part == Some(solo.0)
         } else if let Some(toggle) = toggle_opt {
@@ -280,7 +285,9 @@ pub fn inspection_ui_sync_system(
     let current_open = section.is_open;
 
     // 1. If section was toggled manually (by clicking the header)
-    if section.is_changed() && current_open != current_active {
+    // We detect this by checking if the visual state (current_open) differs from our model (last_is_active)
+    // but ONLY if settings.is_active hasn't changed this frame via other means.
+    if current_open != *last_is_active && current_active == *last_is_active {
         settings.is_active = current_open;
         *last_is_active = current_open;
     }
@@ -289,8 +296,8 @@ pub fn inspection_ui_sync_system(
         section.is_open = current_active;
         *last_is_active = current_active;
     }
-    // 3. Keep last_is_active in sync even if no change was made this frame
-    else {
-        *last_is_active = current_active;
+    // 3. Keep visual state in sync with model if they drifted for some reason
+    else if current_open != current_active {
+        section.is_open = current_active;
     }
 }

@@ -126,33 +126,37 @@ pub fn collapsible_system(
     }
 
     // 2. Sync visual state for any section that changed
-    for (section_entity, section) in section_query.iter_mut() {
-        if section.is_changed() {
-            // Update content visibility
-            for (mut style, parent) in content_query.iter_mut() {
-                if parent.get() == section_entity {
-                    style.display = if section.is_open { Display::Flex } else { Display::None };
+    for (section_entity, section) in section_query.iter() {
+        // Update content visibility
+        for (mut style, parent) in content_query.iter_mut() {
+            if parent.get() == section_entity {
+                let target_display = if section.is_open { Display::Flex } else { Display::None };
+                if style.display != target_display {
+                    style.display = target_display;
                 }
             }
+        }
 
-            // Update header icon
-            for (header_children, header_parent) in header_query.iter() {
-                if header_parent.get() == section_entity {
-                    // In new hierarchy: Header -> LeftContainer -> Icon
-                    // In old hierarchy: Header -> Icon
+        // Update header icon
+        for (header_children, header_parent) in header_query.iter() {
+            if header_parent.get() == section_entity {
+                    let target_icon = if section.is_open { "\u{f078} ".to_string() } else { "\u{f054} ".to_string() };
                     
                     // Try old hierarchy first (header_children[0] is Text)
                     if let Ok(mut text) = text_query.get_mut(header_children[0]) {
-                        text.sections[0].value = if section.is_open { "\u{f078} ".to_string() } else { "\u{f054} ".to_string() };
+                        if text.sections[0].value != target_icon {
+                            text.sections[0].value = target_icon;
+                        }
                     } else if let Ok(container_children) = container_query.get(header_children[0]) {
                         // Try new hierarchy (header_children[0] is Container, container_children[0] is Icon)
                         if let Ok(mut text) = text_query.get_mut(container_children[0]) {
-                            text.sections[0].value = if section.is_open { "\u{f078} ".to_string() } else { "\u{f054} ".to_string() };
+                            if text.sections[0].value != target_icon {
+                                text.sections[0].value = target_icon;
+                            }
                         }
                     }
                 }
             }
-        }
     }
 }
 
