@@ -67,10 +67,25 @@ pub enum ViewportToggleType { Grid, Slices, Sockets, Gizmos, Reset, }
 pub struct ViewportToggleButton(pub ViewportToggleType);
 
 pub fn viewport_button_system(
-    _interaction_query: Query<(&Interaction, &ViewportToggleButton), Changed<Interaction>>,
-    viewport_settings: Res<ViewportSettings>,
+    mut interaction_query: Query<(&Interaction, &ViewportToggleButton), Changed<Interaction>>,
+    mut viewport_settings: ResMut<ViewportSettings>,
     mut all_buttons: Query<(&ViewportToggleButton, &mut BackgroundColor)>,
+    mut reset_events: EventWriter<super::super::ResetCameraEvent>,
 ) {
+    for (interaction, toggle) in interaction_query.iter_mut() {
+        if *interaction == Interaction::Pressed {
+            match toggle.0 {
+                ViewportToggleType::Grid => viewport_settings.grid = !viewport_settings.grid,
+                ViewportToggleType::Slices => viewport_settings.slices = !viewport_settings.slices,
+                ViewportToggleType::Sockets => viewport_settings.sockets = !viewport_settings.sockets,
+                ViewportToggleType::Gizmos => viewport_settings.gizmos = !viewport_settings.gizmos,
+                ViewportToggleType::Reset => {
+                    reset_events.send(super::super::ResetCameraEvent);
+                }
+            }
+        }
+    }
+
     for (toggle, mut bg) in all_buttons.iter_mut() {
         let active = match toggle.0 {
             ViewportToggleType::Grid => viewport_settings.grid,
@@ -82,6 +97,7 @@ pub fn viewport_button_system(
         if active { *bg = Color::srgba(0.3, 0.6, 1.0, 0.8).into(); } else { *bg = Color::srgba(0.2, 0.2, 0.2, 0.9).into(); }
     }
 }
+
 
 #[derive(Component)]
 pub struct SlicerLockButton;

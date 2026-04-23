@@ -17,10 +17,17 @@ pub fn gizmo_sync_system(
 
 pub fn gizmo_viewport_system(
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    viewport_settings: Res<ViewportSettings>,
     mut gizmo_camera: Query<&mut Camera, With<GizmoCamera>>,
 ) {
     let Ok(window) = window_query.get_single() else { return; };
     let Ok(mut camera) = gizmo_camera.get_single_mut() else { return; };
+    
+    if camera.is_active != viewport_settings.gizmos {
+        camera.is_active = viewport_settings.gizmos;
+    }
+    
+    if !camera.is_active { return; }
     
     let size = 120;
     let padding = 20;
@@ -31,6 +38,7 @@ pub fn gizmo_viewport_system(
         depth: 0.0..1.0,
     });
 }
+
 
 pub fn slicing_ui_sync_system(
     mut slicing_settings: ResMut<SlicingSettings>,
