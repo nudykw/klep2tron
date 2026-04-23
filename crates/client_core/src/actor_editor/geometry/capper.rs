@@ -90,19 +90,12 @@ pub fn triangulate_polygon(vertices: &[Vec3], facing_up: bool) -> Vec<[super::sl
     let mut tris = Vec::new();
     let normal = if facing_up { Vec3::Y } else { Vec3::NEG_Y };
 
-    // Работаем с индексами для удобства удаления "ушей"
     let mut indices: Vec<usize> = (0..count).collect();
-
-    // Определяем текущее направление обхода (поддерживаем CCW)
     let area = calculate_area_2d(vertices, &indices);
     let is_ccw = area > 0.0;
-    
-    // Если нам нужно смотреть вверх, а обход по часовой - инвертируем или наоборот
-    // Для Bevy/Vulkan CCW - лицевая сторона.
-    // Если facing_up=true, нам нужно, чтобы в итоге треугольники были CCW сверху.
-    // Если facing_up=false, нам нужно, чтобы они были CCW снизу (т.е. CW сверху).
-    let target_ccw = facing_up;
-    if is_ccw != target_ccw {
+
+    // Always triangulate as CCW to ensure ear clipping logic works correctly
+    if !is_ccw {
         indices.reverse();
     }
 
@@ -117,7 +110,7 @@ pub fn triangulate_polygon(vertices: &[Vec3], facing_up: bool) -> Vec<[super::sl
             let next = indices[(i + 1) % indices.len()];
 
             if is_ear(prev, curr, next, &indices, vertices) {
-                // Создаем треугольник
+                // Create triangle vertices
                 let v0 = vertices[prev];
                 let v1 = vertices[curr];
                 let v2 = vertices[next];
@@ -126,7 +119,12 @@ pub fn triangulate_polygon(vertices: &[Vec3], facing_up: bool) -> Vec<[super::sl
                 let vd1 = super::slicer::VertexData { pos: v1, normal, uv: Vec2::new(v1.x, v1.z) };
                 let vd2 = super::slicer::VertexData { pos: v2, normal, uv: Vec2::new(v2.x, v2.z) };
 
-                tris.push([vd0, vd1, vd2]);
+                // If facing down, we need to flip the triangle winding to CW (from top)
+                if facing_up {
+                    tris.push([vd0, vd1, vd2]);
+                } else {
+                    tris.push([vd0, vd2, vd1]);
+                }
                 
                 indices.remove(i);
                 ear_found = true;
@@ -135,10 +133,7 @@ pub fn triangulate_polygon(vertices: &[Vec3], facing_up: bool) -> Vec<[super::sl
         }
 
         if !ear_found {
-            // Если ухо не найдено (сложный случай или самопересечение), 
-            // пробуем принудительно отрезать любой треугольник, чтобы не зависнуть
-            let i = 0;
-            indices.remove(i);
+            indices.remove(0);
         }
         timeout += 1;
     }
