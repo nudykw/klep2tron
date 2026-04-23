@@ -248,8 +248,9 @@ pub fn range_slider_system(
     mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut RangeSlider, &Children)>,
     mut thumb_query: Query<(&Interaction, &mut Style, &RangeSliderThumb, &mut Tooltip)>,
     node_query: Query<&Children>,
-    slicing_settings: Res<SlicingSettings>,
+    mut slicing_settings: ResMut<SlicingSettings>,
 ) {
+
     let Ok(window) = window_query.get_single() else { return; };
     let Some(cursor_position) = window.cursor_position() else { return; };
     
@@ -317,9 +318,20 @@ pub fn range_slider_system(
                     RangeSliderThumb::Min => slider.min_value = val.min(slider.max_value - 0.02),
                     RangeSliderThumb::Max => slider.max_value = val.max(slider.min_value + 0.02),
                 }
+                // Sync dragging state to settings for 3D helpers
+                slicing_settings.dragging_gizmo = Some(match target {
+                    RangeSliderThumb::Min => super::super::SlicingGizmoType::Bottom,
+                    RangeSliderThumb::Max => super::super::SlicingGizmoType::Top,
+                });
             }
         } else {
             slider.dragging = None;
+            // Clear dragging state if THIS slider was dragging
+            if slicing_settings.dragging_gizmo.is_some() {
+                // We don't clear it here yet, because we need it for the release logic in slicing.rs
+                // Actually, slicing.rs will handle the release logic.
+            }
         }
     }
 }
+

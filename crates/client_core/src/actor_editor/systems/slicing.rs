@@ -20,7 +20,10 @@ pub fn mesh_slicing_system(
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut progress: ResMut<ImportProgress>,
     mut status: ResMut<EditorStatus>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<super::super::MainEditorCamera>>,
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
+
     // 1. Check if a task is already running
     if let Some(ref mut task) = slicing_task.0 {
         if let Some(result) = bevy::tasks::block_on(bevy::tasks::poll_once(task)) {
@@ -83,10 +86,62 @@ pub fn mesh_slicing_system(
     let values_changed = (slicing_settings.top_cut - slicing_settings.last_top).abs() > 0.001 ||
                          (slicing_settings.bottom_cut - slicing_settings.last_bottom).abs() > 0.001;
 
+    let mut should_slice = needs_initial_slice;
+    let Ok(window) = window_query.get_single() else { return; };
+    let Some(cursor_pos) = window.cursor_position() else { return; };
+    
+    // Handle confirmation circle logic
+    if mouse_button.just_released(MouseButton::Left) {
+        if let Some(_active_gizmo) = slicing_settings.dragging_gizmo {
+
+            let (camera, cam_transform) = camera_query.single();
+            
+            // Calculate 3D position of the confirmation circle (at ground level Y=0.0)
+            let Ok((_, root_transform)) = actor_root_query.get_single() else { return; };
+            let gizmo_world_pos = Vec3::new(root_transform.translation().x, 0.0, root_transform.translation().z);
+
+            // Project to 2D
+            if let Some(screen_pos) = camera.world_to_viewport(cam_transform, gizmo_world_pos) {
+                let dist = cursor_pos.distance(screen_pos);
+                let radius_2d = 120.0; // Slightly larger for ground circle
+                
+                if dist < radius_2d {
+                    should_slice = true;
+                    slicing_settings.needs_confirm = false;
+                    slicing_settings.dragging_gizmo = None;
+                } else {
+                    slicing_settings.needs_confirm = true;
+                }
+            } else {
+                should_slice = true;
+                slicing_settings.dragging_gizmo = None;
+            }
+        }
+    } else if mouse_button.just_pressed(MouseButton::Left) && slicing_settings.needs_confirm {
+        // Check if clicking on the PENDING grey circle (at ground level Y=0.0)
+        if let Some(_) = slicing_settings.dragging_gizmo {
+            let (camera, cam_transform) = camera_query.single();
+            let Ok((_, root_transform)) = actor_root_query.get_single() else { return; };
+            let gizmo_world_pos = Vec3::new(root_transform.translation().x, 0.0, root_transform.translation().z);
+
+            if let Some(screen_pos) = camera.world_to_viewport(cam_transform, gizmo_world_pos) {
+                let dist = cursor_pos.distance(screen_pos);
+                if dist < 120.0 {
+                    should_slice = true;
+                    slicing_settings.needs_confirm = false;
+                    slicing_settings.dragging_gizmo = None;
+                }
+            }
+        }
+    }
+
+
     // Trigger ONLY on mouse release IF values actually changed, or initial load
-    let trigger = mouse_button.just_released(MouseButton::Left) || needs_initial_slice;
+    let trigger = should_slice;
 
     if !trigger || (!values_changed && !needs_initial_slice) { return; }
+
+
     
     // Update last values to prevent re-triggering
     slicing_settings.last_top = slicing_settings.top_cut;

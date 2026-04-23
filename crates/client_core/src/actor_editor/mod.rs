@@ -169,6 +169,10 @@ pub struct SlicingSettings {
     pub preview: bool,
     pub locked: bool,
     pub hovered_gizmo: Option<SlicingGizmoType>,
+    // Confirmation mechanic
+    pub dragging_gizmo: Option<SlicingGizmoType>,
+    pub needs_confirm: bool,
+    pub confirm_pos: Vec3,
     // Internal state to track changes
     pub last_top: f32,
     pub last_bottom: f32,
@@ -182,11 +186,15 @@ impl Default for SlicingSettings {
             preview: true,
             locked: false,
             hovered_gizmo: None,
+            dragging_gizmo: None,
+            needs_confirm: false,
+            confirm_pos: Vec3::ZERO,
             last_top: -1.0,
             last_bottom: -1.0,
         }
     }
 }
+
 
 #[derive(Component, Default)]
 pub struct SlicingContours {
@@ -202,6 +210,10 @@ pub struct ActorBounds {
 
 #[derive(Component)]
 pub struct SlicingGizmo;
+
+#[derive(Component)]
+pub struct ConfirmationCircle;
+
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PanelResizer {
