@@ -4,7 +4,7 @@ use crate::GameState;
 pub mod ui_root;
 pub mod ui_inspector;
 pub mod ui_project;
-pub mod systems_logic;
+pub mod systems;
 pub mod geometry;
 pub mod navigation;
 pub mod widgets;
@@ -25,7 +25,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<EditorMaterialColor>()
            .init_resource::<PendingImport>()
            .init_resource::<ImportProgress>()
-           .init_resource::<systems_logic::SlicingTask>()
+           .init_resource::<systems::SlicingTask>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -33,7 +33,7 @@ impl Plugin for ActorEditorPlugin {
            .add_event::<ConfirmationRequestEvent>()
            .add_systems(OnEnter(GameState::ActorEditor), (ui_root::setup_actor_editor, navigation::setup_navigation).chain())
            .add_systems(Update, (
-                systems_logic::actor_editor_input_system,
+                systems::actor_editor_input_system,
                 widgets::collapsible_system,
                 widgets::scroll_system,
                 widgets::slider_system,
@@ -43,40 +43,40 @@ impl Plugin for ActorEditorPlugin {
                 widgets::tooltip_system,
                 ui_inspector::socket_filter_system,
                 ui_inspector::socket_transform_update_system,
-                systems_logic::gizmo_sync_system,
+                systems::gizmo_sync_system,
                 navigation::camera_reset_handler,
                 navigation::grid_system,
                 navigation::camera_control_blocking_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
-                systems_logic::gizmo_viewport_system,
+                systems::gizmo_viewport_system,
                 widgets::viewport_button_system,
                 widgets::range_slider_system,
-                systems_logic::status_update_system,
-                systems_logic::polycount_update_system,
-                systems_logic::toast_manager_system,
-                systems_logic::modal_manager_system,
-                systems_logic::color_picker_system,
-                systems_logic::material_sync_system,
-                systems_logic::actor_import_button_system,
-                systems_logic::actor_import_event_system,
-                systems_logic::actor_import_processing_system,
-                systems_logic::progress_bar_update_system,
-                systems_logic::import_loading_overlay_system,
-                systems_logic::normalization_system,
+                systems::status_update_system,
+                systems::polycount_update_system,
+                systems::toast_manager_system,
+                systems::modal_manager_system,
+                systems::color_picker_system,
+                systems::material_sync_system,
+                systems::actor_import_button_system,
+                systems::actor_import_event_system,
+                systems::actor_import_processing_system,
+                systems::progress_bar_update_system,
+                systems::import_loading_overlay_system,
+                systems::normalization_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
-                    systems_logic::auto_slicing_setup_system,
-                    systems_logic::slicing_ui_sync_system,
-                    systems_logic::slicing_ui_visibility_system,
-                    systems_logic::slicing_gizmo_manager_system,
-                    systems_logic::slicing_gizmo_sync_system,
-                    systems_logic::slicer_lock_system,
+                    systems::auto_slicing_setup_system,
+                    systems::slicing_ui_sync_system,
+                    systems::slicing_ui_visibility_system,
+                    systems::slicing_gizmo_manager_system,
+                    systems::slicing_gizmo_sync_system,
+                    systems::slicer_lock_system,
                 ).chain().run_if(in_state(GameState::ActorEditor)))
            .add_systems(PostUpdate, (
-                systems_logic::mesh_slicing_system,
-                systems_logic::draw_slicing_contours_system,
-                systems_logic::draw_actor_bounds_debug_system,
+                systems::mesh_slicing_system,
+                systems::draw_slicing_contours_system,
+                systems::draw_actor_bounds_debug_system,
             ).after(bevy::transform::TransformSystem::TransformPropagate)
              .run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
