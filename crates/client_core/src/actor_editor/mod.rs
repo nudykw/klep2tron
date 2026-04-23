@@ -26,11 +26,13 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<PendingImport>()
            .init_resource::<ImportProgress>()
            .init_resource::<systems::SlicingTask>()
+           .init_resource::<InspectionSettings>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
            .add_event::<ToastEvent>()
            .add_event::<ConfirmationRequestEvent>()
+           .add_event::<InspectionFocusEvent>()
            .add_systems(OnEnter(GameState::ActorEditor), (ui_root::setup_actor_editor, navigation::setup_navigation).chain())
            .add_systems(Update, (
                 systems::actor_editor_input_system,
@@ -71,6 +73,13 @@ impl Plugin for ActorEditorPlugin {
                     systems::slicing_gizmo_manager_system,
                     systems::slicing_gizmo_sync_system,
                     systems::slicer_lock_system,
+                    systems::inspection_input_system,
+                    systems::inspection_visibility_system,
+                    systems::inspection_camera_focus_system,
+                    systems::inspection_highlight_system,
+                    systems::inspection_debug_draw_system,
+                    systems::inspection_ui_logic_system,
+                    systems::inspection_ui_sync_system,
                 ).chain().run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
@@ -231,12 +240,25 @@ pub enum SlicingGizmoType {
     Bottom,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActorPart {
     Head,
     Body,
     Engine,
 }
+
+#[derive(Resource, Default)]
+pub struct InspectionSettings {
+    pub is_active: bool,
+    pub isolated_part: Option<ActorPart>,
+    pub ghost_mode: bool,
+    pub wireframe: bool,
+    pub show_normals: bool,
+    pub hovered_part: Option<ActorPart>,
+}
+
+#[derive(Event)]
+pub struct InspectionFocusEvent(pub ActorPart);
 
 #[derive(Event)]
 pub struct MaterialUpdateEvent {

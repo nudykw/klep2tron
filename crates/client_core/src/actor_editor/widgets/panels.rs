@@ -22,6 +22,19 @@ pub fn spawn_collapsible_section<T: Bundle>(
     content_bundle: T,
     add_content: impl FnOnce(&mut ChildBuilder),
 ) {
+    spawn_collapsible_section_ext(parent, font, icon_font, title, is_open, content_bundle, add_content, |_| {});
+}
+
+pub fn spawn_collapsible_section_ext<T: Bundle>(
+    parent: &mut ChildBuilder,
+    font: &Handle<Font>,
+    icon_font: &Handle<Font>,
+    title: &str,
+    is_open: bool,
+    content_bundle: T,
+    add_content: impl FnOnce(&mut ChildBuilder),
+    add_header_extra: impl FnOnce(&mut ChildBuilder),
+) {
     parent.spawn((
         NodeBundle {
             style: Style {
@@ -40,6 +53,7 @@ pub fn spawn_collapsible_section<T: Bundle>(
                     width: Val::Percent(100.0),
                     height: Val::Px(30.0),
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
                     padding: UiRect::horizontal(Val::Px(10.0)),
                     ..default()
                 },
@@ -48,14 +62,33 @@ pub fn spawn_collapsible_section<T: Bundle>(
             },
             CollapsibleHeader,
         )).with_children(|h| {
-            h.spawn(TextBundle::from_section(
-                if is_open { "\u{f078} " } else { "\u{f054} " },
-                TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.7, 0.7, 0.7) },
-            ));
-            h.spawn(TextBundle::from_section(
-                title,
-                TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
-            ));
+            h.spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(8.0),
+                    ..default()
+                },
+                ..default()
+            }).with_children(|left| {
+                left.spawn(TextBundle::from_section(
+                    if is_open { "\u{f078} " } else { "\u{f054} " },
+                    TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.7, 0.7, 0.7) },
+                ));
+                left.spawn(TextBundle::from_section(
+                    title,
+                    TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
+                ));
+            });
+
+            h.spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                ..default()
+            }).with_children(add_header_extra);
         });
 
         p.spawn((
@@ -77,23 +110,43 @@ pub fn spawn_collapsible_section<T: Bundle>(
 
 pub fn collapsible_system(
     mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<CollapsibleHeader>)>,
-    mut section_query: Query<&mut CollapsibleSection>,
+    mut section_query: Query<(Entity, &mut CollapsibleSection)>,
     mut content_query: Query<(&mut Style, &Parent), With<CollapsibleContent>>,
-    header_text_query: Query<(&Children, &Parent), With<CollapsibleHeader>>,
+    header_query: Query<(&Children, &Parent), With<CollapsibleHeader>>,
+    container_query: Query<&Children, Without<CollapsibleHeader>>,
     mut text_query: Query<&mut Text>,
 ) {
+    // 1. Handle manual clicks
     for (interaction, parent) in interaction_query.iter_mut() {
         if *interaction == Interaction::Pressed {
-            if let Ok(mut section) = section_query.get_mut(parent.get()) {
+            if let Ok((_, mut section)) = section_query.get_mut(parent.get()) {
                 section.is_open = !section.is_open;
-                for (mut style, content_parent) in content_query.iter_mut() {
-                    if content_parent.get() == parent.get() {
-                        style.display = if section.is_open { Display::Flex } else { Display::None };
-                    }
+            }
+        }
+    }
+
+    // 2. Sync visual state for any section that changed
+    for (section_entity, section) in section_query.iter_mut() {
+        if section.is_changed() {
+            // Update content visibility
+            for (mut style, parent) in content_query.iter_mut() {
+                if parent.get() == section_entity {
+                    style.display = if section.is_open { Display::Flex } else { Display::None };
                 }
-                for (children, header_parent) in header_text_query.iter() {
-                    if header_parent.get() == parent.get() {
-                        if let Ok(mut text) = text_query.get_mut(children[0]) {
+            }
+
+            // Update header icon
+            for (header_children, header_parent) in header_query.iter() {
+                if header_parent.get() == section_entity {
+                    // In new hierarchy: Header -> LeftContainer -> Icon
+                    // In old hierarchy: Header -> Icon
+                    
+                    // Try old hierarchy first (header_children[0] is Text)
+                    if let Ok(mut text) = text_query.get_mut(header_children[0]) {
+                        text.sections[0].value = if section.is_open { "\u{f078} ".to_string() } else { "\u{f054} ".to_string() };
+                    } else if let Ok(container_children) = container_query.get(header_children[0]) {
+                        // Try new hierarchy (header_children[0] is Container, container_children[0] is Icon)
+                        if let Ok(mut text) = text_query.get_mut(container_children[0]) {
                             text.sections[0].value = if section.is_open { "\u{f078} ".to_string() } else { "\u{f054} ".to_string() };
                         }
                     }
