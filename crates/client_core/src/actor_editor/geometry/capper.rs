@@ -152,7 +152,8 @@ fn is_ear(p_idx: usize, c_idx: usize, n_idx: usize, indices: &[usize], vertices:
     let c = vertices[n_idx];
 
     // 1. Convexity check (XZ projection)
-    let cross = (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
+    // In Bevy's right-handed system, CCW in XZ plane (looking from Y+) is Z -> X
+    let cross = (b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z);
     if cross <= 0.0 { return false; } 
 
     // 2. AABB Culling (Fast path to skip 99% of points)
@@ -201,7 +202,8 @@ fn calculate_area_2d(vertices: &[Vec3], indices: &[usize]) -> f32 {
         let j = (i + 1) % indices.len();
         let v1 = vertices[indices[i]];
         let v2 = vertices[indices[j]];
-        area += (v1.x * v2.z) - (v2.x * v1.z);
+        // CCW in XZ plane (looking from Y+) is Z -> X
+        area += (v1.z * v2.x) - (v2.z * v1.x);
     }
     area / 2.0
 }
