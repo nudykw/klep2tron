@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::GameState;
+pub use shared::npc::{ActorPart, SocketDefinition};
 
 pub mod ui_root;
 pub mod ui_inspector;
@@ -160,6 +161,12 @@ pub struct ViewportSettings {
     pub gizmos: bool,
 }
 
+#[derive(Resource, Default)]
+pub struct SocketSettings {
+    pub is_adding: bool,
+    pub show_visuals: bool,
+}
+
 impl Default for ViewportSettings {
     fn default() -> Self {
         Self {
@@ -240,11 +247,10 @@ pub enum SlicingGizmoType {
     Bottom,
 }
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ActorPart {
-    Head,
-    Body,
-    Engine,
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct ActorSocket {
+    pub definition: SocketDefinition,
 }
 
 #[derive(Resource, Default)]
