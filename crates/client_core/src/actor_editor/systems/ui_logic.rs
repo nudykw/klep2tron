@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::VertexAttributeValues;
 use rfd::FileDialog;
-use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, EditorHelper, ToastEvent, ToastType, ActorImportEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, OriginalMeshComponent};
+use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, EditorHelper, ToastEvent, ToastType, ActorImportEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor};
 
 pub fn status_update_system(
     status: Res<EditorStatus>,
@@ -290,9 +290,16 @@ pub fn actor_import_processing_system(
 
         if let Some(mesh_handle) = loaded_mesh {
             commands.spawn((
-                PbrBundle { mesh: mesh_handle.clone(), material: materials.add(StandardMaterial { base_color: Color::WHITE, ..default() }), ..default() },
-                ActorEditorEntity, crate::actor_editor::AwaitingNormalization, OriginalMeshComponent(mesh_handle),
-            ));
+                SpatialBundle::default(),
+                ActorEditorEntity, 
+                crate::actor_editor::AwaitingNormalization,
+            )).with_children(|p| {
+                p.spawn(PbrBundle { 
+                    mesh: mesh_handle.clone(), 
+                    material: materials.add(StandardMaterial { base_color: Color::WHITE, ..default() }), 
+                    ..default() 
+                });
+            });
         } else if pending.handle.is_some() {
              commands.spawn(( SceneBundle { scene: pending.handle.clone().unwrap(), ..default() }, ActorEditorEntity, crate::actor_editor::AwaitingNormalization, ));
         }
