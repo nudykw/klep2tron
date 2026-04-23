@@ -81,12 +81,12 @@ pub fn split_mesh_by_planes(
     }
 
     // Capping: Add cap triangles to parts
-    head_tris.extend(super::capper::build_caps_from_segments(&top_segments));
+    head_tris.extend(super::capper::build_caps_from_segments(&top_segments, false));
     
-    body_tris.extend(super::capper::build_caps_from_segments(&top_segments));
-    body_tris.extend(super::capper::build_caps_from_segments(&bot_segments));
+    body_tris.extend(super::capper::build_caps_from_segments(&top_segments, true));
+    body_tris.extend(super::capper::build_caps_from_segments(&bot_segments, false));
 
-    legs_tris.extend(super::capper::build_caps_from_segments(&bot_segments));
+    legs_tris.extend(super::capper::build_caps_from_segments(&bot_segments, true));
 
     super::SlicedParts {
         head: Some(build_mesh_from_tris(&head_tris)),
