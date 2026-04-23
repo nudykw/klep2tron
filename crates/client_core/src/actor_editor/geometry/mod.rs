@@ -1,5 +1,6 @@
 pub mod slicer;
 pub mod capper;
+pub mod raycast;
 
 use bevy::prelude::*;
 

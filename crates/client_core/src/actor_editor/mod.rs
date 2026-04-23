@@ -28,6 +28,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<ImportProgress>()
            .init_resource::<systems::SlicingTask>()
            .init_resource::<InspectionSettings>()
+           .init_resource::<SocketSettings>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -81,6 +82,11 @@ impl Plugin for ActorEditorPlugin {
                     systems::inspection_debug_draw_system,
                     systems::inspection_ui_logic_system,
                     systems::inspection_ui_sync_system,
+                    systems::socket_picking_system,
+                    systems::socket_spawn_system,
+                    systems::draw_socket_previews_system,
+                    systems::socket_ui_interaction_system,
+                    systems::socket_button_visuals_system,
                 ).chain().run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
@@ -161,10 +167,19 @@ pub struct ViewportSettings {
     pub gizmos: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct HoveredSocketData {
+    pub part_entity: Entity,
+    pub part_type: ActorPart,
+    pub point: Vec3,
+    pub normal: Vec3,
+}
+
 #[derive(Resource, Default)]
 pub struct SocketSettings {
     pub is_adding: bool,
     pub show_visuals: bool,
+    pub hovered_data: Option<HoveredSocketData>,
 }
 
 impl Default for ViewportSettings {

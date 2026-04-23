@@ -13,6 +13,9 @@ pub struct SocketListItem {
 }
 
 #[derive(Component)]
+pub struct SocketAddModeButton;
+
+#[derive(Component)]
 pub struct MaterialColorPreview;
 
 #[derive(Resource, Default)]
@@ -102,30 +105,62 @@ pub fn setup_inspector(
             false,
             (),
             |content| {
-                content.spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Percent(100.0),
-                            height: Val::Px(30.0),
-                            margin: UiRect::bottom(Val::Px(10.0)),
-                            padding: UiRect::horizontal(Val::Px(10.0)),
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                content.spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(5.0),
+                        margin: UiRect::bottom(Val::Px(10.0)),
                         ..default()
                     },
-                    SocketSearchInput,
-                )).with_children(|search| {
-                    search.spawn(TextBundle::from_section(
-                        "\u{f002} ", // fa-search
-                        TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.5, 0.5, 0.5) },
-                    ));
-                    search.spawn(TextBundle::from_section(
-                        "Search sockets...",
-                        TextStyle { font: font.clone(), font_size: 14.0, color: Color::srgb(0.5, 0.5, 0.5) },
-                    ));
+                    ..default()
+                }).with_children(|row| {
+                    row.spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(30.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                            ..default()
+                        },
+                        SocketAddModeButton,
+                        super::super::widgets::Tooltip("Toggle Socket Placement Mode".to_string()),
+                    )).with_children(|b| {
+                        b.spawn(TextBundle::from_section(
+                            "\u{f067}", // plus icon
+                            TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
+                        ));
+                    });
+
+                    row.spawn((
+                        NodeBundle {
+                            style: Style {
+                                flex_grow: 1.0,
+                                height: Val::Px(30.0),
+                                padding: UiRect::horizontal(Val::Px(10.0)),
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                            ..default()
+                        },
+                        SocketSearchInput,
+                    )).with_children(|search| {
+                        search.spawn(TextBundle::from_section(
+                            "\u{f002} ", // fa-search
+                            TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.5, 0.5, 0.5) },
+                        ));
+                        search.spawn(TextBundle::from_section(
+                            "Search sockets...",
+                            TextStyle { font: font.clone(), font_size: 14.0, color: Color::srgb(0.5, 0.5, 0.5) },
+                        ));
+                    });
                 });
 
                 let sockets = vec!["head", "hand_l", "hand_r", "back", "foot_l", "foot_r"];
