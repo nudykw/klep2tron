@@ -83,14 +83,15 @@ pub fn mesh_slicing_system(
     let values_changed = (slicing_settings.top_cut - slicing_settings.last_top).abs() > 0.001 ||
                          (slicing_settings.bottom_cut - slicing_settings.last_bottom).abs() > 0.001;
 
-    // Trigger ONLY on mouse release or initial load after setup
-    let trigger = mouse_button.just_released(MouseButton::Left) || (needs_initial_slice && !values_changed);
+    // Trigger ONLY on mouse release IF values actually changed, or initial load
+    let trigger = mouse_button.just_released(MouseButton::Left) || needs_initial_slice;
 
     if !trigger || (!values_changed && !needs_initial_slice) { return; }
     
-    // Update last values
+    // Update last values to prevent re-triggering
     slicing_settings.last_top = slicing_settings.top_cut;
     slicing_settings.last_bottom = slicing_settings.bottom_cut;
+
     
     // Despawn old parts immediately to show we are working
     for child in child_query.iter() { commands.entity(child).despawn_recursive(); }
@@ -109,6 +110,11 @@ pub fn mesh_slicing_system(
             let local_matrix = transform.compute_matrix();
             mesh_data.push((entity, mesh.clone(), local_matrix.inverse()));
         }
+    }
+    
+    if mesh_data.is_empty() {
+        info!("No meshes found for slicing.");
+        return;
     }
 
     let thread_pool = bevy::tasks::AsyncComputeTaskPool::get();

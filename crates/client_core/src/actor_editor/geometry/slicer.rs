@@ -3,6 +3,7 @@ use bevy::render::mesh::{Indices, Mesh, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::render_asset::RenderAssetUsages;
 
+
 #[derive(Clone, Copy, Debug)]
 pub struct VertexData {
     pub pos: Vec3,
@@ -19,6 +20,28 @@ impl VertexData {
         }
     }
 }
+
+impl PartialEq for VertexData {
+    fn eq(&self, other: &Self) -> bool {
+        self.pos == other.pos && self.normal == other.normal && self.uv == other.uv
+    }
+}
+
+impl Eq for VertexData {}
+
+impl std::hash::Hash for VertexData {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.pos.x.to_bits().hash(state);
+        self.pos.y.to_bits().hash(state);
+        self.pos.z.to_bits().hash(state);
+        self.normal.x.to_bits().hash(state);
+        self.normal.y.to_bits().hash(state);
+        self.normal.z.to_bits().hash(state);
+        self.uv.x.to_bits().hash(state);
+        self.uv.y.to_bits().hash(state);
+    }
+}
+
 
 pub fn split_mesh_by_planes(
     mesh: &Mesh,
@@ -51,42 +74,58 @@ pub fn split_mesh_by_planes(
         None => (0..positions.len()).collect::<Vec<usize>>(),
     };
 
+    let start_time = std::time::Instant::now();
     debug!("Slicer: Processing {} tris", indices.len() / 3);
 
-    let mut head_tris = Vec::new();
-    let mut body_tris = Vec::new();
-    let mut legs_tris = Vec::new();
-    let mut top_segments = Vec::new();
-    let mut bot_segments = Vec::new();
+    // Process triangles sequentially for stability (Rayon removed due to thread contention issues)
+    let (mut head_tris, mut body_tris, mut legs_tris, mut top_segments, mut bot_segments) = 
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
 
-    for i in (0..indices.len()).step_by(3) {
+    for tri_indices in indices.chunks(3) {
+        if tri_indices.len() < 3 { continue; }
+        
         let tri_verts = [
-            VertexData { pos: positions[indices[i]].into(), normal: normals[indices[i]].into(), uv: uvs[indices[i]].into() },
-            VertexData { pos: positions[indices[i+1]].into(), normal: normals[indices[i+1]].into(), uv: uvs[indices[i+1]].into() },
-            VertexData { pos: positions[indices[i+2]].into(), normal: normals[indices[i+2]].into(), uv: uvs[indices[i+2]].into() },
+            VertexData { pos: positions[tri_indices[0]].into(), normal: normals[tri_indices[0]].into(), uv: uvs[tri_indices[0]].into() },
+            VertexData { pos: positions[tri_indices[1]].into(), normal: normals[tri_indices[1]].into(), uv: uvs[tri_indices[1]].into() },
+            VertexData { pos: positions[tri_indices[2]].into(), normal: normals[tri_indices[2]].into(), uv: uvs[tri_indices[2]].into() },
         ];
 
-        // Split by Top Plane
-        let (top_above, top_below, top_contour) = split_triangle(&tri_verts, top_y);
-        for tri in top_above { head_tris.push(tri); }
-        if let Some(segment) = top_contour { top_segments.push(segment); }
+        let min_y = tri_verts[0].pos.y.min(tri_verts[1].pos.y).min(tri_verts[2].pos.y);
+        let max_y = tri_verts[0].pos.y.max(tri_verts[1].pos.y).max(tri_verts[2].pos.y);
 
-        // Split resulting 'below' by Bottom Plane
-        for tri in top_below {
-            let (bot_above, bot_below, bot_contour) = split_triangle(&tri, bottom_y);
-            for b_tri in bot_above { body_tris.push(b_tri); }
-            for b_tri in bot_below { legs_tris.push(b_tri); }
-            if let Some(segment) = bot_contour { bot_segments.push(segment); }
+        if min_y > top_y {
+            head_tris.push(tri_verts);
+        } else if max_y < bottom_y {
+            legs_tris.push(tri_verts);
+        } else if min_y > bottom_y && max_y < top_y {
+            body_tris.push(tri_verts);
+        } else {
+            let (top_above, top_below, top_contour) = split_triangle(&tri_verts, top_y);
+            head_tris.extend(top_above);
+            if let Some(s) = top_contour { top_segments.push(s); }
+
+            for tri in top_below {
+                let (bot_above, bot_below, bot_contour) = split_triangle(&tri, bottom_y);
+                body_tris.extend(bot_above);
+                legs_tris.extend(bot_below);
+                if let Some(s) = bot_contour { bot_segments.push(s); }
+            }
         }
     }
 
+
+    let split_time = start_time.elapsed();
+    let cap_start = std::time::Instant::now();
+
     // Capping: Add cap triangles to parts
     head_tris.extend(super::capper::build_caps_from_segments(&top_segments, false));
-    
     body_tris.extend(super::capper::build_caps_from_segments(&top_segments, true));
     body_tris.extend(super::capper::build_caps_from_segments(&bot_segments, false));
-
     legs_tris.extend(super::capper::build_caps_from_segments(&bot_segments, true));
+
+    let cap_time = cap_start.elapsed();
+    info!("Slicing Speed: Split={:?}, Cap={:?} (Total={:?})", split_time, cap_time, start_time.elapsed());
+
 
     super::SlicedParts {
         head: Some(build_mesh_from_tris(&head_tris)),
@@ -153,10 +192,10 @@ fn split_triangle(
 }
 
 fn build_mesh_from_tris(tris: &[[VertexData; 3]]) -> Mesh {
-    let mut pos = Vec::new();
-    let mut norm = Vec::new();
-    let mut uv = Vec::new();
-    let mut idx = Vec::new();
+    let mut pos = Vec::with_capacity(tris.len() * 3);
+    let mut norm = Vec::with_capacity(tris.len() * 3);
+    let mut uv = Vec::with_capacity(tris.len() * 3);
+    let mut idx = Vec::with_capacity(tris.len() * 3);
 
     for (i, tri) in tris.iter().enumerate() {
         for v in tri {
@@ -164,10 +203,12 @@ fn build_mesh_from_tris(tris: &[[VertexData; 3]]) -> Mesh {
             norm.push(v.normal.to_array());
             uv.push(v.uv.to_array());
         }
-        idx.push((i * 3) as u32);
-        idx.push((i * 3 + 1) as u32);
-        idx.push((i * 3 + 2) as u32);
+        let start = (i * 3) as u32;
+        idx.push(start);
+        idx.push(start + 1);
+        idx.push(start + 2);
     }
+
 
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
