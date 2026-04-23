@@ -103,6 +103,10 @@ pub enum RangeSliderThumb {
     Max,
 }
 
+#[derive(Component)]
+pub struct ConfirmationCircleUI(pub RangeSliderThumb);
+
+
 pub fn spawn_range_slider(
     parent: &mut ChildBuilder,
     icon_font: &Handle<Font>,
@@ -158,7 +162,9 @@ fn spawn_range_slider_internal(
             is_vertical: vertical 
         },
         Interaction::default(),
+        bevy::ui::RelativeCursorPosition::default(),
     )).with_children(|p| {
+
         let track_style = if vertical {
             Style { width: Val::Px(4.0), height: Val::Percent(100.0), ..default() }
         } else {
@@ -202,12 +208,43 @@ fn spawn_range_slider_internal(
                 Interaction::default(), 
                 RangeSliderThumb::Min, 
                 Tooltip("Bottom Cut (Engine)".to_string()),
+                bevy::ui::RelativeCursorPosition::default(),
             )).with_children(|btn| {
-                btn.spawn(TextBundle::from_section(if vertical { "\u{f0d8}" } else { "\u{f0da}" }, TextStyle { 
-                    font: icon_font.clone(), 
-                    font_size: thumb_size, 
-                    color: Color::srgb(1.0, 0.6, 0.2) 
-                }));
+
+                // Confirmation Circle UI
+                btn.spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(-8.0),
+                            top: Val::Px(-8.0),
+                            ..default()
+                        },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
+                        border_radius: BorderRadius::all(Val::Px(20.0)),
+                        visibility: Visibility::Hidden,
+                        ..default()
+                    },
+                    ConfirmationCircleUI(RangeSliderThumb::Min),
+                    Interaction::default(),
+                    bevy::ui::RelativeCursorPosition::default(),
+                ));
+
+
+
+                btn.spawn(TextBundle {
+                    text: Text::from_section(if vertical { "\u{f0d8}" } else { "\u{f0da}" }, TextStyle { 
+                        font: icon_font.clone(), 
+                        font_size: thumb_size, 
+                        color: Color::srgb(1.0, 0.6, 0.2) 
+                    }),
+                    focus_policy: bevy::ui::FocusPolicy::Pass,
+                    ..default()
+                });
+
+
             });
 
             // Max Thumb (Top Cut / Head) - Points DOWN
@@ -232,44 +269,78 @@ fn spawn_range_slider_internal(
                 Interaction::default(), 
                 RangeSliderThumb::Max, 
                 Tooltip("Top Cut (Head)".to_string()),
+                bevy::ui::RelativeCursorPosition::default(),
             )).with_children(|btn| {
-                btn.spawn(TextBundle::from_section(if vertical { "\u{f0d7}" } else { "\u{f0d9}" }, TextStyle { 
-                    font: icon_font.clone(), 
-                    font_size: thumb_size, 
-                    color: Color::srgb(0.3, 0.6, 1.0) 
-                }));
+
+                // Confirmation Circle UI
+                btn.spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(-8.0),
+                            top: Val::Px(-8.0),
+                            ..default()
+                        },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
+                        border_radius: BorderRadius::all(Val::Px(20.0)),
+                        visibility: Visibility::Hidden,
+                        ..default()
+                    },
+                    ConfirmationCircleUI(RangeSliderThumb::Max),
+                    Interaction::default(),
+                    bevy::ui::RelativeCursorPosition::default(),
+                ));
+
+
+
+                btn.spawn(TextBundle {
+                    text: Text::from_section(if vertical { "\u{f0d7}" } else { "\u{f0d9}" }, TextStyle { 
+                        font: icon_font.clone(), 
+                        font_size: thumb_size, 
+                        color: Color::srgb(0.3, 0.6, 1.0) 
+                    }),
+                    focus_policy: bevy::ui::FocusPolicy::Pass,
+                    ..default()
+                });
+
+
             });
+
         });
     });
 }
 
 pub fn range_slider_system(
-    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
-    mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut RangeSlider, &Children)>,
-    mut thumb_query: Query<(&Interaction, &mut Style, &RangeSliderThumb, &mut Tooltip)>,
+    mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut RangeSlider, &Children, &bevy::ui::RelativeCursorPosition)>,
+    mut thumb_query: Query<(&Interaction, &mut Style, &RangeSliderThumb, &mut Tooltip, &Children, &GlobalTransform, &bevy::ui::RelativeCursorPosition)>,
+    mut circle_query: Query<(&ConfirmationCircleUI, &mut Visibility, &mut BackgroundColor, &Interaction, &bevy::ui::RelativeCursorPosition)>,
+
     node_query: Query<&Children>,
     mut slicing_settings: ResMut<SlicingSettings>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
 ) {
-
-    let Ok(window) = window_query.get_single() else { return; };
-    let Some(cursor_position) = window.cursor_position() else { return; };
     
     if slicing_settings.locked { 
-        for (_interaction, _style, thumb, mut tooltip) in thumb_query.iter_mut() {
+        for (_interaction, _style, thumb, mut tooltip, _children, _transform, _rp) in thumb_query.iter_mut() {
             let base = match thumb { RangeSliderThumb::Min => "Bottom Cut (Engine)", RangeSliderThumb::Max => "Top Cut (Head)" };
             tooltip.0 = format!("{} [LOCKED]", base);
         }
         return; 
     }
 
-    for (interaction, node, transform, mut slider, children) in interaction_query.iter_mut() {
+
+    for (interaction, _node, _transform, mut slider, children, rel_pos) in interaction_query.iter_mut() {
         let mut hovered = None;
         for &track_entity in children.iter() {
             if let Ok(track_children) = node_query.get(track_entity) {
                 for &child in track_children.iter() {
-                    if let Ok((thumb_interaction, _style, thumb_type, _tooltip)) = thumb_query.get(child) {
+                    if let Ok((thumb_interaction, _style, thumb_type, _tooltip, _children, _transform, _rp)) = thumb_query.get(child) {
+
                         if *thumb_interaction != Interaction::None { hovered = Some(*thumb_type); }
                     }
+
                 }
             }
         }
@@ -278,7 +349,11 @@ pub fn range_slider_system(
         for &track_entity in children.iter() {
             if let Ok(track_children) = node_query.get(track_entity) {
                 for &child in track_children.iter() {
-                    if let Ok((_interaction, mut style, thumb, mut tooltip)) = thumb_query.get_mut(child) {
+                    if let Ok((thumb_interaction, mut style, thumb, mut tooltip, thumb_children, _thumb_transform, _thumb_rel_pos)) = thumb_query.get_mut(child) {
+
+
+
+
                         let pct = match thumb { RangeSliderThumb::Min => slider.min_value, RangeSliderThumb::Max => slider.max_value, } * 100.0;
                         if slider.is_vertical { 
                             style.bottom = Val::Percent(pct); 
@@ -287,50 +362,110 @@ pub fn range_slider_system(
                         }
                         let base = match thumb { RangeSliderThumb::Min => "Bottom Cut (Engine)", RangeSliderThumb::Max => "Top Cut (Head)" };
                         tooltip.0 = format!("{}: {:.0}%", base, pct);
+
+                        // --- SYNC CIRCLES ---
+                        for &circle_entity in thumb_children.iter() {
+                            if let Ok((circle, mut vis, mut bg, circle_interaction, circle_rel_pos)) = circle_query.get_mut(circle_entity) {
+                                let slicing_type = match circle.0 {
+                                    RangeSliderThumb::Min => super::super::SlicingGizmoType::Bottom,
+                                    RangeSliderThumb::Max => super::super::SlicingGizmoType::Top,
+                                };
+                                
+                                let is_dragging = slicing_settings.dragging_gizmo == Some(slicing_type);
+                                let is_pending = slicing_settings.needs_confirm && slicing_settings.dragging_gizmo == Some(slicing_type);
+                                
+                                if is_dragging || is_pending {
+                                    *vis = Visibility::Visible;
+                                    if circle_rel_pos.mouse_over() {
+                                        *bg = Color::srgba(1.0, 1.0, 1.0, 0.2).into();
+                                    } else {
+                                        *bg = Color::srgba(0.5, 0.5, 0.5, 0.4).into();
+                                    }
+                                } else {
+                                    *vis = Visibility::Hidden;
+                                }
+
+                                // Only trigger slice if the thumb ITSELF wasn't clicked
+                                if is_pending && *circle_interaction == Interaction::Pressed && *thumb_interaction != Interaction::Pressed {
+
+                                    slicing_settings.trigger_slice = true;
+                                    info!("UI Circle Clicked (Outside Thumb): Triggering Slice");
+                                }
+                            }
+                        }
+
+
+
                     }
                 }
             }
         }
 
-        if *interaction == Interaction::Pressed {
-            let rect = node.size();
-            let pos = transform.translation().truncate();
-            let val = if slider.is_vertical {
-                let local_y = (pos.y + rect.y / 2.0) - cursor_position.y;
-                (local_y / rect.y).clamp(0.0, 1.0)
-            } else {
-                let local_x = (cursor_position.x - (pos.x - rect.x / 2.0)) / rect.x;
-                local_x.clamp(0.0, 1.0)
-            };
-
-            if slider.dragging.is_none() {
-                let dist_min = (val - slider.min_value).abs();
-                let dist_max = (val - slider.max_value).abs();
-                if dist_min < dist_max {
-                    slider.dragging = Some(RangeSliderThumb::Min);
-                } else {
-                    slider.dragging = Some(RangeSliderThumb::Max);
-                }
-            }
-
-            if let Some(target) = slider.dragging {
+        // 1. UPDATE VALUE WHILE DRAGGING
+        if slider.dragging.is_some() && mouse_button.pressed(MouseButton::Left) {
+            if let Some(norm) = rel_pos.normalized {
+                let val = if slider.is_vertical { (1.0 - norm.y).clamp(0.0, 1.0) } else { norm.x.clamp(0.0, 1.0) };
+                let target = slider.dragging.unwrap();
                 match target {
                     RangeSliderThumb::Min => slider.min_value = val.min(slider.max_value - 0.02),
                     RangeSliderThumb::Max => slider.max_value = val.max(slider.min_value + 0.02),
                 }
-                // Sync dragging state to settings for 3D helpers
                 slicing_settings.dragging_gizmo = Some(match target {
                     RangeSliderThumb::Min => super::super::SlicingGizmoType::Bottom,
                     RangeSliderThumb::Max => super::super::SlicingGizmoType::Top,
                 });
+                slicing_settings.needs_confirm = false;
             }
-        } else {
+        }
+
+        // 2. START DRAGGING
+        if *interaction == Interaction::Pressed && slider.dragging.is_none() {
+            if let Some(target) = hovered {
+                slider.dragging = Some(target);
+            } else if let Some(norm) = rel_pos.normalized {
+                let val = if slider.is_vertical { 1.0 - norm.y } else { norm.x };
+                let dist_min = (val - slider.min_value).abs();
+                let dist_max = (val - slider.max_value).abs();
+                slider.dragging = Some(if dist_min < dist_max { RangeSliderThumb::Min } else { RangeSliderThumb::Max });
+            }
+        }
+
+        // 3. RELEASE LOGIC
+        if mouse_button.just_released(MouseButton::Left) && slider.dragging.is_some() {
+            let target = slider.dragging.unwrap();
+            let mut released_inside = false;
+
+            // Check if mouse is over the circle associated with this thumb
+            for &track_entity in children.iter() {
+                if let Ok(track_children) = node_query.get(track_entity) {
+                    for &child in track_children.iter() {
+                        if let Ok((_ti, _st, thumb_type, _tt, thumb_children, _tr, thumb_rel_pos)) = thumb_query.get(child) {
+                            if *thumb_type == target {
+                                if thumb_rel_pos.mouse_over() {
+                                    released_inside = true;
+                                }
+                                for &circle_entity in thumb_children.iter() {
+                                    if let Ok((_c, _v, _b, _i, circle_rel_pos)) = circle_query.get(circle_entity) {
+                                        if circle_rel_pos.mouse_over() {
+                                            released_inside = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+
+            if released_inside {
+                slicing_settings.trigger_slice = true;
+                info!("Release INSIDE: Slicing");
+            } else {
+                slicing_settings.needs_confirm = true;
+                info!("Release OUTSIDE: Pending Confirm");
+            }
             slider.dragging = None;
-            // Clear dragging state if THIS slider was dragging
-            if slicing_settings.dragging_gizmo.is_some() {
-                // We don't clear it here yet, because we need it for the release logic in slicing.rs
-                // Actually, slicing.rs will handle the release logic.
-            }
         }
     }
 }

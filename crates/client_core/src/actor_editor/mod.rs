@@ -173,7 +173,9 @@ pub struct SlicingSettings {
     pub dragging_gizmo: Option<SlicingGizmoType>,
     pub needs_confirm: bool,
     pub confirm_pos: Vec3,
+    pub trigger_slice: bool,
     // Internal state to track changes
+
     pub last_top: f32,
     pub last_bottom: f32,
 }
@@ -189,7 +191,9 @@ impl Default for SlicingSettings {
             dragging_gizmo: None,
             needs_confirm: false,
             confirm_pos: Vec3::ZERO,
+            trigger_slice: false,
             last_top: -1.0,
+
             last_bottom: -1.0,
         }
     }

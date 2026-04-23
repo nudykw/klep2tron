@@ -154,39 +154,19 @@ pub fn slicing_gizmo_manager_system(
                 SlicingGizmo, 
                 EditorHelper,
             ));
-
-            // Spawn Confirmation Circle (Helper)
-            commands.spawn((
-                PbrBundle {
-                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.2))), // Slightly larger
-                    material: materials.add(StandardMaterial {
-                        base_color: Color::srgba(1.0, 1.0, 1.0, 0.1),
-                        alpha_mode: AlphaMode::Blend,
-                        unlit: true,
-                        double_sided: true,
-                        cull_mode: None,
-                        ..default()
-                    }),
-                    transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-                    visibility: Visibility::Hidden,
-                    ..default()
-                },
-                gizmo_type,
-                super::super::ConfirmationCircle,
-                EditorHelper,
-            ));
         }
     } else if !viewport_settings.slices && gizmo_count > 0 {
+
         for entity in gizmo_query.iter() { commands.entity(entity).despawn_recursive(); }
     }
 }
 
+
 pub fn slicing_gizmo_sync_system(
     slicing_settings: Res<SlicingSettings>,
     actor_query: Query<(&ActorBounds, &GlobalTransform)>,
-    mut gizmo_query: Query<(Entity, &mut Transform, &SlicingGizmoType, &Handle<StandardMaterial>, Option<&SlicingGizmo>, Option<&super::super::ConfirmationCircle>)>,
+    mut gizmo_query: Query<(&mut Transform, &SlicingGizmoType, &Handle<StandardMaterial>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut visibility_query: Query<&mut Visibility>,
 ) {
     let Ok((bounds, transform)) = actor_query.get_single() else { return; };
     
@@ -194,7 +174,7 @@ pub fn slicing_gizmo_sync_system(
     let radius = (bounds.max.x - bounds.min.x).max(bounds.max.z - bounds.min.z) * 0.7;
     let world_base_y = transform.transform_point(Vec3::Y * bounds.min.y).y;
 
-    for (entity, mut gizmo_transform, gizmo_type, mat_handle, is_gizmo, is_confirm) in gizmo_query.iter_mut() {
+    for (mut gizmo_transform, gizmo_type, mat_handle) in gizmo_query.iter_mut() {
         let ratio = match *gizmo_type {
             SlicingGizmoType::Top => slicing_settings.top_cut,
             SlicingGizmoType::Bottom => slicing_settings.bottom_cut,
@@ -202,51 +182,21 @@ pub fn slicing_gizmo_sync_system(
 
         let y = world_base_y + (ratio * height);
         gizmo_transform.translation = Vec3::new(transform.translation().x, y, transform.translation().z);
+        gizmo_transform.scale = Vec3::splat(radius);
         gizmo_transform.rotation = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
 
-
-        if is_gizmo.is_some() {
-            gizmo_transform.scale = Vec3::splat(radius);
-            if let Some(mat) = materials.get_mut(mat_handle) {
-                let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);
-                let alpha = if is_hovered { 0.8 } else { 0.05 };
-                let color = match *gizmo_type {
-                    SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, alpha),
-                    SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, alpha),
-                };
-                mat.base_color = color;
-            }
-        } else if is_confirm.is_some() {
-            gizmo_transform.scale = Vec3::splat(radius * 1.5); 
-            
-            // Fixed at ground level (or slightly above to avoid Z-fighting)
-            gizmo_transform.translation = Vec3::new(transform.translation().x, 0.01, transform.translation().z);
-            gizmo_transform.rotation = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
-
-            // Visibility logic
-            let is_active_drag = slicing_settings.dragging_gizmo == Some(*gizmo_type);
-            let needs_this_confirm = slicing_settings.needs_confirm && slicing_settings.dragging_gizmo == Some(*gizmo_type);
-            
-            let target_vis = if is_active_drag || needs_this_confirm {
-                Visibility::Visible
-            } else {
-                Visibility::Hidden
+        if let Some(mat) = materials.get_mut(mat_handle) {
+            let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);
+            let alpha = if is_hovered { 0.8 } else { 0.05 };
+            let color = match *gizmo_type {
+                SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, alpha),
+                SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, alpha),
             };
-
-            if let Ok(mut vis) = visibility_query.get_mut(entity) {
-                if *vis != target_vis { *vis = target_vis; }
-            }
-            
-            if let Some(mat) = materials.get_mut(mat_handle) {
-                if is_active_drag {
-                    mat.base_color = Color::srgba(1.0, 1.0, 1.0, 0.2); // White while dragging
-                } else {
-                    mat.base_color = Color::srgba(0.5, 0.5, 0.5, 0.2); // Grey when pending
-                }
-            }
+            mat.base_color = color;
         }
     }
 }
+
 
 
 
