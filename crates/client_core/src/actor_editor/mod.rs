@@ -24,8 +24,8 @@ impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
            .add_plugins(bevy_mod_picking::DefaultPickingPlugins)
-           .init_resource::<ui_inspector::SocketFilter>()
            .init_resource::<ui_inspector::SelectedSocket>()
+           .init_resource::<ui_inspector::SocketFilterState>()
            .init_resource::<widgets::PanelSettings>()
            .init_resource::<ViewportSettings>()
            .init_resource::<SlicingSettings>()
@@ -53,12 +53,11 @@ impl Plugin for ActorEditorPlugin {
                 widgets::update_panel_style_system,
                 widgets::panel_toggle_system,
                 widgets::tooltip_system,
-                ui_inspector::socket_filter_system,
                 ui_inspector::socket_transform_update_system,
                 systems::gizmo_sync_system,
                 navigation::camera_reset_handler,
                 navigation::grid_system,
-                navigation::camera_control_blocking_system,
+                navigation::camera_control_blocking_system, widgets::text_input_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
                 systems::gizmo_viewport_system,
@@ -106,10 +105,15 @@ impl Plugin for ActorEditorPlugin {
                     systems::actor_part_picking_priority_system,
                     systems::socket_gizmo_sync_system,
                     systems::xray_material_system,
+                ).run_if(in_state(GameState::ActorEditor)))
+            .add_systems(Update, (
                     ui_inspector::socket_ui_list_sync_system,
+                    ui_inspector::socket_ui_list_label_sync_system,
                     ui_inspector::socket_list_click_system,
                     ui_inspector::socket_list_highlight_system,
                     ui_inspector::socket_reset_rotation_system,
+                    ui_inspector::socket_filter_update_system,
+                    ui_inspector::socket_filter_ui_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (

@@ -16,6 +16,7 @@ pub struct SocketDefinition {
     pub part: ActorPart,
     pub position: Vec3,
     pub rotation: Quat,
+    pub comment: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect, Default)]

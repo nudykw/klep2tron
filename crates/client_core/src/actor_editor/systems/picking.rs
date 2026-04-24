@@ -58,6 +58,7 @@ pub fn socket_spawn_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut selected: ResMut<super::super::ui_inspector::SelectedSocket>,
     part_query: Query<&GlobalTransform, With<ActorPart>>,
+    socket_query: Query<&ActorSocket>,
 ) {
     if !settings.is_adding { return; }
     
@@ -73,6 +74,8 @@ pub fn socket_spawn_system(
             let inv_matrix = part_global_transform.compute_matrix().inverse();
             let local_point = inv_matrix.transform_point3(offset_point);
             let local_rotation = part_global_transform.to_scale_rotation_translation().1.inverse() * world_rotation;
+
+            let name = find_next_socket_name(data.part_type, &socket_query);
 
             let socket_entity = commands.spawn((
                 PbrBundle {
@@ -91,10 +94,11 @@ pub fn socket_spawn_system(
                 },
                 ActorSocket {
                     definition: SocketDefinition {
-                        name: format!("Socket_{:?}_{}", data.part_type, rand_id()),
+                        name,
                         part: data.part_type,
                         position: local_point,
                         rotation: local_rotation,
+                        comment: String::new(),
                     }
                 },
                 bevy_mod_picking::PickableBundle::default(),
@@ -134,6 +138,31 @@ pub fn socket_spawn_system(
     }
 }
 
+fn find_next_socket_name(part: ActorPart, query: &Query<&ActorSocket>) -> String {
+    let mut indices = Vec::new();
+    let prefix = format!("Socket_{:?}_", part);
+    
+    for socket in query.iter() {
+        if socket.definition.part == part && socket.definition.name.starts_with(&prefix) {
+            if let Ok(idx) = socket.definition.name[prefix.len()..].parse::<u32>() {
+                indices.push(idx);
+            }
+        }
+    }
+    
+    let mut next_idx = 1;
+    indices.sort();
+    for idx in indices {
+        if idx == next_idx {
+            next_idx += 1;
+        } else if idx > next_idx {
+            break;
+        }
+    }
+    
+    format!("{}{}", prefix, next_idx)
+}
+
 pub fn socket_ui_interaction_system(
     mut settings: ResMut<SocketSettings>,
     query: Query<&Interaction, (Changed<Interaction>, With<SocketAddModeButton>)>,
@@ -171,12 +200,7 @@ pub fn socket_3d_selection_system(
     }
 }
 
-fn rand_id() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let start = SystemTime::now();
-    let since_the_epoch = start.duration_since(UNIX_EPOCH).unwrap().as_millis();
-    format!("{:x}", since_the_epoch).chars().rev().take(4).collect()
-}
+
 
 pub fn draw_socket_previews_system(
     settings: Res<SocketSettings>,

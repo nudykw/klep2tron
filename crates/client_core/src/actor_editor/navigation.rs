@@ -62,6 +62,7 @@ pub fn camera_reset_handler(
 pub fn camera_control_blocking_system(
     mut camera_query: Query<&mut PanOrbitCamera, With<MainEditorCamera>>,
     ui_query: Query<&Interaction, With<Node>>,
+    input_query: Query<&super::widgets::TextInput>,
     gizmo_busy: Res<super::GizmoBusy>,
 ) {
     let mut blocked = false;
@@ -79,10 +80,19 @@ pub fn camera_control_blocking_system(
         blocked = true;
     }
 
+    // 3. Block if any text input is focused
+    if !blocked {
+        for input in input_query.iter() {
+            if input.is_focused {
+                blocked = true;
+                break;
+            }
+        }
+    }
+
     if let Ok(mut camera) = camera_query.get_single_mut() {
         if camera.enabled == blocked {
             camera.enabled = !blocked;
-            info!("Camera enabled state changed to: {}", !blocked);
         }
     }
 }

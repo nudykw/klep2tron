@@ -221,9 +221,26 @@ pub fn manual_gizmo_picking_system(
     camera_query: Query<(&Camera, &GlobalTransform), With<crate::actor_editor::MainEditorCamera>>,
     mut gizmo_query: Query<(Entity, &GlobalTransform, &mut ManualGizmoInteraction), With<GizmoAxis>>,
     gizmo_axis_query: Query<&GizmoAxis>,
+    ui_query: Query<&Interaction, With<Node>>,
 ) {
     let Ok(window) = window_query.get_single() else { return; };
     let Some(cursor_pos) = window.cursor_position() else { return; };
+
+    // Skip if interacting with UI
+    for interaction in ui_query.iter() {
+        if *interaction != Interaction::None {
+            if gizmo_query.iter().any(|(_, _, interaction)| *interaction != ManualGizmoInteraction::None) {
+                // Only log if we were actually hovering something
+                info!("Gizmo picking BLOCKED by UI Interaction");
+            }
+            // Reset hover states of all gizmos if we are over UI
+            for (_, _, mut interaction) in gizmo_query.iter_mut() {
+                *interaction = ManualGizmoInteraction::None;
+            }
+            return;
+        }
+    }
+
     let Ok((camera, camera_gt)) = camera_query.get_single() else { return; };
     let Some(ray) = camera.viewport_to_world(camera_gt, cursor_pos) else { return; };
 
@@ -393,6 +410,7 @@ pub fn manual_gizmo_dragging_system(
     camera_query: Query<(&Camera, &GlobalTransform), With<crate::actor_editor::MainEditorCamera>>,
     mut gizmo_query: Query<(Entity, &mut ManualGizmoInteraction, &GizmoAxis, &SocketLink, &GlobalTransform)>,
     mut socket_query: Query<&mut Transform, With<crate::actor_editor::ActorSocket>>,
+    ui_query: Query<&Interaction, With<Node>>,
     mut last_cursor: Local<Option<Vec2>>,
     mut active_axis: Local<Option<(Entity, GizmoAxisType, GizmoAction, Entity)>>,
     mut initial_rotation_vector: Local<Option<Vec3>>,
@@ -402,6 +420,13 @@ pub fn manual_gizmo_dragging_system(
     let Some(cursor_pos) = window.cursor_position() else { return; };
     
     if mouse.just_pressed(MouseButton::Left) {
+        // Skip if clicking on UI
+        for interaction in ui_query.iter() {
+            if *interaction != Interaction::None {
+                return;
+            }
+        }
+
         for (entity, mut interaction, axis, link, gt) in gizmo_query.iter_mut() {
             if *interaction == ManualGizmoInteraction::Hovered {
                 *interaction = ManualGizmoInteraction::Pressed;

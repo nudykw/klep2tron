@@ -6,6 +6,7 @@ pub mod ui_logic;
 pub mod inspection;
 pub mod picking;
 pub mod gizmos;
+pub mod socket_metadata;
 
 pub use input::*;
 pub use normalization::*;
@@ -15,3 +16,4 @@ pub use ui_logic::*;
 pub use inspection::*;
 pub use picking::*;
 pub use gizmos::*;
+pub use socket_metadata::*;
