@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use super::{ActorEditorEntity, ActorEditorBackButton, MainEditorCamera, GizmoCamera, GizmoEntity, GIZMO_LAYER, PanelResizer};
-use super::widgets::{ScrollingList, ResizablePanel, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton, spawn_viewport_slicer};
+use super::widgets::{ScrollingList, ScrollbarTrack, ScrollbarHandle, ResizablePanel, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton, spawn_viewport_slicer};
 
 const LEGEND_ROTATION_X: Quat = Quat::from_array([0.0, 0.70710677, 0.0, 0.70710677]); // Y-90 for X-axis
 const LEGEND_ROTATION_Y: Quat = Quat::from_array([-0.70710677, 0.0, 0.0, 0.70710677]); // X-90 for Y-axis
@@ -210,25 +210,82 @@ pub fn setup_actor_editor(
                     ..default()
                 },
                 ResizablePanel(PanelResizer::Left),
+                Interaction::default(),
             )).with_children(|p| {
+                // --- WRAPPER ---
+                let scroll_id = p.spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        flex_grow: 1.0,
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    ..default()
+                }).with_children(|wrapper| {
+                    wrapper.spawn((
+                        NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Column,
+                                padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
+                                position_type: PositionType::Relative,
+                                height: Val::Auto,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        ScrollingList { position: 0.0 },
+                        Interaction::default(),
+                    )).with_children(|scroll_p| {
+                        scroll_p.spawn(TextBundle::from_section(
+                            "PROJECT",
+                            TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
+                        ));
+                        super::ui_project::setup_project_panel(scroll_p, &font, &icon_font);
+                        
+                        // Spacer at the bottom
+                        scroll_p.spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(60.0),
+                                ..default()
+                            },
+                            ..default()
+                        });
+                    });
+                }).id();
+
+                // --- SCROLLBAR ---
                 p.spawn((
                     NodeBundle {
                         style: Style {
-                            width: Val::Percent(100.0),
-                            flex_direction: FlexDirection::Column,
-                            padding: UiRect::all(Val::Px(15.0)),
-                            position_type: PositionType::Relative,
+                            position_type: PositionType::Absolute,
+                            right: Val::Px(2.0),
+                            top: Val::Px(2.0),
+                            bottom: Val::Px(2.0),
+                            width: Val::Px(4.0),
                             ..default()
                         },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
                         ..default()
                     },
-                    ScrollingList { position: 0.0 },
-                )).with_children(|scroll_p| {
-                    scroll_p.spawn(TextBundle::from_section(
-                        "PROJECT",
-                        TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
+                    ScrollbarTrack { target: scroll_id },
+                )).with_children(|track| {
+                    track.spawn((
+                        NodeBundle {
+                            style: Style {
+                                position_type: PositionType::Absolute,
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(20.0),
+                                ..default()
+                            },
+                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
+                            border_radius: BorderRadius::all(Val::Px(2.0)),
+                            ..default()
+                        },
+                        ScrollbarHandle { target: scroll_id },
+                        Interaction::default(),
                     ));
-                    super::ui_project::setup_project_panel(scroll_p, &font, &icon_font);
                 });
             });
 
@@ -398,25 +455,82 @@ pub fn setup_actor_editor(
                     ..default()
                 },
                 ResizablePanel(PanelResizer::Right),
+                Interaction::default(),
             )).with_children(|p| {
+                // --- WRAPPER ---
+                let scroll_id = p.spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        flex_grow: 1.0,
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    ..default()
+                }).with_children(|wrapper| {
+                    wrapper.spawn((
+                        NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Column,
+                                padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
+                                position_type: PositionType::Relative,
+                                height: Val::Auto,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        ScrollingList { position: 0.0 },
+                        Interaction::default(),
+                    )).with_children(|scroll_p| {
+                        scroll_p.spawn(TextBundle::from_section(
+                            "INSPECTOR",
+                            TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
+                        ));
+                        super::ui_inspector::setup_inspector(scroll_p, &font, &icon_font);
+                        
+                        // Spacer at the bottom
+                        scroll_p.spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(60.0),
+                                ..default()
+                            },
+                            ..default()
+                        });
+                    });
+                }).id();
+
+                // --- SCROLLBAR ---
                 p.spawn((
                     NodeBundle {
                         style: Style {
-                            width: Val::Percent(100.0),
-                            flex_direction: FlexDirection::Column,
-                            padding: UiRect::all(Val::Px(15.0)),
-                            position_type: PositionType::Relative,
+                            position_type: PositionType::Absolute,
+                            right: Val::Px(2.0),
+                            top: Val::Px(2.0),
+                            bottom: Val::Px(2.0),
+                            width: Val::Px(4.0),
                             ..default()
                         },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
                         ..default()
                     },
-                    ScrollingList { position: 0.0 },
-                )).with_children(|scroll_p| {
-                    scroll_p.spawn(TextBundle::from_section(
-                        "INSPECTOR",
-                        TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
+                    ScrollbarTrack { target: scroll_id },
+                )).with_children(|track| {
+                    track.spawn((
+                        NodeBundle {
+                            style: Style {
+                                position_type: PositionType::Absolute,
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(20.0),
+                                ..default()
+                            },
+                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
+                            border_radius: BorderRadius::all(Val::Px(2.0)),
+                            ..default()
+                        },
+                        ScrollbarHandle { target: scroll_id },
+                        Interaction::default(),
                     ));
-                    super::ui_inspector::setup_inspector(scroll_p, &font, &icon_font);
                 });
             });
             

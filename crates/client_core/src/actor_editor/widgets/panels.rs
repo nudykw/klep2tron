@@ -165,25 +165,151 @@ pub struct ScrollingList {
     pub position: f32,
 }
 
+#[derive(Component)]
+pub struct ScrollbarTrack {
+    pub target: Entity,
+}
+
+#[derive(Component)]
+pub struct ScrollbarHandle {
+    pub target: Entity,
+}
+
 pub fn scroll_system(
     mut mouse_wheel_events: EventReader<bevy::input::mouse::MouseWheel>,
     mut query: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
-    parent_query: Query<&Node>,
+    parent_node_query: Query<(&Node, &GlobalTransform)>,
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
+    let Ok(window) = window_query.get_single() else { return; };
+    let Some(cursor_position) = window.cursor_position() else { return; };
+
     for event in mouse_wheel_events.read() {
-        for (mut scrolling_list, mut style, parent, node) in query.iter_mut() {
-            let Ok(parent_node) = parent_query.get(parent.get()) else { continue; };
-            let content_height = node.size().y;
-            let container_height = parent_node.size().y;
-            if content_height <= container_height {
-                scrolling_list.position = 0.0;
-                style.top = Val::Px(0.0);
+        for (mut scrolling_list, _style, parent, node) in query.iter_mut() {
+            let Ok((parent_node, parent_transform)) = parent_node_query.get(parent.get()) else { continue; };
+            
+            // Check if cursor is within parent rect
+            let parent_size = parent_node.size();
+            let parent_pos = parent_transform.translation().truncate();
+            let half_size = parent_size / 2.0;
+            let min = parent_pos - half_size;
+            let max = parent_pos + half_size;
+            
+            if cursor_position.x < min.x || cursor_position.x > max.x ||
+               cursor_position.y < min.y || cursor_position.y > max.y {
                 continue;
             }
-            let max_scroll = content_height - container_height;
-            scrolling_list.position += event.y * 20.0;
-            scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.0);
-            style.top = Val::Px(scrolling_list.position);
+
+            let container_height = parent_node.size().y;
+            let content_height = node.size().y;
+            let max_scroll = (content_height - container_height).max(0.0);
+            
+            // Allow small buffer to prevent flickering
+            if max_scroll > 1.0 {
+                scrolling_list.position += event.y * 35.0;
+                scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.0);
+            } else {
+                scrolling_list.position = 0.0;
+            }
+        }
+    }
+}
+
+pub fn scrolling_list_sync_system(
+    mut query: Query<(&ScrollingList, &mut Style), Changed<ScrollingList>>,
+) {
+    for (scrolling_list, mut style) in query.iter_mut() {
+        style.top = Val::Px(scrolling_list.position);
+    }
+}
+
+pub fn scrollbar_sync_system(
+    scrolling_list_query: Query<(Entity, &ScrollingList, &Node, &Parent)>,
+    mut scrollbar_query: Query<(&mut Style, &ScrollbarHandle)>,
+    parent_node_query: Query<&Node>,
+) {
+    for (list_entity, scrolling_list, node, parent) in scrolling_list_query.iter() {
+        let Ok(parent_node) = parent_node_query.get(parent.get()) else { continue; };
+        let content_height = node.size().y;
+        let container_height = parent_node.size().y;
+        
+        for (mut style, handle) in scrollbar_query.iter_mut() {
+            if handle.target == list_entity {
+                // Use a slightly larger threshold for visibility to prevent artifacts
+                if content_height <= container_height + 5.0 {
+                    style.display = Display::None;
+                } else {
+                    let scroll_percent = (-scrolling_list.position / (content_height - container_height)).clamp(0.0, 1.0);
+                    let handle_size_percent = (container_height / content_height).clamp(0.1, 1.0);
+                    
+                    style.display = Display::Flex;
+                    style.height = Val::Percent(handle_size_percent * 100.0);
+                    style.top = Val::Percent(scroll_percent * (1.0 - handle_size_percent) * 100.0);
+                }
+            }
+        }
+    }
+}
+
+pub fn scrollbar_sync_visibility_system(
+    scrolling_list_query: Query<(Entity, &Node, &Parent), With<ScrollingList>>,
+    mut track_query: Query<(&mut Style, &ScrollbarTrack)>,
+    parent_node_query: Query<&Node>,
+) {
+    for (list_entity, node, parent) in scrolling_list_query.iter() {
+        let Ok(parent_node) = parent_node_query.get(parent.get()) else { continue; };
+        let content_height = node.size().y;
+        let container_height = parent_node.size().y;
+        
+        for (mut style, track) in track_query.iter_mut() {
+            if track.target == list_entity {
+                if content_height <= container_height + 5.0 {
+                    style.display = Display::None;
+                } else {
+                    style.display = Display::Flex;
+                }
+            }
+        }
+    }
+}
+
+pub fn scrollbar_drag_system(
+    interaction_query: Query<(&Interaction, &ScrollbarHandle), Changed<Interaction>>,
+    mut scrolling_list_query: Query<(&mut ScrollingList, &Node, &Parent)>,
+    parent_node_query: Query<(&Node, &GlobalTransform)>,
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    mut dragging: Local<Option<Entity>>,
+) {
+    let Ok(window) = window_query.get_single() else { return; };
+    let Some(cursor_position) = window.cursor_position() else { return; };
+
+    for (interaction, handle) in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            *dragging = Some(handle.target);
+        }
+    }
+
+    if mouse_button.just_released(MouseButton::Left) {
+        *dragging = None;
+    }
+
+    if let Some(target_list_entity) = *dragging {
+        if let Ok((mut scrolling_list, node, parent)) = scrolling_list_query.get_mut(target_list_entity) {
+            let Ok((parent_node, parent_transform)) = parent_node_query.get(parent.get()) else { return; };
+            let parent_size = parent_node.size();
+            let parent_pos = parent_transform.translation().truncate();
+            let half_size = parent_size / 2.0;
+            
+            let relative_y = cursor_position.y - (parent_pos.y - half_size.y);
+            let scroll_ratio = (relative_y / parent_size.y).clamp(0.0, 1.0);
+
+            let content_height = node.size().y;
+            let container_height = parent_size.y;
+            if content_height > container_height {
+                let max_scroll = content_height - container_height;
+                scrolling_list.position = -scroll_ratio * max_scroll;
+            }
         }
     }
 }
