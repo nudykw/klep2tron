@@ -7,6 +7,7 @@ pub mod inspection;
 pub mod picking;
 pub mod gizmos;
 pub mod socket_metadata;
+pub mod vfx_preview;
 
 pub use input::*;
 pub use normalization::*;
@@ -17,3 +18,4 @@ pub use inspection::*;
 pub use picking::*;
 pub use gizmos::*;
 pub use socket_metadata::*;
+pub use vfx_preview::*;

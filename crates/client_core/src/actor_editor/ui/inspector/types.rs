@@ -80,3 +80,27 @@ pub enum InspectionToggleType {
     Wireframe,
     Normals,
 }
+
+#[derive(Component)]
+pub struct SocketVfxToggle;
+
+#[derive(Component)]
+pub struct SocketVfxSection;
+
+#[derive(Component)]
+pub struct SocketVfxPresetDropdown;
+
+#[derive(Component)]
+pub struct SocketVfxPresetItem(pub String);
+
+#[derive(Component)]
+pub struct SocketVfxSpeedSlider;
+
+#[derive(Component)]
+pub struct SocketVfxScaleSlider;
+
+#[derive(Component)]
+pub struct SocketVfxIntensitySlider;
+
+#[derive(Component)]
+pub struct SocketVfxColorPicker;

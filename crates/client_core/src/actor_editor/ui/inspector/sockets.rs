@@ -162,7 +162,8 @@ pub fn spawn_sockets_section(
                         },
                     },
                     SocketNameInput,
-                )).with_children(|p| {
+                ))
+.with_children(|p| {
                     p.spawn((
                         TextBundle::from_section(
                             "Socket name...",
@@ -209,7 +210,8 @@ pub fn spawn_sockets_section(
                         },
                     },
                     SocketCommentInput,
-                )).with_children(|p| {
+                ))
+.with_children(|p| {
                     p.spawn((
                         TextBundle::from_section(
                             "Add a comment...",
@@ -218,6 +220,109 @@ pub fn spawn_sockets_section(
                         crate::actor_editor::widgets::TextInputContent,
                     ));
                 });
+
+                // --- VFX SETTINGS ---
+                spawn_collapsible_section(
+                    details,
+                    font,
+                    icon_font,
+                    "VFX SETTINGS",
+                    false,
+                    SocketVfxSection,
+                    |vfx| {
+                        // Toggle
+                        vfx.spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Row,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::bottom(Val::Px(10.0)),
+                                column_gap: Val::Px(10.0),
+                                ..default()
+                            },
+                            ..default()
+                        }).with_children(|row| {
+                            row.spawn((
+                                ButtonBundle {
+                                    style: Style {
+                                        width: Val::Px(16.0),
+                                        height: Val::Px(16.0),
+                                        border: UiRect::all(Val::Px(1.0)),
+                                        ..default()
+                                    },
+                                    background_color: Color::srgba(0.0, 0.0, 0.0, 0.5).into(),
+                                    border_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
+                                    border_radius: BorderRadius::all(Val::Px(2.0)),
+                                    ..default()
+                                },
+                                SocketVfxToggle,
+                            ));
+                            row.spawn(TextBundle::from_section(
+                                "Enable VFX",
+                                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.8, 0.8, 0.8) },
+                            ));
+                        });
+
+                        // Speed Slider
+                        vfx.spawn(TextBundle::from_section(
+                            "Speed",
+                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
+                        ));
+                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.0, 5.0, 1.0, SocketVfxSpeedSlider);
+
+                        // Scale Slider
+                        vfx.spawn(TextBundle::from_section(
+                            "Scale",
+                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
+                        ));
+                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.1, 10.0, 1.0, SocketVfxScaleSlider);
+
+                        // Intensity Slider
+                        vfx.spawn(TextBundle::from_section(
+                            "Intensity",
+                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
+                        ));
+                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.0, 5.0, 1.0, SocketVfxIntensitySlider);
+                        
+                        // Preset Buttons (Simple list for now)
+                        vfx.spawn(TextBundle::from_section(
+                            "Presets",
+                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6), ..default() },
+                        ));
+                        vfx.spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                column_gap: Val::Px(4.0),
+                                row_gap: Val::Px(4.0),
+                                margin: UiRect::top(Val::Px(5.0)),
+                                ..default()
+                            },
+                            ..default()
+                        }).with_children(|grid| {
+                            for preset in ["Plasma", "MuzzleFlash", "Smoke"] {
+                                grid.spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
+                                            ..default()
+                                        },
+                                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                                        ..default()
+                                    },
+                                    SocketVfxPresetItem(preset.to_string()),
+                                )).with_children(|b| {
+                                    b.spawn(TextBundle::from_section(
+                                        preset,
+                                        TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.8, 0.8, 0.8) },
+                                    ));
+                                });
+                            }
+                        });
+                    }
+                );
             });
         }
     );

@@ -4,6 +4,7 @@ pub mod types;
 pub mod materials;
 pub mod sockets;
 pub mod parts;
+pub mod vfx;
 pub mod systems;
 
 pub use types::*;

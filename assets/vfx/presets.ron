@@ -1,0 +1,40 @@
+(
+    presets: {
+        "Plasma": (
+            effect_type: Plasma,
+            color: Srgba((
+                red: 0.0,
+                green: 1.0,
+                blue: 1.0,
+                alpha: 1.0,
+            )),
+            speed: 2.0,
+            scale: 1.5,
+            intensity: 2.0,
+        ),
+        "MuzzleFlash": (
+            effect_type: MuzzleFlash,
+            color: Srgba((
+                red: 1.0,
+                green: 0.8,
+                blue: 0.0,
+                alpha: 1.0,
+            )),
+            speed: 5.0,
+            scale: 1.0,
+            intensity: 3.0,
+        ),
+        "Smoke": (
+            effect_type: Smoke,
+            color: Srgba((
+                red: 0.5,
+                green: 0.5,
+                blue: 0.5,
+                alpha: 0.5,
+            )),
+            speed: 0.5,
+            scale: 2.0,
+            intensity: 0.5,
+        ),
+    }
+)

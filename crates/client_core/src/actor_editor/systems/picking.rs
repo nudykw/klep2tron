@@ -100,6 +100,7 @@ pub fn socket_spawn_system(
                         rotation: local_rotation,
                         comment: String::new(),
                         color: Color::srgb(0.2, 0.8, 0.2),
+                        effect: None,
                     }
                 },
                 bevy_mod_picking::PickableBundle::default(),

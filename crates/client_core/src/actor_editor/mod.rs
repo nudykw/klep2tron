@@ -8,6 +8,7 @@ pub mod systems;
 pub mod geometry;
 pub mod navigation;
 pub mod widgets;
+pub mod vfx_assets;
 
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditorMode {
@@ -45,13 +46,18 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<SocketSettings>()
            .init_resource::<SocketColorPickerState>()
            .init_resource::<GizmoBusy>()
+           .init_resource::<vfx_assets::VfxPresets>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
            .add_event::<ToastEvent>()
            .add_event::<ConfirmationRequestEvent>()
            .add_event::<InspectionFocusEvent>()
-           .add_systems(OnEnter(GameState::ActorEditor), (ui::layout::setup_actor_editor, navigation::setup_navigation).chain())
+           .add_systems(OnEnter(GameState::ActorEditor), (
+               ui::layout::setup_actor_editor, 
+               navigation::setup_navigation,
+               vfx_assets::load_vfx_presets
+           ).chain())
            .add_systems(Update, (
                 systems::actor_editor_input_system,
                 widgets::collapsible_system,
@@ -133,10 +139,13 @@ impl Plugin for ActorEditorPlugin {
                     ui::inspector::socket_reset_rotation_system,
                     ui::inspector::socket_filter_update_system,
                     ui::inspector::socket_filter_ui_system,
+                    ui::inspector::vfx::socket_vfx_ui_sync_system,
+                    ui::inspector::vfx::socket_vfx_interaction_system,
                     systems::socket_color_picker_system,
                     systems::socket_material_sync_system,
                     systems::socket_metadata_sync_system,
                     systems::socket_validation_feedback_system,
+                    systems::socket_vfx_preview_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
@@ -216,6 +225,7 @@ pub struct ViewportSettings {
     pub sockets: bool,
     pub gizmos: bool,
     pub xray: bool,
+    pub show_vfx: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -241,6 +251,7 @@ impl Default for ViewportSettings {
             sockets: true,
             gizmos: true,
             xray: false,
+            show_vfx: true,
         }
     }
 }

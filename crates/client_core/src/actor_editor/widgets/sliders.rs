@@ -5,6 +5,8 @@ use super::common::Tooltip;
 #[derive(Component)]
 pub struct Slider {
     pub value: f32,
+    pub min: f32,
+    pub max: f32,
 }
 
 #[derive(Component)]
@@ -14,6 +16,18 @@ pub fn spawn_slider(
     parent: &mut ChildBuilder,
     initial_value: f32,
 ) {
+    spawn_slider_ext(parent, 0.0, 1.0, initial_value, ());
+}
+
+pub fn spawn_slider_ext<T: Bundle>(
+    parent: &mut ChildBuilder,
+    min: f32,
+    max: f32,
+    initial_value: f32,
+    extra: T,
+) {
+    let pct = ((initial_value - min) / (max - min)).clamp(0.0, 1.0);
+    
     parent.spawn((
         NodeBundle {
             style: Style {
@@ -25,8 +39,9 @@ pub fn spawn_slider(
             },
             ..default()
         },
-        Slider { value: initial_value },
+        Slider { value: initial_value, min, max },
         Interaction::default(),
+        extra,
     )).with_children(|p| {
         p.spawn(NodeBundle {
             style: Style {
@@ -43,7 +58,7 @@ pub fn spawn_slider(
                         width: Val::Px(12.0),
                         height: Val::Px(12.0),
                         position_type: PositionType::Absolute,
-                        left: Val::Percent(initial_value * 100.0),
+                        left: Val::Percent(pct * 100.0),
                         top: Val::Px(-4.0),
                         ..default()
                     },
@@ -72,14 +87,17 @@ pub fn slider_system(
                 let rect = node.size();
                 let pos = transform.translation().truncate();
                 let local_x = cursor_position.x - (pos.x - rect.x / 2.0);
-                slider.value = (local_x / rect.x).clamp(0.0, 1.0);
+                let pct = (local_x / rect.x).clamp(0.0, 1.0);
+                slider.value = slider.min + pct * (slider.max - slider.min);
             }
+
+            let pct = ((slider.value - slider.min) / (slider.max - slider.min)).clamp(0.0, 1.0);
 
             for child in children.iter() {
                 if let Ok(track_children) = node_query.get(*child) {
                     for &thumb_entity in track_children.iter() {
                         if let Ok(mut style) = thumb_query.get_mut(thumb_entity) {
-                            style.left = Val::Percent(slider.value * 100.0);
+                            style.left = Val::Percent(pct * 100.0);
                         }
                     }
                 }
