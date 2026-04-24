@@ -19,6 +19,7 @@ pub fn setup_inspector(
             style: Style {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
+                flex_shrink: 0.0,
                 ..default()
             },
             focus_policy: bevy::ui::FocusPolicy::Block,

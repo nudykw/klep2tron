@@ -75,23 +75,27 @@ pub fn setup_actor_editor(
                 Interaction::default(),
             )).with_children(|p| {
                 // --- WRAPPER ---
-                let scroll_id = p.spawn(NodeBundle {
+                let mut scroll_id = None;
+                p.spawn(NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
                         flex_grow: 1.0,
                         overflow: Overflow::clip(),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::FlexStart,
                         ..default()
                     },
                     ..default()
                 }).with_children(|wrapper| {
-                    wrapper.spawn((
+                    scroll_id = Some(wrapper.spawn((
                         NodeBundle {
                             style: Style {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
-                                position_type: PositionType::Relative,
+                                position_type: PositionType::Absolute,
                                 height: Val::Auto,
+                                flex_shrink: 0.0,
                                 ..default()
                             },
                             ..default()
@@ -114,8 +118,9 @@ pub fn setup_actor_editor(
                             },
                             ..default()
                         });
-                    });
-                }).id();
+                    }).id());
+                });
+                let scroll_id = scroll_id.unwrap();
 
                 // --- SCROLLBAR ---
                 p.spawn((
@@ -320,23 +325,27 @@ pub fn setup_actor_editor(
                 Interaction::default(),
             )).with_children(|p| {
                 // --- WRAPPER ---
-                let scroll_id = p.spawn(NodeBundle {
+                let mut scroll_id = None;
+                p.spawn(NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
                         flex_grow: 1.0,
                         overflow: Overflow::clip(),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::FlexStart,
                         ..default()
                     },
                     ..default()
                 }).with_children(|wrapper| {
-                    wrapper.spawn((
+                    scroll_id = Some(wrapper.spawn((
                         NodeBundle {
                             style: Style {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
-                                position_type: PositionType::Relative,
+                                position_type: PositionType::Absolute,
                                 height: Val::Auto,
+                                flex_shrink: 0.0,
                                 ..default()
                             },
                             ..default()
@@ -359,8 +368,9 @@ pub fn setup_actor_editor(
                             },
                             ..default()
                         });
-                    });
-                }).id();
+                    }).id());
+                });
+                let scroll_id = scroll_id.unwrap();
 
                 // --- SCROLLBAR ---
                 p.spawn((

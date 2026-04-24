@@ -22,6 +22,7 @@ pub fn setup_project_panel(
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 margin: UiRect::top(Val::Px(20.0)),
+                flex_shrink: 0.0,
                 ..default()
             },
             ..default()

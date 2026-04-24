@@ -41,6 +41,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 margin: UiRect::bottom(Val::Px(10.0)),
+                flex_shrink: 0.0,
                 ..default()
             },
             ..default()
@@ -100,6 +101,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
                     flex_direction: FlexDirection::Column,
                     padding: UiRect::all(Val::Px(10.0)),
                     display: if is_open { Display::Flex } else { Display::None },
+                    flex_shrink: 0.0,
                     ..default()
                 },
                 ..default()
@@ -260,6 +262,8 @@ pub fn scrollbar_sync_visibility_system(
         let Ok(parent_node) = parent_node_query.get(parent.get()) else { continue; };
         let content_height = node.size().y;
         let container_height = parent_node.size().y;
+        
+        bevy::log::info!("Scroll debug: content_height={}, container_height={}", content_height, container_height);
         
         for (mut style, track) in track_query.iter_mut() {
             if track.target == list_entity {
