@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "is_loading": false,
+  "is_loading": true,
   "window_mode": "Windowed",
   "resolution_scale": 1.0,
   "vsync": true,

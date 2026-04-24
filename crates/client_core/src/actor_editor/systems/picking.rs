@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use super::super::{SocketSettings, ActorPart, geometry::raycast, MainEditorCamera, ActorSocket, SocketDefinition, HoveredSocketData};
 use super::super::ui::inspector::SocketAddModeButton;
+use super::super::ui::inspector::types::{SelectedSocket, MultiSelectionState};
 
 pub fn socket_picking_system(
     mut settings: ResMut<SocketSettings>,
@@ -133,7 +134,7 @@ pub fn socket_spawn_system(
             }).id();
             
             commands.entity(data.part_entity).add_child(socket_entity);
-            selected.0 = Some(socket_entity);
+            selected.0 = vec![socket_entity];
             settings.is_adding = false; // Turn off "plus" mode after spawn
             info!("Spawned and Selected new socket: {:?} ({:?})", socket_entity, data.part_type);
         }
@@ -191,13 +192,27 @@ pub fn socket_button_visuals_system(
     }
 }
 pub fn socket_3d_selection_system(
-    mut selected: ResMut<super::super::ui::inspector::SelectedSocket>,
+    mut selected: ResMut<SelectedSocket>,
+    mut multi_state: ResMut<MultiSelectionState>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut events: EventReader<bevy_mod_picking::prelude::Pointer<bevy_mod_picking::prelude::Click>>,
     socket_query: Query<Entity, With<super::super::ActorSocket>>,
 ) {
     for event in events.read() {
         if socket_query.get(event.target).is_ok() {
-            selected.0 = Some(event.target);
+            let entity = event.target;
+            
+            if keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight) {
+                if let Some(pos) = selected.0.iter().position(|&e| e == entity) {
+                    selected.0.remove(pos);
+                } else {
+                    selected.0.push(entity);
+                }
+                multi_state.last_selected = Some(entity);
+            } else {
+                selected.0 = vec![entity];
+                multi_state.last_selected = Some(entity);
+            }
         }
     }
 }

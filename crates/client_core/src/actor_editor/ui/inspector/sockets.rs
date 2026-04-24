@@ -128,6 +128,7 @@ pub fn spawn_sockets_section(
                 },
                 SocketDetailsContainer,
             )).with_children(|details| {
+                // ... (details content remains same, but we will add logic to hide it in systems)
                 details.spawn(NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
@@ -139,88 +140,101 @@ pub fn spawn_sockets_section(
                     ..default()
                 });
 
-                details.spawn(TextBundle::from_section(
-                    "Socket Name",
-                    TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                ));
-                
                 details.spawn((
-                    crate::actor_editor::widgets::TextInputBundle {
-                        button: ButtonBundle {
-                            style: Style {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(28.0),
-                                padding: UiRect::horizontal(Val::Px(8.0)),
-                                align_items: AlignItems::Center,
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Percent(100.0),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(8.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    SocketMetadataSection,
+                )).with_children(|meta| {
+                    meta.spawn(TextBundle::from_section(
+                        "Socket Name",
+                        TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
+                    ));
+                    
+                    meta.spawn((
+                        crate::actor_editor::widgets::TextInputBundle {
+                            button: ButtonBundle {
+                                style: Style {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Px(28.0),
+                                    padding: UiRect::horizontal(Val::Px(8.0)),
+                                    align_items: AlignItems::Center,
+                                    ..default()
+                                },
+                                background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
+                                border_radius: BorderRadius::all(Val::Px(4.0)),
                                 ..default()
                             },
-                            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                            ..default()
-                        },
-                        input: crate::actor_editor::widgets::TextInput {
-                            placeholder: "Socket name...".to_string(),
-                            ..default()
-                        },
-                    },
-                    SocketNameInput,
-                ))
-.with_children(|p| {
-                    p.spawn((
-                        TextBundle::from_section(
-                            "Socket name...",
-                            TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.5, 0.5, 0.5) },
-                        ),
-                        crate::actor_editor::widgets::TextInputContent,
-                    ));
-                });
-
-                details.spawn(TextBundle::from_section(
-                    "Comment",
-                    TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                ));
-
-                details.spawn(TextBundle::from_section(
-                    "Visual Color",
-                    TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                ));
-                
-                crate::actor_editor::widgets::spawn_color_picker_ext::<
-                    SocketColorPicker, 
-                    SocketColorPickerContainer, 
-                    SocketColorHueSlider, 
-                    SocketColorPreset
-                >(details, Color::srgb(0.2, 0.8, 0.2), false);
-                
-                details.spawn((
-                    crate::actor_editor::widgets::TextInputBundle {
-                        button: ButtonBundle {
-                            style: Style {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(28.0),
-                                padding: UiRect::horizontal(Val::Px(8.0)),
-                                align_items: AlignItems::Center,
+                            input: crate::actor_editor::widgets::TextInput {
+                                placeholder: "Socket name...".to_string(),
                                 ..default()
                             },
-                            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                            ..default()
                         },
-                        input: crate::actor_editor::widgets::TextInput {
-                            placeholder: "Add a comment...".to_string(),
-                            ..default()
-                        },
-                    },
-                    SocketCommentInput,
-                ))
-.with_children(|p| {
-                    p.spawn((
-                        TextBundle::from_section(
-                            "Add a comment...",
-                            TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.5, 0.5, 0.5) },
-                        ),
-                        crate::actor_editor::widgets::TextInputContent,
+                        SocketNameInput,
+                    ))
+                    .with_children(|p| {
+                        p.spawn((
+                            TextBundle::from_section(
+                                "Socket name...",
+                                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.5, 0.5, 0.5) },
+                            ),
+                            crate::actor_editor::widgets::TextInputContent,
+                        ));
+                    });
+
+                    meta.spawn(TextBundle::from_section(
+                        "Comment",
+                        TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
                     ));
+
+                    meta.spawn((
+                        crate::actor_editor::widgets::TextInputBundle {
+                            button: ButtonBundle {
+                                style: Style {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Px(28.0),
+                                    padding: UiRect::horizontal(Val::Px(8.0)),
+                                    align_items: AlignItems::Center,
+                                    ..default()
+                                },
+                                background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
+                                border_radius: BorderRadius::all(Val::Px(4.0)),
+                                ..default()
+                            },
+                            input: crate::actor_editor::widgets::TextInput {
+                                placeholder: "Add a comment...".to_string(),
+                                ..default()
+                            },
+                        },
+                        SocketCommentInput,
+                    ))
+                    .with_children(|p| {
+                        p.spawn((
+                            TextBundle::from_section(
+                                "Add a comment...",
+                                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.5, 0.5, 0.5) },
+                            ),
+                            crate::actor_editor::widgets::TextInputContent,
+                        ));
+                    });
+
+                    meta.spawn(TextBundle::from_section(
+                        "Visual Color",
+                        TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
+                    ));
+                    
+                    crate::actor_editor::widgets::spawn_color_picker_ext::<
+                        SocketColorPicker, 
+                        SocketColorPickerContainer, 
+                        SocketColorHueSlider, 
+                        SocketColorPreset
+                    >(meta, Color::srgb(0.2, 0.8, 0.2), false);
                 });
 
                 // --- VFX SETTINGS ---
@@ -258,6 +272,7 @@ pub fn spawn_sockets_section(
                                     ..default()
                                 },
                                 SocketVfxToggle,
+                                Tooltip("Toggle visual effects for this socket".to_string()),
                             ));
                             row.spawn(TextBundle::from_section(
                                 "Enable VFX",
@@ -265,33 +280,44 @@ pub fn spawn_sockets_section(
                             ));
                         });
 
-                        // Speed Slider
-                        vfx.spawn(TextBundle::from_section(
-                            "Speed",
-                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                        ));
-                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.0, 5.0, 1.0, SocketVfxSpeedSlider);
+                        // --- EMISSION ---
+                        spawn_collapsible_section(vfx, font, icon_font, "EMISSION", true, SocketVfxEmissionSection, |sub| {
+                            sub.spawn(TextBundle::from_section("Rate", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 10.0, 1.0, (SocketVfxSlider::EmissionRate, Tooltip("Particles per second multiplier".to_string())));
 
-                        // Scale Slider
-                        vfx.spawn(TextBundle::from_section(
-                            "Scale",
-                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                        ));
-                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.1, 10.0, 1.0, SocketVfxScaleSlider);
+                            sub.spawn(TextBundle::from_section("Lifetime", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.1, 5.0, 1.0, (SocketVfxSlider::EmissionLifetime, Tooltip("How long each particle lives".to_string())));
 
-                        // Intensity Slider
-                        vfx.spawn(TextBundle::from_section(
-                            "Intensity",
-                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                        ));
-                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.0, 5.0, 1.0, SocketVfxIntensitySlider);
+                            sub.spawn(TextBundle::from_section("Jitter", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 1.0, 0.1, (SocketVfxSlider::EmissionJitter, Tooltip("Randomness in emission timing".to_string())));
+                        });
 
-                        // Lifetime Slider
-                        vfx.spawn(TextBundle::from_section(
-                            "Lifetime",
-                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                        ));
-                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.1, 5.0, 1.0, SocketVfxLifetimeSlider);
+                        // --- MOTION ---
+                        spawn_collapsible_section(vfx, font, icon_font, "MOTION & PHYSICS", false, SocketVfxMotionSection, |sub| {
+                            sub.spawn(TextBundle::from_section("Speed", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 10.0, 1.0, (SocketVfxSlider::MotionSpeed, Tooltip("Initial particle speed".to_string())));
+
+                            sub.spawn(TextBundle::from_section("Spread", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 1.0, 0.2, (SocketVfxSlider::MotionSpread, Tooltip("Cone angle of emission".to_string())));
+
+                            sub.spawn(TextBundle::from_section("Gravity", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, -5.0, 5.0, 0.0, (SocketVfxSlider::MotionGravity, Tooltip("Vertical acceleration (negative is down)".to_string())));
+
+                            sub.spawn(TextBundle::from_section("Drag", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 2.0, 0.0, (SocketVfxSlider::MotionDrag, Tooltip("Air resistance (slows down particles)".to_string())));
+                        });
+
+                        // --- VISUALS ---
+                        spawn_collapsible_section(vfx, font, icon_font, "VISUALS", false, SocketVfxVisualsSection, |sub| {
+                            sub.spawn(TextBundle::from_section("Global Scale", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.1, 5.0, 1.0, (SocketVfxSlider::VisualsScale, Tooltip("Overall size multiplier".to_string())));
+
+                            sub.spawn(TextBundle::from_section("Start Size", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 5.0, 1.0, (SocketVfxSlider::VisualsSizeStart, Tooltip("Particle size at birth".to_string())));
+
+                            sub.spawn(TextBundle::from_section("End Size", TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) }));
+                            crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 5.0, 0.5, (SocketVfxSlider::VisualsSizeEnd, Tooltip("Particle size at the end of its life".to_string())));
+                        });
                         
                         // Preset Buttons (Simple list for now)
                         vfx.spawn(TextBundle::from_section(

@@ -26,28 +26,69 @@ pub enum EffectType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect, PartialEq)]
-pub struct EffectConfig {
-    pub effect_type: EffectType,
-    pub color: Color,
-    pub speed: f32,
-    pub scale: f32,
-    pub intensity: f32,
+pub struct EmissionConfig {
+    pub rate: f32,
     pub lifetime: f32,
-    pub asset_path: Option<String>,
+    pub jitter: f32,
 }
 
-impl Default for EffectConfig {
+impl Default for EmissionConfig {
     fn default() -> Self {
         Self {
-            effect_type: EffectType::default(),
-            color: Color::srgb(0.0, 1.0, 1.0), // Cyan default for Plasma
-            speed: 1.0,
-            scale: 1.0,
-            intensity: 1.0,
+            rate: 1.0,
             lifetime: 1.0,
-            asset_path: None,
+            jitter: 0.1,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect, PartialEq)]
+pub struct MotionConfig {
+    pub speed: f32,
+    pub spread: f32,
+    pub gravity: f32,
+    pub drag: f32,
+}
+
+impl Default for MotionConfig {
+    fn default() -> Self {
+        Self {
+            speed: 1.0,
+            spread: 0.2,
+            gravity: 0.0,
+            drag: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect, PartialEq)]
+pub struct VisualsConfig {
+    pub scale: f32,
+    pub color_start: Color,
+    pub color_end: Color,
+    pub size_start: f32,
+    pub size_end: f32,
+}
+
+impl Default for VisualsConfig {
+    fn default() -> Self {
+        Self {
+            scale: 1.0,
+            color_start: Color::srgb(1.0, 1.0, 1.0),
+            color_end: Color::srgba(1.0, 1.0, 1.0, 0.0),
+            size_start: 1.0,
+            size_end: 0.5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect, PartialEq, Default)]
+pub struct EffectConfig {
+    pub effect_type: EffectType,
+    pub emission: EmissionConfig,
+    pub motion: MotionConfig,
+    pub visuals: VisualsConfig,
+    pub asset_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect, Default)]

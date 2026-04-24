@@ -74,11 +74,46 @@ pub fn socket_ui_list_label_sync_system(
 
 pub fn socket_list_click_system(
     mut selected: ResMut<SelectedSocket>,
+    mut multi_state: ResMut<MultiSelectionState>,
+    keys: Res<ButtonInput<KeyCode>>,
     query: Query<(&Interaction, &SocketListItem), Changed<Interaction>>,
+    all_items: Query<&SocketListItem>,
 ) {
     for (interaction, item) in query.iter() {
         if *interaction == Interaction::Pressed {
-            selected.0 = Some(item.0);
+            let entity = item.0;
+            
+            if keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight) {
+                if let Some(pos) = selected.0.iter().position(|&e| e == entity) {
+                    selected.0.remove(pos);
+                } else {
+                    selected.0.push(entity);
+                }
+                multi_state.last_selected = Some(entity);
+            } else if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
+                if let Some(last) = multi_state.last_selected {
+                    // Range selection
+                    let entities: Vec<Entity> = all_items.iter().map(|i| i.0).collect();
+                    let start_idx = entities.iter().position(|&e| e == last).unwrap_or(0);
+                    let end_idx = entities.iter().position(|&e| e == entity).unwrap_or(0);
+                    
+                    let min = start_idx.min(end_idx);
+                    let max = start_idx.max(end_idx);
+                    
+                    for i in min..=max {
+                        let e = entities[i];
+                        if !selected.0.contains(&e) {
+                            selected.0.push(e);
+                        }
+                    }
+                } else {
+                    selected.0 = vec![entity];
+                    multi_state.last_selected = Some(entity);
+                }
+            } else {
+                selected.0 = vec![entity];
+                multi_state.last_selected = Some(entity);
+            }
         }
     }
 }
@@ -88,7 +123,7 @@ pub fn socket_list_highlight_system(
     mut query: Query<(&SocketListItem, &mut BackgroundColor, &Interaction)>,
 ) {
     for (item, mut bg, interaction) in query.iter_mut() {
-        if selected.0 == Some(item.0) {
+        if selected.0.contains(&item.0) {
             *bg = Color::srgba(0.0, 0.6, 1.0, 0.3).into();
         } else if *interaction == Interaction::Hovered {
             *bg = Color::srgba(1.0, 1.0, 1.0, 0.1).into();
@@ -106,7 +141,9 @@ pub fn socket_transform_update_system(
     mut rot_axis_query: Query<(&RotationAxis, &Children)>,
     mut text_query: Query<&mut Text>,
 ) {
-    let Some(entity) = selected.0 else { return; };
+    let Some(&entity) = selected.0.first() else { return; };
+    
+    // Update transform UI even on multi-selection (uses first selected)
     let Ok(transform) = socket_query.get(entity) else { return; };
     
     // Update Translation
@@ -144,11 +181,13 @@ pub fn socket_reset_rotation_system(
     mut socket_query: Query<&mut Transform, With<crate::actor_editor::ActorSocket>>,
     query: Query<&Interaction, (With<SocketResetRotationButton>, Changed<Interaction>)>,
 ) {
-    let Some(entity) = selected.0 else { return; };
+    if selected.0.is_empty() { return; }
     for interaction in query.iter() {
         if *interaction == Interaction::Pressed {
-            if let Ok(mut transform) = socket_query.get_mut(entity) {
-                transform.rotation = Quat::IDENTITY;
+            for &entity in selected.0.iter() {
+                if let Ok(mut transform) = socket_query.get_mut(entity) {
+                    transform.rotation = Quat::IDENTITY;
+                }
             }
         }
     }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use super::super::{ActorSocket, ToastEvent, ToastType, SocketColorPickerState, SocketColorPicker, SocketColorPickerContainer, SocketColorHueSlider, SocketColorPreset};
-use super::super::ui::inspector::{SelectedSocket, SocketNameInput, SocketCommentInput, SocketDetailsContainer};
+use super::super::ui::inspector::{SelectedSocket, SocketNameInput, SocketCommentInput, SocketDetailsContainer, SocketMetadataSection};
 use super::super::widgets::TextInput;
 
 pub fn socket_metadata_sync_system(
@@ -9,19 +9,36 @@ pub fn socket_metadata_sync_system(
     mut name_input_query: Query<&mut TextInput, (With<SocketNameInput>, Without<SocketCommentInput>)>,
     mut comment_input_query: Query<&mut TextInput, (With<SocketCommentInput>, Without<SocketNameInput>)>,
     mut container_query: Query<&mut Style, With<SocketDetailsContainer>>,
+    mut meta_section_query: Query<&mut Style, (With<SocketMetadataSection>, Without<SocketDetailsContainer>)>,
     mut last_selected: Local<Option<Entity>>,
     _toast_events: EventWriter<ToastEvent>,
     mut color_state: ResMut<SocketColorPickerState>,
 ) {
-    let Ok(mut container_style) = container_query.get_single_mut() else { return; };
+    // Handle container visibility
+    for mut container_style in container_query.iter_mut() {
+        if selected.0.is_empty() {
+            container_style.display = Display::None;
+        } else {
+            container_style.display = Display::Flex;
+        }
+    }
 
-    let Some(selected_entity) = selected.0 else {
-        container_style.display = Display::None;
+    // Handle metadata section visibility (only for single selection)
+    for mut meta_style in meta_section_query.iter_mut() {
+        meta_style.display = if selected.0.len() == 1 { Display::Flex } else { Display::None };
+    }
+
+    if selected.0.is_empty() {
         *last_selected = None;
         return;
-    };
+    }
 
-    container_style.display = Display::Flex;
+    if selected.0.len() > 1 {
+        *last_selected = None;
+        return;
+    }
+
+    let selected_entity = selected.0[0];
 
     let Ok(mut name_input) = name_input_query.get_single_mut() else { return; };
     let Ok(mut comment_input) = comment_input_query.get_single_mut() else { return; };

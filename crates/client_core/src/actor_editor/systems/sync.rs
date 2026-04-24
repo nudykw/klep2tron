@@ -200,3 +200,15 @@ pub fn slicing_gizmo_sync_system(
 
 
 
+
+pub fn socket_visibility_system(
+    viewport_settings: Res<ViewportSettings>,
+    mut socket_query: Query<&mut Visibility, With<super::super::ActorSocket>>,
+) {
+    let target_visibility = if viewport_settings.sockets { Visibility::Visible } else { Visibility::Hidden };
+    for mut vis in socket_query.iter_mut() {
+        if *vis != target_visibility {
+            *vis = target_visibility;
+        }
+    }
+}

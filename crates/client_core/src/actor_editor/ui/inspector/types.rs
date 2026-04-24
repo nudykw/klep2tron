@@ -39,9 +39,26 @@ pub struct SocketCommentInput;
  
 #[derive(Component)]
 pub struct SocketDetailsContainer;
+ 
+#[derive(Component)]
+pub struct SocketMetadataSection;
 
 #[derive(Resource, Default)]
-pub struct SelectedSocket(pub Option<Entity>);
+pub struct SelectedSocket(pub Vec<Entity>);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+pub enum SelectionMode {
+    #[default]
+    Replace,
+    Add,
+    Range,
+}
+
+#[derive(Resource, Default)]
+pub struct MultiSelectionState {
+    pub mode: SelectionMode,
+    pub last_selected: Option<Entity>,
+}
 
 #[derive(Component)]
 pub enum TransformAxis {
@@ -82,34 +99,35 @@ pub enum InspectionToggleType {
 }
 
 #[derive(Component)]
-pub struct SocketVfxToggle;
-
-#[derive(Component)]
 pub struct SocketVfxSection;
+#[derive(Component)]
+pub struct SocketVfxEmissionSection;
+#[derive(Component)]
+pub struct SocketVfxMotionSection;
+#[derive(Component)]
+pub struct SocketVfxVisualsSection;
 
 #[derive(Component)]
-pub struct SocketVfxPresetDropdown;
-
+pub struct SocketVfxToggle;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Component)]
+pub enum SocketVfxSlider {
+    EmissionRate,
+    EmissionLifetime,
+    EmissionJitter,
+    MotionSpeed,
+    MotionSpread,
+    MotionGravity,
+    MotionDrag,
+    VisualsScale,
+    VisualsSizeStart,
+    VisualsSizeEnd,
+}
 #[derive(Component)]
 pub struct SocketVfxPresetItem(pub String);
-
 #[derive(Component)]
 pub struct SocketVfxTextureItem(pub String);
-
 #[derive(Component)]
 pub struct SocketVfxGroupItem(pub String);
-
-#[derive(Component)]
-pub struct SocketVfxSpeedSlider;
-
-#[derive(Component)]
-pub struct SocketVfxScaleSlider;
-
-#[derive(Component)]
-pub struct SocketVfxIntensitySlider;
-
-#[derive(Component)]
-pub struct SocketVfxLifetimeSlider;
 
 #[derive(Component)]
 pub struct SocketVfxColorPicker;

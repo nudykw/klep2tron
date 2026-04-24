@@ -13,6 +13,7 @@ pub fn actor_editor_input_system(
     mut toast_events: EventWriter<ToastEvent>,
     mut slicing_settings: ResMut<SlicingSettings>,
     mut editor_mode: ResMut<EditorMode>,
+    mut socket_settings: ResMut<super::super::SocketSettings>,
 ) {
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight) 
                || keyboard.pressed(KeyCode::SuperLeft) || keyboard.pressed(KeyCode::SuperRight);
@@ -77,4 +78,14 @@ pub fn actor_editor_input_system(
     if keyboard.just_pressed(KeyCode::KeyK) { viewport_settings.sockets = !viewport_settings.sockets; }
     if keyboard.just_pressed(KeyCode::KeyZ) { viewport_settings.gizmos = !viewport_settings.gizmos; }
     if keyboard.just_pressed(KeyCode::KeyR) { reset_events.send(ResetCameraEvent); }
+
+    // Fast Socket Spawn Hotkey
+    if keyboard.just_pressed(KeyCode::Equal) || keyboard.just_pressed(KeyCode::NumpadAdd) {
+        *editor_mode = EditorMode::Sockets;
+        socket_settings.is_adding = true;
+        toast_events.send(ToastEvent {
+            message: "Socket Placement Active".to_string(),
+            toast_type: ToastType::Info,
+        });
+    }
 }

@@ -7,31 +7,32 @@ pub fn socket_vfx_ui_sync_system(
     selected: Res<SelectedSocket>,
     socket_query: Query<&ActorSocket>,
     mut toggle_query: Query<&mut BackgroundColor, With<SocketVfxToggle>>,
-    mut speed_slider: Query<(&mut Slider, &Interaction), (With<SocketVfxSpeedSlider>, Without<SocketVfxScaleSlider>, Without<SocketVfxIntensitySlider>, Without<SocketVfxLifetimeSlider>)>,
-    mut scale_slider: Query<(&mut Slider, &Interaction), (With<SocketVfxScaleSlider>, Without<SocketVfxSpeedSlider>, Without<SocketVfxIntensitySlider>, Without<SocketVfxLifetimeSlider>)>,
-    mut intensity_slider: Query<(&mut Slider, &Interaction), (With<SocketVfxIntensitySlider>, Without<SocketVfxSpeedSlider>, Without<SocketVfxScaleSlider>, Without<SocketVfxLifetimeSlider>)>,
-    mut lifetime_slider: Query<(&mut Slider, &Interaction), (With<SocketVfxLifetimeSlider>, Without<SocketVfxSpeedSlider>, Without<SocketVfxScaleSlider>, Without<SocketVfxIntensitySlider>)>,
+    mut slider_query: Query<(&mut Slider, &Interaction, &SocketVfxSlider)>,
     mut texture_items_query: Query<(&SocketVfxTextureItem, &mut BackgroundColor), Without<SocketVfxToggle>>,
     mut group_items_query: Query<(&SocketVfxGroupItem, &mut BackgroundColor), (Without<SocketVfxToggle>, Without<SocketVfxTextureItem>)>,
 ) {
-    let Some(entity) = selected.0 else { return; };
+    let Some(&entity) = selected.0.first() else { return; };
     let Ok(socket) = socket_query.get(entity) else { return; };
     
     if let Some(effect) = &socket.definition.effect {
         if let Ok(mut bg) = toggle_query.get_single_mut() {
-            bg.0 = Color::srgba(0.2, 0.8, 0.2, 0.8); // Green for active
+            bg.0 = Color::srgba(0.2, 0.8, 0.2, 0.8);
         }
-        if let Ok((mut slider, interaction)) = speed_slider.get_single_mut() { 
-            if *interaction == Interaction::None { slider.value = effect.speed; }
-        }
-        if let Ok((mut slider, interaction)) = scale_slider.get_single_mut() { 
-            if *interaction == Interaction::None { slider.value = effect.scale; }
-        }
-        if let Ok((mut slider, interaction)) = intensity_slider.get_single_mut() { 
-            if *interaction == Interaction::None { slider.value = effect.intensity; }
-        }
-        if let Ok((mut slider, interaction)) = lifetime_slider.get_single_mut() { 
-            if *interaction == Interaction::None { slider.value = effect.lifetime; }
+        
+        for (mut slider, interaction, marker) in slider_query.iter_mut() {
+            if *interaction != Interaction::None { continue; }
+            match marker {
+                SocketVfxSlider::EmissionRate => slider.value = effect.emission.rate,
+                SocketVfxSlider::EmissionLifetime => slider.value = effect.emission.lifetime,
+                SocketVfxSlider::EmissionJitter => slider.value = effect.emission.jitter,
+                SocketVfxSlider::MotionSpeed => slider.value = effect.motion.speed,
+                SocketVfxSlider::MotionSpread => slider.value = effect.motion.spread,
+                SocketVfxSlider::MotionGravity => slider.value = effect.motion.gravity,
+                SocketVfxSlider::MotionDrag => slider.value = effect.motion.drag,
+                SocketVfxSlider::VisualsScale => slider.value = effect.visuals.scale,
+                SocketVfxSlider::VisualsSizeStart => slider.value = effect.visuals.size_start,
+                SocketVfxSlider::VisualsSizeEnd => slider.value = effect.visuals.size_end,
+            }
         }
         
         // Highlight selected texture or group
@@ -70,67 +71,83 @@ pub fn socket_vfx_interaction_system(
     preset_query: Query<(&Interaction, &SocketVfxPresetItem), Changed<Interaction>>,
     texture_query: Query<(&Interaction, &SocketVfxTextureItem), Changed<Interaction>>,
     group_query: Query<(&Interaction, &SocketVfxGroupItem), Changed<Interaction>>,
-    speed_slider: Query<&Slider, (Changed<Slider>, With<SocketVfxSpeedSlider>)>,
-    scale_slider: Query<&Slider, (Changed<Slider>, With<SocketVfxScaleSlider>)>,
-    intensity_slider: Query<&Slider, (Changed<Slider>, With<SocketVfxIntensitySlider>)>,
-    lifetime_slider: Query<&Slider, (Changed<Slider>, With<SocketVfxLifetimeSlider>)>,
+    slider_query: Query<(&Slider, &SocketVfxSlider), Changed<Slider>>,
 ) {
-    let Some(entity) = selected.0 else { return; };
-    let Ok(mut socket) = socket_query.get_mut(entity) else { return; };
+    if selected.0.is_empty() { return; }
     
-    // Toggle
+    // 1. Handle non-slider interactions (Toggle, Presets, Assets)
+    // We apply these once per click
     for interaction in toggle_query.iter() {
         if *interaction == Interaction::Pressed {
-            if socket.definition.effect.is_some() {
-                socket.definition.effect = None;
-            } else {
-                socket.definition.effect = Some(Default::default());
+            for &entity in selected.0.iter() {
+                if let Ok(mut socket) = socket_query.get_mut(entity) {
+                    if socket.definition.effect.is_some() {
+                        socket.definition.effect = None;
+                    } else {
+                        socket.definition.effect = Some(Default::default());
+                    }
+                }
             }
         }
     }
     
-    // Presets
     for (interaction, preset) in preset_query.iter() {
         if *interaction == Interaction::Pressed {
             if let Some(config) = vfx_presets.library.presets.get(&preset.0) {
-                socket.definition.effect = Some(config.clone());
+                for &entity in selected.0.iter() {
+                    if let Ok(mut socket) = socket_query.get_mut(entity) {
+                        socket.definition.effect = Some(config.clone());
+                    }
+                }
             }
         }
     }
 
-    // Textures
     for (interaction, texture) in texture_query.iter() {
         if *interaction == Interaction::Pressed {
-            if let Some(effect) = &mut socket.definition.effect {
-                effect.asset_path = Some(texture.0.clone());
-                effect.effect_type = shared::npc::EffectType::Hanabi;
-            }
-        }
-    }
-
-    // Groups
-    for (interaction, group) in group_query.iter() {
-        if *interaction == Interaction::Pressed {
-            if let Some(effect) = &mut socket.definition.effect {
-                effect.asset_path = Some(group.0.clone());
-                effect.effect_type = shared::npc::EffectType::Hanabi;
+            for &entity in selected.0.iter() {
+                if let Ok(mut socket) = socket_query.get_mut(entity) {
+                    if let Some(effect) = &mut socket.definition.effect {
+                        effect.asset_path = Some(texture.0.clone());
+                        effect.effect_type = shared::npc::EffectType::Hanabi;
+                    }
+                }
             }
         }
     }
     
-    // Sliders (only if effect is active)
-    if let Some(effect) = &mut socket.definition.effect {
-        if let Ok(slider) = speed_slider.get_single() { 
-            if effect.speed != slider.value { effect.speed = slider.value; }
+    for (interaction, group) in group_query.iter() {
+        if *interaction == Interaction::Pressed {
+            for &entity in selected.0.iter() {
+                if let Ok(mut socket) = socket_query.get_mut(entity) {
+                    if let Some(effect) = &mut socket.definition.effect {
+                        effect.asset_path = Some(group.0.clone());
+                        effect.effect_type = shared::npc::EffectType::Hanabi;
+                    }
+                }
+            }
         }
-        if let Ok(slider) = scale_slider.get_single() { 
-            if effect.scale != slider.value { effect.scale = slider.value; }
-        }
-        if let Ok(slider) = intensity_slider.get_single() { 
-            if effect.intensity != slider.value { effect.intensity = slider.value; }
-        }
-        if let Ok(slider) = lifetime_slider.get_single() { 
-            if effect.lifetime != slider.value { effect.lifetime = slider.value; }
+    }
+
+    // 2. Handle slider changes
+    for (slider, marker) in slider_query.iter() {
+        for &entity in selected.0.iter() {
+            if let Ok(mut socket) = socket_query.get_mut(entity) {
+                if let Some(effect) = &mut socket.definition.effect {
+                    match marker {
+                        SocketVfxSlider::EmissionRate => effect.emission.rate = slider.value,
+                        SocketVfxSlider::EmissionLifetime => effect.emission.lifetime = slider.value,
+                        SocketVfxSlider::EmissionJitter => effect.emission.jitter = slider.value,
+                        SocketVfxSlider::MotionSpeed => effect.motion.speed = slider.value,
+                        SocketVfxSlider::MotionSpread => effect.motion.spread = slider.value,
+                        SocketVfxSlider::MotionGravity => effect.motion.gravity = slider.value,
+                        SocketVfxSlider::MotionDrag => effect.motion.drag = slider.value,
+                        SocketVfxSlider::VisualsScale => effect.visuals.scale = slider.value,
+                        SocketVfxSlider::VisualsSizeStart => effect.visuals.size_start = slider.value,
+                        SocketVfxSlider::VisualsSizeEnd => effect.visuals.size_end = slider.value,
+                    }
+                }
+            }
         }
     }
 }

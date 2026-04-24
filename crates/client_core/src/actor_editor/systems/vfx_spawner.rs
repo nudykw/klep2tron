@@ -22,7 +22,7 @@ pub fn socket_vfx_sync_system(
             transform.rotation = rotation;
             
             if let Some(effect_config) = &socket.definition.effect {
-                transform.scale = Vec3::splat(effect_config.scale);
+                transform.scale = Vec3::splat(effect_config.visuals.scale);
             }
         } else {
             commands.entity(entity).despawn_recursive();
@@ -44,9 +44,15 @@ pub fn socket_vfx_spawner_system(
         let mut needs_recreate = true;
         if let Ok(active) = active_config_query.get(socket_entity) {
             if let (Some(old), Some(new)) = (&active.0, new_config) {
-                // Only recreate if TYPE, COLOR, or LIFETIME changed significantly
-                // Scale/Speed/Intensity updates are handled by live sync or doesn't need asset recreation
-                if old.effect_type == new.effect_type && old.asset_path == new.asset_path && old.lifetime == new.lifetime {
+                // Recreate if structural parameters changed
+                if old.effect_type != new.effect_type || 
+                   old.asset_path != new.asset_path ||
+                   old.emission != new.emission ||
+                   old.motion != new.motion ||
+                   old.visuals != new.visuals 
+                {
+                    needs_recreate = true;
+                } else {
                     needs_recreate = false;
                 }
             } else if active.0.is_none() && new_config.is_none() {
@@ -77,30 +83,40 @@ pub fn socket_vfx_spawner_system(
                 shared::npc::EffectType::MuzzleFlash => (1000.0, 0.15, 0.1, 4.0),
             };
 
-            let rate = base_rate * effect_config.intensity;
+            let rate = base_rate * effect_config.emission.rate;
             let spawner = Spawner::rate(rate.into());
 
             let init_pos = SetPositionSphereModifier {
                 center: writer.lit(Vec3::ZERO).expr(),
-                radius: writer.lit(0.02).expr(),
+                radius: writer.lit(base_size * effect_config.visuals.scale).expr(), // Use scale for radius too
                 dimension: ShapeDimension::Volume,
             };
             
             let init_vel = SetVelocitySphereModifier {
                 center: writer.lit(Vec3::ZERO).expr(),
-                speed: writer.lit(base_speed * effect_config.speed).expr(),
+                speed: writer.lit(base_speed * effect_config.motion.speed).expr(),
             };
             
-            let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, writer.lit(base_lifetime * effect_config.lifetime).expr());
+            let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, writer.lit(base_lifetime * effect_config.emission.lifetime).expr());
 
-            let color = effect_config.color.to_srgba();
+            // --- COLOR GRADIENT ---
+            let c_start = effect_config.visuals.color_start.to_srgba();
+            let c_end = effect_config.visuals.color_end.to_srgba();
             let mut gradient = Gradient::new();
-            gradient.add_key(0.0, Vec4::new(color.red, color.green, color.blue, color.alpha));
-            gradient.add_key(0.7, Vec4::new(color.red, color.green, color.blue, color.alpha));
-            gradient.add_key(1.0, Vec4::new(color.red, color.green, color.blue, 0.0));
-            
+            gradient.add_key(0.0, Vec4::new(c_start.red, c_start.green, c_start.blue, c_start.alpha));
+            gradient.add_key(1.0, Vec4::new(c_end.red, c_end.green, c_end.blue, c_end.alpha));
             let render_color = ColorOverLifetimeModifier { gradient };
-            let init_size = SetAttributeModifier::new(Attribute::SIZE, writer.lit(base_size).expr());
+
+            // --- PHYSICS ---
+            let gravity = writer.lit(Vec3::new(0.0, effect_config.motion.gravity, 0.0)).expr();
+            let accel = AccelModifier::new(gravity);
+            let drag = LinearDragModifier::new(writer.lit(effect_config.motion.drag).expr());
+
+            // --- SIZE GRADIENT ---
+            let mut size_gradient = Gradient::new();
+            size_gradient.add_key(0.0, Vec3::splat(base_size * effect_config.visuals.size_start));
+            size_gradient.add_key(1.0, Vec3::splat(base_size * effect_config.visuals.size_end));
+            let render_size = SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false };
 
             let effect_asset = EffectAsset::new(4096, spawner, writer.finish())
                 .with_name("Procedural_VFX")
@@ -108,8 +124,10 @@ pub fn socket_vfx_spawner_system(
                 .init(init_pos)
                 .init(init_vel)
                 .init(init_lifetime)
-                .init(init_size)
-                .render(render_color);
+                .update(accel) // ForceFieldModifier is an update modifier
+                .update(drag)
+                .render(render_color)
+                .render(render_size);
 
             let effect_handle = effects.add(effect_asset);
 

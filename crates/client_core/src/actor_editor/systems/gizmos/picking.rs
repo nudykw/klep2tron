@@ -158,7 +158,7 @@ pub fn actor_part_picking_priority_system(
     selected: Res<crate::actor_editor::ui::inspector::SelectedSocket>,
     mut pickable_query: Query<(Entity, &mut bevy_mod_picking::prelude::Pickable, Option<&SocketGizmo>, Option<&GizmoAxis>)>,
 ) {
-    let has_selection = selected.0.is_some();
+    let has_selection = !selected.0.is_empty();
     
     for (_entity, mut pickable, gizmo_opt, axis_opt) in pickable_query.iter_mut() {
         // Gizmos are always pickable

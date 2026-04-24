@@ -12,8 +12,8 @@ pub fn update_socket_gizmos_system(
     gizmo_query: Query<Entity, With<SocketGizmo>>,
     socket_query: Query<Entity, With<ActorSocket>>,
 ) {
-    let is_visible = *editor_mode == crate::actor_editor::EditorMode::Sockets && viewport_settings.sockets;
-    let selected_entity = if is_visible { selected.0 } else { None };
+    let is_visible = *editor_mode == crate::actor_editor::EditorMode::Sockets && viewport_settings.sockets && viewport_settings.gizmos;
+    let selected_entity = if is_visible { selected.0.first().cloned() } else { None };
     
     // Log selection state for debugging
     if selected.is_changed() || editor_mode.is_changed() {
@@ -84,7 +84,13 @@ pub fn spawn_axis(
                 PbrBundle {
                     mesh: meshes.add(Cylinder::new(0.015, 1.0)),
                     material: materials.add(StandardMaterial {
-                        base_color: color,
+                        base_color: {
+                            let mut c = color.to_srgba();
+                            c.alpha = 0.4;
+                            Color::Srgba(c)
+                        },
+                        alpha_mode: AlphaMode::Blend,
+                        unlit: true, // Make them look consistent with the rings
                         ..default()
                     }),
                     transform: Transform::from_rotation(rotation).with_translation(rotation * Vec3::Y * 0.5),
@@ -101,6 +107,7 @@ pub fn spawn_axis(
                         mesh: meshes.add(Cone { radius: 0.05, height: 0.15 }),
                         material: materials.add(StandardMaterial { 
                             base_color: color,
+                            unlit: true,
                             ..default() 
                         }),
                         transform: Transform::from_xyz(0.0, 0.5, 0.0),

@@ -34,6 +34,7 @@ impl Plugin for ActorEditorPlugin {
            .add_plugins(bevy_hanabi::HanabiPlugin)
            .init_resource::<EditorMode>()
            .init_resource::<ui::inspector::SelectedSocket>()
+           .init_resource::<ui::inspector::MultiSelectionState>()
            .init_resource::<ui::inspector::SocketFilterState>()
            .init_resource::<widgets::PanelSettings>()
            .init_resource::<ViewportSettings>()
@@ -133,6 +134,7 @@ impl Plugin for ActorEditorPlugin {
                     systems::actor_part_picking_priority_system,
                     systems::socket_gizmo_sync_system,
                     systems::xray_material_system,
+                    systems::socket_visibility_system,
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     ui::inspector::socket_ui_list_sync_system,
@@ -144,6 +146,8 @@ impl Plugin for ActorEditorPlugin {
                     ui::inspector::socket_filter_ui_system,
                     ui::inspector::vfx::socket_vfx_ui_sync_system,
                     ui::inspector::vfx::socket_vfx_interaction_system,
+                ).run_if(in_state(GameState::ActorEditor)))
+            .add_systems(Update, (
                     systems::socket_color_picker_system,
                     systems::socket_material_sync_system,
                     systems::socket_metadata_sync_system,

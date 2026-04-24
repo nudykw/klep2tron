@@ -423,7 +423,7 @@ pub fn inspector_section_sync_system(
         *editor_mode = target_mode;
         // Clear selection when leaving Sockets mode
         if target_mode == EditorMode::Slicing {
-            selected_socket.0 = None;
+            selected_socket.0 = vec![];
         }
     }
 
