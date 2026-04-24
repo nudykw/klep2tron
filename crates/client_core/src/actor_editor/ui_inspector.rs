@@ -433,6 +433,18 @@ pub fn setup_inspector(
                         "Comment",
                         TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
                     ));
+
+                    details.spawn(TextBundle::from_section(
+                        "Visual Color",
+                        TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
+                    ));
+                    
+                    super::widgets::spawn_color_picker_ext::<
+                        super::SocketColorPicker, 
+                        super::SocketColorPickerContainer, 
+                        super::SocketColorHueSlider, 
+                        super::SocketColorPreset
+                    >(details, Color::srgb(0.2, 0.8, 0.2), false);
                     
                     details.spawn((
                         super::widgets::TextInputBundle {

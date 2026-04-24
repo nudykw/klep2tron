@@ -36,6 +36,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<systems::SlicingTask>()
            .init_resource::<InspectionSettings>()
            .init_resource::<SocketSettings>()
+           .init_resource::<SocketColorPickerState>()
            .init_resource::<GizmoBusy>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
@@ -114,6 +115,10 @@ impl Plugin for ActorEditorPlugin {
                     ui_inspector::socket_reset_rotation_system,
                     ui_inspector::socket_filter_update_system,
                     ui_inspector::socket_filter_ui_system,
+                    systems::socket_color_picker_system,
+                    systems::socket_material_sync_system,
+                    systems::socket_metadata_sync_system,
+                    systems::socket_validation_feedback_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
@@ -291,10 +296,56 @@ pub enum SlicingGizmoType {
     Bottom,
 }
 
-#[derive(Component, Reflect, Default)]
+#[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct ActorSocket {
     pub definition: SocketDefinition,
+}
+
+impl Default for ActorSocket {
+    fn default() -> Self {
+        Self {
+            definition: SocketDefinition {
+                color: Color::srgb(0.2, 0.8, 0.2), // Default green
+                ..default()
+            }
+        }
+    }
+}
+
+#[derive(Component, Default)]
+pub struct SocketColorPicker;
+
+#[derive(Component, Default)]
+pub struct SocketColorHueSlider;
+
+#[derive(Component)]
+pub struct SocketColorPreset(pub Color);
+
+impl From<Color> for SocketColorPreset {
+    fn from(color: Color) -> Self {
+        Self(color)
+    }
+}
+
+#[derive(Component, Default)]
+pub struct SocketColorPickerContainer;
+
+#[derive(Resource)]
+pub struct SocketColorPickerState {
+    pub color: Color,
+    pub hue: f32,
+    pub is_open: bool,
+}
+
+impl Default for SocketColorPickerState {
+    fn default() -> Self {
+        Self {
+            color: Color::srgb(0.2, 0.8, 0.2),
+            hue: 120.0,
+            is_open: false,
+        }
+    }
 }
 
 #[derive(Resource, Default)]

@@ -17,6 +17,7 @@ pub struct SocketDefinition {
     pub position: Vec3,
     pub rotation: Quat,
     pub comment: String,
+    pub color: Color,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect, Default)]
