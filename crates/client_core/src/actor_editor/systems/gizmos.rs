@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_mod_picking::prelude::*;
 use super::super::{ActorSocket, ui_inspector::SelectedSocket};
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,49 +116,6 @@ pub fn xray_material_system(
     }
 }
 
-pub fn drag_socket_gizmo_system(
-    event: Listener<Pointer<Drag>>,
-    mut socket_query: Query<&mut Transform, With<crate::actor_editor::ActorSocket>>,
-    axis_query: Query<(&GizmoAxis, &Parent)>,
-    gizmo_root_query: Query<&Parent, With<SocketGizmo>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<crate::actor_editor::MainEditorCamera>>,
-) {
-    let Ok((axis, axis_parent)) = axis_query.get(event.target) else { return; };
-    let Ok(gizmo_root_parent) = gizmo_root_query.get(axis_parent.get()) else { return; };
-    let socket_entity = gizmo_root_parent.get();
-
-    let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
-
-    if let Ok(mut transform) = socket_query.get_mut(socket_entity) {
-        // Calculate axis direction in world space
-        let direction = match axis.0 {
-            GizmoAxisType::X => Vec3::X,
-            GizmoAxisType::Y => Vec3::Y,
-            GizmoAxisType::Z => Vec3::Z,
-        };
-
-        // Project camera space drag onto the axis
-        // 1. Get screen space direction of the axis
-        let some_point = transform.translation + direction;
-        let p1 = camera.world_to_viewport(camera_transform, transform.translation).unwrap_or(Vec2::ZERO);
-        let p2 = camera.world_to_viewport(camera_transform, some_point).unwrap_or(Vec2::ZERO);
-        
-        let screen_direction = (p2 - p1).normalize();
-        let drag_delta = event.delta;
-        
-        // Dot product to find how much of the drag is along the axis screen direction
-        let projected_drag = drag_delta.dot(screen_direction);
-        
-        // Move the socket
-        let sensitivity = 0.005;
-        let movement = direction * projected_drag * sensitivity;
-        
-        if projected_drag.abs() > 0.1 {
-            info!("Dragging axis {:?}: delta={:?}, movement={:?}", axis.0, drag_delta, movement);
-        }
-        transform.translation += movement;
-    }
-}
 
 fn spawn_axis(
     parent: &mut ChildBuilder,
@@ -280,7 +236,7 @@ pub fn gizmo_highlight_system(
 
 
 pub fn socket_gizmo_sync_system(
-    mut socket_query: Query<(&Transform, &mut ActorSocket), Changed<Transform>>,
+    mut socket_query: Query<(&Transform, &mut ActorSocket)>,
 ) {
     for (transform, mut socket) in socket_query.iter_mut() {
         socket.definition.position = transform.translation;

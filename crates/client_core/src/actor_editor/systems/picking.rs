@@ -153,10 +153,8 @@ pub fn socket_3d_selection_system(
     socket_query: Query<Entity, With<super::super::ActorSocket>>,
 ) {
     for event in events.read() {
-        info!("3D Click Target: {:?}", event.target);
         if socket_query.get(event.target).is_ok() {
             selected.0 = Some(event.target);
-            info!("Successfully Selected Socket: {:?}", event.target);
         }
     }
 }
