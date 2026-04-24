@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use crate::GameState;
 pub use shared::npc::{ActorPart, SocketDefinition};
 
-pub mod ui_root;
 pub mod ui;
 pub mod ui_project;
 pub mod systems;
@@ -44,7 +43,7 @@ impl Plugin for ActorEditorPlugin {
            .add_event::<ToastEvent>()
            .add_event::<ConfirmationRequestEvent>()
            .add_event::<InspectionFocusEvent>()
-           .add_systems(OnEnter(GameState::ActorEditor), (ui_root::setup_actor_editor, navigation::setup_navigation).chain())
+           .add_systems(OnEnter(GameState::ActorEditor), (ui::layout::setup_actor_editor, navigation::setup_navigation).chain())
            .add_systems(Update, (
                 systems::actor_editor_input_system,
                 widgets::collapsible_system,
@@ -131,7 +130,7 @@ impl Plugin for ActorEditorPlugin {
                 systems::draw_actor_bounds_debug_system,
             ).after(bevy::transform::TransformSystem::TransformPropagate)
              .run_if(in_state(GameState::ActorEditor)))
-           .add_systems(OnExit(GameState::ActorEditor), (ui_root::cleanup_actor_editor, crate::reset_ambient_light));
+           .add_systems(OnExit(GameState::ActorEditor), (ui::layout::cleanup_actor_editor, crate::reset_ambient_light));
     }
 }
 

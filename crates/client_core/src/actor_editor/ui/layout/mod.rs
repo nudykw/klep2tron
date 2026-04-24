@@ -1,10 +1,9 @@
 use bevy::prelude::*;
-use super::{ActorEditorEntity, ActorEditorBackButton, MainEditorCamera, GizmoCamera, GizmoEntity, GIZMO_LAYER, PanelResizer};
-use super::widgets::{ScrollingList, ScrollbarTrack, ScrollbarHandle, ResizablePanel, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton, spawn_viewport_slicer};
+use crate::actor_editor::{ActorEditorEntity, ActorEditorBackButton, PanelResizer};
+use crate::actor_editor::widgets::{ScrollingList, ScrollbarTrack, ScrollbarHandle, ResizablePanel, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton, spawn_viewport_slicer};
 
-const LEGEND_ROTATION_X: Quat = Quat::from_array([0.0, 0.70710677, 0.0, 0.70710677]); // Y-90 for X-axis
-const LEGEND_ROTATION_Y: Quat = Quat::from_array([-0.70710677, 0.0, 0.0, 0.70710677]); // X-90 for Y-axis
-const LEGEND_ROTATION_Z: Quat = Quat::IDENTITY;
+pub mod camera;
+pub mod gizmo_legend;
 
 pub fn setup_actor_editor(
     mut commands: Commands,
@@ -13,154 +12,17 @@ pub fn setup_actor_editor(
     mut materials: ResMut<Assets<StandardMaterial>>,
     panel_settings: Res<PanelSettings>,
 ) {
-    // 3D Camera
-    // 3D Main Camera
-    let main_camera_entity = commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                order: 5,
-                clear_color: Color::BLACK.into(),
-                ..default()
-            },
-            transform: Transform::from_xyz(0.0, 1.5, 4.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
-            ..default()
-        },
-        ActorEditorEntity,
-        MainEditorCamera,
-    )).id();
+    // 3D Camera and Lighting
+    let main_camera_entity = camera::spawn_actor_editor_cameras(&mut commands);
+    camera::spawn_actor_editor_lighting(&mut commands, main_camera_entity);
 
-    // Gizmo Camera (Sub-view)
-    commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                order: 10,
-                viewport: Some(bevy::render::camera::Viewport {
-                    physical_position: UVec2::new(20, 20),
-                    physical_size: UVec2::new(120, 120),
-                    depth: 0.0..1.0,
-                }),
-                clear_color: ClearColorConfig::None,
-                ..default()
-            },
-            camera_3d: Camera3d::default(),
-            transform: Transform::from_xyz(0.0, 0.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ActorEditorEntity,
-        GizmoCamera,
-        GIZMO_LAYER,
-    ));
-
-
-    // Spawn Gizmo Axes
-    let mesh_handle = meshes.add(Mesh::from(Cuboid::new(0.02, 0.02, 0.8)));
-    
-    // X - Red (Point Right)
-    commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle.clone(),
-            material: materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.2, 0.2), unlit: true, ..default() }),
-            transform: Transform::from_rotation(LEGEND_ROTATION_X)
-                        .with_translation(Vec3::X * 0.4),
-            ..default()
-        },
-        ActorEditorEntity,
-        GizmoEntity,
-        super::EditorHelper,
-        GIZMO_LAYER,
-    ));
-
-    // Y - Green (Point Up)
-    commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle.clone(),
-            material: materials.add(StandardMaterial { base_color: Color::srgb(0.2, 1.0, 0.2), unlit: true, ..default() }),
-            transform: Transform::from_rotation(LEGEND_ROTATION_Y)
-                        .with_translation(Vec3::Y * 0.4),
-            ..default()
-        },
-        ActorEditorEntity,
-        GizmoEntity,
-        super::EditorHelper,
-        GIZMO_LAYER,
-    ));
-    // Z - Blue (Point Forward)
-    commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle.clone(),
-            material: materials.add(StandardMaterial { base_color: Color::srgb(0.2, 0.2, 1.0), unlit: true, ..default() }),
-            transform: Transform::from_rotation(LEGEND_ROTATION_Z)
-                        .with_translation(Vec3::Z * 0.4),
-            ..default()
-        },
-        ActorEditorEntity,
-        GizmoEntity,
-        super::EditorHelper,
-        GIZMO_LAYER,
-    ));
-
-    // --- 3-POINT LIGHTING ---
-    commands.spawn((
-        DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                illuminance: 25000.0,
-                shadows_enabled: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(4.0, 10.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ActorEditorEntity,
-    ));
-
-    commands.spawn((
-        DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                illuminance: 12000.0,
-                shadows_enabled: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ActorEditorEntity,
-    ));
-
-    commands.spawn((
-        DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                illuminance: 15000.0,
-                shadows_enabled: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ActorEditorEntity,
-    ));
-
-    commands.entity(main_camera_entity).with_children(|parent| {
-        parent.spawn(PointLightBundle {
-            point_light: PointLight {
-                intensity: 80000.0,
-                range: 15.0,
-                shadows_enabled: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.8, 0.8, 0.0),
-            ..default()
-        });
-    });
-
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 400.0,
-    });
+    // Gizmo Axes Legend
+    gizmo_legend::spawn_gizmo_legend(&mut commands, &mut meshes, &mut materials);
 
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
 
-    commands.insert_resource(super::EditorFonts {
+    commands.insert_resource(crate::actor_editor::EditorFonts {
         regular: font.clone(),
         icon: icon_font.clone(),
     });
@@ -241,7 +103,7 @@ pub fn setup_actor_editor(
                             "PROJECT",
                             TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
                         ));
-                        super::ui_project::setup_project_panel(scroll_p, &font, &icon_font);
+                        crate::actor_editor::ui_project::setup_project_panel(scroll_p, &font, &icon_font);
                         
                         // Spacer at the bottom
                         scroll_p.spawn(NodeBundle {
@@ -486,7 +348,7 @@ pub fn setup_actor_editor(
                             "INSPECTOR",
                             TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
                         ));
-                        super::ui::inspector::setup_inspector(scroll_p, &font, &icon_font);
+                        crate::actor_editor::ui::inspector::setup_inspector(scroll_p, &font, &icon_font);
                         
                         // Spacer at the bottom
                         scroll_p.spawn(NodeBundle {
@@ -560,11 +422,11 @@ pub fn setup_actor_editor(
             });
         });
 
-        super::widgets::spawn_status_bar(root, &font, &icon_font);
+        crate::actor_editor::widgets::spawn_status_bar(root, &font, &icon_font);
     });
 
-    super::widgets::spawn_toast_container(&mut commands, Some(main_camera_entity));
-    super::widgets::spawn_loading_overlay(&mut commands, &font, Some(main_camera_entity));
+    crate::actor_editor::widgets::spawn_toast_container(&mut commands, Some(main_camera_entity));
+    crate::actor_editor::widgets::spawn_loading_overlay(&mut commands, &font, Some(main_camera_entity));
 }
 
 pub fn cleanup_actor_editor(
