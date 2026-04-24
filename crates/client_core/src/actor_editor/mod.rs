@@ -48,6 +48,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<SocketColorPickerState>()
            .init_resource::<GizmoBusy>()
            .init_resource::<vfx_assets::VfxPresets>()
+           .init_resource::<vfx_assets::VfxRegistry>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -56,6 +57,7 @@ impl Plugin for ActorEditorPlugin {
            .add_event::<InspectionFocusEvent>()
            .add_systems(OnEnter(GameState::ActorEditor), (
                vfx_assets::load_vfx_presets,
+               vfx_assets::register_kenney_textures,
                ui::layout::setup_actor_editor, 
                navigation::setup_navigation,
            ).chain())
@@ -148,6 +150,7 @@ impl Plugin for ActorEditorPlugin {
                     systems::socket_validation_feedback_system,
                     systems::socket_vfx_preview_system,
                     systems::vfx_spawner::socket_vfx_spawner_system,
+                    systems::vfx_spawner::socket_vfx_sync_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (

@@ -94,6 +94,12 @@ pub struct SocketVfxPresetDropdown;
 pub struct SocketVfxPresetItem(pub String);
 
 #[derive(Component)]
+pub struct SocketVfxTextureItem(pub String);
+
+#[derive(Component)]
+pub struct SocketVfxGroupItem(pub String);
+
+#[derive(Component)]
 pub struct SocketVfxSpeedSlider;
 
 #[derive(Component)]
@@ -101,6 +107,9 @@ pub struct SocketVfxScaleSlider;
 
 #[derive(Component)]
 pub struct SocketVfxIntensitySlider;
+
+#[derive(Component)]
+pub struct SocketVfxLifetimeSlider;
 
 #[derive(Component)]
 pub struct SocketVfxColorPicker;

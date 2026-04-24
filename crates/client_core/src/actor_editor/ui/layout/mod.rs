@@ -12,6 +12,7 @@ pub fn setup_actor_editor(
     mut materials: ResMut<Assets<StandardMaterial>>,
     panel_settings: Res<PanelSettings>,
     vfx_presets: Res<crate::actor_editor::vfx_assets::VfxPresets>,
+    vfx_registry: Res<crate::actor_editor::vfx_assets::VfxRegistry>,
 ) {
     // 3D Camera and Lighting
     let main_camera_entity = camera::spawn_actor_editor_cameras(&mut commands);
@@ -358,7 +359,7 @@ pub fn setup_actor_editor(
                             "INSPECTOR",
                             TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
                         ));
-                        crate::actor_editor::ui::inspector::setup_inspector(scroll_p, &font, &icon_font, &vfx_presets);
+                        crate::actor_editor::ui::inspector::setup_inspector(scroll_p, &font, &icon_font, &vfx_presets, &vfx_registry);
                         
                         // Spacer at the bottom
                         scroll_p.spawn(NodeBundle {

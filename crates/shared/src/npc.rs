@@ -25,13 +25,14 @@ pub enum EffectType {
     Hanabi,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect, PartialEq)]
 pub struct EffectConfig {
     pub effect_type: EffectType,
     pub color: Color,
     pub speed: f32,
     pub scale: f32,
     pub intensity: f32,
+    pub lifetime: f32,
     pub asset_path: Option<String>,
 }
 
@@ -43,6 +44,7 @@ impl Default for EffectConfig {
             speed: 1.0,
             scale: 1.0,
             intensity: 1.0,
+            lifetime: 1.0,
             asset_path: None,
         }
     }

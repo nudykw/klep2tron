@@ -11,6 +11,7 @@
             speed: 2.5,
             scale: 1.0,
             intensity: 1.5,
+            lifetime: 1.0,
         ),
         "MuzzleFlash": (
             effect_type: MuzzleFlash,
@@ -23,6 +24,7 @@
             speed: 3.0,
             scale: 1.2,
             intensity: 2.0,
+            lifetime: 1.0,
         ),
         "Smoke": (
             effect_type: Smoke,
@@ -35,19 +37,34 @@
             speed: 0.8,
             scale: 1.5,
             intensity: 0.7,
+            lifetime: 1.0,
         ),
-        "Kenney": (
+        "Kenney Slash": (
             effect_type: Hanabi,
-            color: Srgba((
-                red: 1.0,
-                green: 1.0,
-                blue: 1.0,
-                alpha: 1.0,
-            )),
-            speed: 1.0,
+            color: Srgba((red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)),
+            speed: 2.0,
             scale: 1.0,
-            intensity: 1.0,
-            asset_path: Some("Kenney"),
+            intensity: 1.5,
+            lifetime: 1.0,
+            asset_path: Some("slash"),
+        ),
+        "Kenney Smoke": (
+            effect_type: Hanabi,
+            color: Srgba((red: 0.5, green: 0.5, blue: 0.5, alpha: 0.4)),
+            speed: 0.5,
+            scale: 2.0,
+            intensity: 0.8,
+            lifetime: 1.0,
+            asset_path: Some("smoke"),
+        ),
+        "Kenney Magic": (
+            effect_type: Hanabi,
+            color: Srgba((red: 0.8, green: 0.2, blue: 1.0, alpha: 1.0)),
+            speed: 1.0,
+            scale: 1.5,
+            intensity: 1.2,
+            lifetime: 1.0,
+            asset_path: Some("magic"),
         ),
     }
 )

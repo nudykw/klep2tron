@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::actor_editor::{
-    widgets::spawn_collapsible_section,
+    widgets::{spawn_collapsible_section, Tooltip},
     SocketColorPicker, SocketColorPickerContainer, SocketColorHueSlider, SocketColorPreset
 };
 use super::types::*;
@@ -10,6 +10,7 @@ pub fn spawn_sockets_section(
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
     vfx_presets: &crate::actor_editor::vfx_assets::VfxPresets,
+    vfx_registry: &crate::actor_editor::vfx_assets::VfxRegistry,
 ) {
     spawn_collapsible_section(
         p,
@@ -284,6 +285,13 @@ pub fn spawn_sockets_section(
                             TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
                         ));
                         crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.0, 5.0, 1.0, SocketVfxIntensitySlider);
+
+                        // Lifetime Slider
+                        vfx.spawn(TextBundle::from_section(
+                            "Lifetime",
+                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
+                        ));
+                        crate::actor_editor::widgets::spawn_slider_ext(vfx, 0.1, 5.0, 1.0, SocketVfxLifetimeSlider);
                         
                         // Preset Buttons (Simple list for now)
                         vfx.spawn(TextBundle::from_section(
@@ -321,6 +329,121 @@ pub fn spawn_sockets_section(
                                         preset,
                                         TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.8, 0.8, 0.8) },
                                     ));
+                                });
+                            }
+                        });
+
+                        // Texture Groups
+                        vfx.spawn(TextBundle::from_section(
+                            "Texture Groups (Random Variation)",
+                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.0, 1.0, 0.8), ..default() },
+                        ).with_style(Style { margin: UiRect::top(Val::Px(10.0)), ..default() }));
+
+                        vfx.spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                column_gap: Val::Px(4.0),
+                                row_gap: Val::Px(4.0),
+                                margin: UiRect::top(Val::Px(5.0)),
+                                ..default()
+                            },
+                            ..default()
+                        }).with_children(|grid| {
+                            let mut group_names: Vec<_> = vfx_registry.groups.keys().collect();
+                            group_names.sort();
+                            
+                            for name in group_names {
+                                let handles = &vfx_registry.groups[name];
+                                grid.spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            width: Val::Px(40.0),
+                                            height: Val::Px(40.0),
+                                            padding: UiRect::all(Val::Px(2.0)),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                                        ..default()
+                                    },
+                                    SocketVfxGroupItem(name.clone()),
+                                    Tooltip(format!("Group: {} ({} variations)", name, handles.len())),
+                                )).with_children(|b| {
+                                    // Show first image of group as preview
+                                    b.spawn(ImageBundle {
+                                        style: Style {
+                                            width: Val::Percent(90.0),
+                                            height: Val::Percent(90.0),
+                                            ..default()
+                                        },
+                                        image: UiImage::new(handles[0].clone()),
+                                        ..default()
+                                    });
+                                    // Add a small indicator for group
+                                    b.spawn(NodeBundle {
+                                        style: Style {
+                                            position_type: PositionType::Absolute,
+                                            right: Val::Px(2.0),
+                                            bottom: Val::Px(2.0),
+                                            width: Val::Px(8.0),
+                                            height: Val::Px(8.0),
+                                            ..default()
+                                        },
+                                        background_color: Color::srgba(0.0, 1.0, 0.8, 0.8).into(),
+                                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                                        ..default()
+                                    });
+                                });
+                            }
+                        });
+
+                        // Kenney Textures
+                        vfx.spawn(TextBundle::from_section(
+                            "Kenney Textures",
+                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6), ..default() },
+                        ).with_style(Style { margin: UiRect::top(Val::Px(10.0)), ..default() }));
+                        
+                        vfx.spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                column_gap: Val::Px(4.0),
+                                row_gap: Val::Px(4.0),
+                                margin: UiRect::top(Val::Px(5.0)),
+                                ..default()
+                            },
+                            ..default()
+                        }).with_children(|grid| {
+                            for (name, handle) in &vfx_registry.textures {
+                                grid.spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            width: Val::Px(30.0),
+                                            height: Val::Px(30.0),
+                                            padding: UiRect::all(Val::Px(2.0)),
+                                            ..default()
+                                        },
+                                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                                        ..default()
+                                    },
+                                    SocketVfxTextureItem(name.clone()),
+                                    Tooltip(name.clone()),
+                                )).with_children(|b| {
+                                    b.spawn(ImageBundle {
+                                        style: Style {
+                                            width: Val::Percent(100.0),
+                                            height: Val::Percent(100.0),
+                                            ..default()
+                                        },
+                                        image: UiImage::new(handle.clone()),
+                                        ..default()
+                                    });
                                 });
                             }
                         });
