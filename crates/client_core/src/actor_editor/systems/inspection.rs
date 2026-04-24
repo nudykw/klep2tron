@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use super::super::{InspectionSettings, ActorPart, InspectionFocusEvent};
-use super::super::ui_inspector::{PartFocusButton, PartSoloButton, InspectionToggle, InspectionToggleType, InspectionMasterToggle, PartsSectionMarker};
+use super::super::ui::inspector::{PartFocusButton, PartSoloButton, InspectionToggle, InspectionToggleType, InspectionMasterToggle, PartsSectionMarker};
 use super::super::widgets::CollapsibleSection;
 use bevy_panorbit_camera::PanOrbitCamera;
 

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use super::super::{SocketSettings, ActorPart, geometry::raycast, MainEditorCamera, ActorSocket, SocketDefinition, HoveredSocketData};
-use super::super::ui_inspector::SocketAddModeButton;
+use super::super::ui::inspector::SocketAddModeButton;
 
 pub fn socket_picking_system(
     mut settings: ResMut<SocketSettings>,
@@ -56,7 +56,7 @@ pub fn socket_spawn_system(
     mut settings: ResMut<SocketSettings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut selected: ResMut<super::super::ui_inspector::SelectedSocket>,
+    mut selected: ResMut<super::super::ui::inspector::SelectedSocket>,
     part_query: Query<&GlobalTransform, With<ActorPart>>,
     socket_query: Query<&ActorSocket>,
 ) {
@@ -190,7 +190,7 @@ pub fn socket_button_visuals_system(
     }
 }
 pub fn socket_3d_selection_system(
-    mut selected: ResMut<super::super::ui_inspector::SelectedSocket>,
+    mut selected: ResMut<super::super::ui::inspector::SelectedSocket>,
     mut events: EventReader<bevy_mod_picking::prelude::Pointer<bevy_mod_picking::prelude::Click>>,
     socket_query: Query<Entity, With<super::super::ActorSocket>>,
 ) {

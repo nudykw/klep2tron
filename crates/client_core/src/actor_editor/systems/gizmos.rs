@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::super::{ActorSocket, ui_inspector::SelectedSocket};
+use super::super::{ActorSocket, ui::inspector::SelectedSocket};
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GizmoAxisType {
@@ -380,7 +380,7 @@ pub fn socket_gizmo_sync_system(
 }
 
 pub fn actor_part_picking_priority_system(
-    selected: Res<crate::actor_editor::ui_inspector::SelectedSocket>,
+    selected: Res<crate::actor_editor::ui::inspector::SelectedSocket>,
     mut pickable_query: Query<(Entity, &mut bevy_mod_picking::prelude::Pickable, Option<&SocketGizmo>, Option<&GizmoAxis>)>,
 ) {
     let has_selection = selected.0.is_some();

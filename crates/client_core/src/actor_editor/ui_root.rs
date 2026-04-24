@@ -486,7 +486,7 @@ pub fn setup_actor_editor(
                             "INSPECTOR",
                             TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
                         ));
-                        super::ui_inspector::setup_inspector(scroll_p, &font, &icon_font);
+                        super::ui::inspector::setup_inspector(scroll_p, &font, &icon_font);
                         
                         // Spacer at the bottom
                         scroll_p.spawn(NodeBundle {

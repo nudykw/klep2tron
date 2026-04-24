@@ -3,7 +3,7 @@ use crate::GameState;
 pub use shared::npc::{ActorPart, SocketDefinition};
 
 pub mod ui_root;
-pub mod ui_inspector;
+pub mod ui;
 pub mod ui_project;
 pub mod systems;
 pub mod geometry;
@@ -24,8 +24,8 @@ impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
            .add_plugins(bevy_mod_picking::DefaultPickingPlugins)
-           .init_resource::<ui_inspector::SelectedSocket>()
-           .init_resource::<ui_inspector::SocketFilterState>()
+           .init_resource::<ui::inspector::SelectedSocket>()
+           .init_resource::<ui::inspector::SocketFilterState>()
            .init_resource::<widgets::PanelSettings>()
            .init_resource::<ViewportSettings>()
            .init_resource::<SlicingSettings>()
@@ -58,7 +58,7 @@ impl Plugin for ActorEditorPlugin {
                 widgets::update_panel_style_system,
                 widgets::panel_toggle_system,
                 widgets::tooltip_system,
-                ui_inspector::socket_transform_update_system,
+                ui::inspector::socket_transform_update_system,
                 systems::gizmo_sync_system,
                 navigation::camera_reset_handler,
                 navigation::grid_system,
@@ -112,13 +112,13 @@ impl Plugin for ActorEditorPlugin {
                     systems::xray_material_system,
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
-                    ui_inspector::socket_ui_list_sync_system,
-                    ui_inspector::socket_ui_list_label_sync_system,
-                    ui_inspector::socket_list_click_system,
-                    ui_inspector::socket_list_highlight_system,
-                    ui_inspector::socket_reset_rotation_system,
-                    ui_inspector::socket_filter_update_system,
-                    ui_inspector::socket_filter_ui_system,
+                    ui::inspector::socket_ui_list_sync_system,
+                    ui::inspector::socket_ui_list_label_sync_system,
+                    ui::inspector::socket_list_click_system,
+                    ui::inspector::socket_list_highlight_system,
+                    ui::inspector::socket_reset_rotation_system,
+                    ui::inspector::socket_filter_update_system,
+                    ui::inspector::socket_filter_ui_system,
                     systems::socket_color_picker_system,
                     systems::socket_material_sync_system,
                     systems::socket_metadata_sync_system,

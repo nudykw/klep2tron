@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use super::super::{ActorSocket, ToastEvent, ToastType, SocketColorPickerState, SocketColorPicker, SocketColorPickerContainer, SocketColorHueSlider, SocketColorPreset};
-use super::super::ui_inspector::{SelectedSocket, SocketNameInput, SocketCommentInput, SocketDetailsContainer};
+use super::super::ui::inspector::{SelectedSocket, SocketNameInput, SocketCommentInput, SocketDetailsContainer};
 use super::super::widgets::TextInput;
 
 pub fn socket_metadata_sync_system(
