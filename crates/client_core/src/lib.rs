@@ -75,17 +75,12 @@ pub enum GameState {
 #[derive(Component)]
 pub struct ActorEditorEntity;
 
-#[derive(Resource, Default)]
-pub struct ExitConfirmationActive(pub bool);
 
-#[derive(Component)]
-pub struct MenuEntity;
 
 #[derive(Component)]
 pub struct LoadingEntity;
 
-#[derive(Component)]
-pub struct ConfirmationOverlay;
+
 
 #[derive(Component)]
 pub struct ProgressBar;
@@ -267,9 +262,7 @@ fn finish_loading_settings_on_menu(mut settings: ResMut<GraphicsSettings>) {
     }
 }
 
-pub fn cleanup_menu(mut commands: Commands, query: Query<Entity, With<MenuEntity>>) {
-    for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
-}
+
 
 pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<LoadingEntity>>) {
     for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
