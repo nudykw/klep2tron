@@ -31,6 +31,14 @@ pub enum TransformAxis {
 }
 
 #[derive(Component)]
+pub enum RotationAxis {
+    Roll, Pitch, Yaw
+}
+
+#[derive(Component)]
+pub struct SocketResetRotationButton;
+
+#[derive(Component)]
 pub struct PartFocusButton(pub ActorPart);
 
 #[derive(Component)]
@@ -178,10 +186,11 @@ pub fn setup_inspector(
                     ScrollingList::default(),
                 ));
                 
+                // --- POSITION DISPLAY ---
                 content.spawn(NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
-                        margin: UiRect::top(Val::Px(15.0)),
+                        margin: UiRect::top(Val::Px(10.0)),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::SpaceBetween,
                         ..default()
@@ -206,10 +215,68 @@ pub fn setup_inspector(
                         )).with_children(|box_| {
                             box_.spawn(TextBundle::from_section(
                                 format!("{}: {:.2}", label, 0.0),
-                                TextStyle { font: font.clone(), font_size: 12.0, color: Color::WHITE },
+                                TextStyle { font: font.clone(), font_size: 11.0, color: Color::WHITE },
                             ));
                         });
                     }
+                });
+
+                // --- ROTATION DISPLAY ---
+                content.spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        margin: UiRect::top(Val::Px(5.0)),
+                        flex_direction: FlexDirection::Row,
+                        justify_content: JustifyContent::SpaceBetween,
+                        ..default()
+                    },
+                    ..default()
+                }).with_children(|row| {
+                    for (axis, label) in [(RotationAxis::Roll, "R"), (RotationAxis::Pitch, "P"), (RotationAxis::Yaw, "Y")] {
+                        row.spawn((
+                            NodeBundle {
+                                style: Style {
+                                    width: Val::Px(75.0),
+                                    height: Val::Px(25.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                background_color: Color::srgba(0.1, 0.1, 0.1, 0.4).into(),
+                                border_radius: BorderRadius::all(Val::Px(4.0)),
+                                ..default()
+                            },
+                            axis,
+                        )).with_children(|box_| {
+                            box_.spawn(TextBundle::from_section(
+                                format!("{}: {:.1}°", label, 0.0),
+                                TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.8, 0.8, 1.0) },
+                            ));
+                        });
+                    }
+                });
+
+                // --- RESET BUTTON ---
+                content.spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Percent(100.0),
+                            height: Val::Px(25.0),
+                            margin: UiRect::top(Val::Px(10.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                        ..default()
+                    },
+                    SocketResetRotationButton,
+                )).with_children(|b| {
+                    b.spawn(TextBundle::from_section(
+                        "Reset Rotation",
+                        TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.7, 0.7, 0.7) },
+                    ));
                 });
             }
         );
@@ -472,12 +539,15 @@ pub fn socket_filter_system(
 pub fn socket_transform_update_system(
     selected: Res<SelectedSocket>,
     socket_query: Query<&Transform>,
-    mut axis_text_query: Query<(&TransformAxis, &Children)>,
+    mut pos_axis_query: Query<(&TransformAxis, &Children)>,
+    mut rot_axis_query: Query<(&RotationAxis, &Children)>,
     mut text_query: Query<&mut Text>,
 ) {
     let Some(entity) = selected.0 else { return; };
     let Ok(transform) = socket_query.get(entity) else { return; };
-    for (axis, children) in axis_text_query.iter_mut() {
+    
+    // Update Translation
+    for (axis, children) in pos_axis_query.iter_mut() {
         for child in children.iter() {
             if let Ok(mut text) = text_query.get_mut(*child) {
                 let (val, label) = match axis {
@@ -486,6 +556,36 @@ pub fn socket_transform_update_system(
                     TransformAxis::Z => (transform.translation.z, "Z"),
                 };
                 text.sections[0].value = format!("{}: {:.2}", label, val);
+            }
+        }
+    }
+
+    // Update Rotation
+    let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+    for (axis, children) in rot_axis_query.iter_mut() {
+        for child in children.iter() {
+            if let Ok(mut text) = text_query.get_mut(*child) {
+                let (val, label) = match axis {
+                    RotationAxis::Roll => (roll.to_degrees(), "R"),
+                    RotationAxis::Pitch => (pitch.to_degrees(), "P"),
+                    RotationAxis::Yaw => (yaw.to_degrees(), "Y"),
+                };
+                text.sections[0].value = format!("{}: {:.1}°", label, val);
+            }
+        }
+    }
+}
+
+pub fn socket_reset_rotation_system(
+    selected: Res<SelectedSocket>,
+    mut socket_query: Query<&mut Transform, With<super::ActorSocket>>,
+    query: Query<&Interaction, (With<SocketResetRotationButton>, Changed<Interaction>)>,
+) {
+    let Some(entity) = selected.0 else { return; };
+    for interaction in query.iter() {
+        if *interaction == Interaction::Pressed {
+            if let Ok(mut transform) = socket_query.get_mut(entity) {
+                transform.rotation = Quat::IDENTITY;
             }
         }
     }

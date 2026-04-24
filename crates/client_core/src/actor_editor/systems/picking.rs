@@ -102,14 +102,26 @@ pub fn socket_spawn_system(
             )).with_children(|parent| {
                 // Pin: Points along the normal (Y axis of torus mesh)
                 parent.spawn(PbrBundle {
-                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.1))),
+                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.15))),
                     material: materials.add(StandardMaterial {
                         base_color: Color::srgb(1.0, 1.0, 0.0),
                         unlit: true,
                         depth_bias: 500.0,
                         ..default()
                     }),
-                    transform: Transform::from_xyz(0.0, 0.05, 0.0),
+                    transform: Transform::from_xyz(0.0, 0.075, 0.0),
+                    ..default()
+                });
+                // Cone tip for the Pin
+                parent.spawn(PbrBundle {
+                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Cone { radius: 0.015, height: 0.05 })),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::srgb(1.0, 1.0, 0.0),
+                        unlit: true,
+                        depth_bias: 500.0,
+                        ..default()
+                    }),
+                    transform: Transform::from_xyz(0.0, 0.15, 0.0),
                     ..default()
                 });
             }).id();

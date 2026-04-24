@@ -109,6 +109,7 @@ impl Plugin for ActorEditorPlugin {
                     ui_inspector::socket_ui_list_sync_system,
                     ui_inspector::socket_list_click_system,
                     ui_inspector::socket_list_highlight_system,
+                    ui_inspector::socket_reset_rotation_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
