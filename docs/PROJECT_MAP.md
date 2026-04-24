@@ -12,6 +12,10 @@ This document serves as a technical overview for AI assistance to quickly naviga
   - `src/assets/`: Resource loading and progress bar.
   - `src/perf.rs`: Metrics collection and history.
   - `src/transition.rs`: Room switching logic and UI.
+  - `src/actor_editor/`: Modular system for creating and editing NPC actors.
+    - `ui/layout/`: Global layout, cameras, and lighting.
+    - `ui/inspector/`: Detailed part and socket inspection.
+    - `systems/`: Input, gizmos, slicing, and normalization logic.
   - `src/input.rs`: Global shared controls (fullscreen).
   - `src/history.rs`: Undo/Redo stack management.
 - `crates/client_web`: WASM wrapper for the game client.
