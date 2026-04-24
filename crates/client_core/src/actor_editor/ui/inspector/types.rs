@@ -66,6 +66,9 @@ pub struct PartSoloButton(pub ActorPart);
 pub struct InspectionMasterToggle;
 
 #[derive(Component)]
+pub struct SocketsSectionMarker;
+
+#[derive(Component)]
 pub struct PartsSectionMarker;
 
 #[derive(Component)]

@@ -71,6 +71,7 @@ pub fn viewport_button_system(
     mut viewport_settings: ResMut<ViewportSettings>,
     mut inspection_settings: ResMut<crate::actor_editor::InspectionSettings>,
     mut all_buttons: Query<(&ViewportToggleButton, &mut BackgroundColor)>,
+    mut editor_mode: ResMut<crate::actor_editor::EditorMode>,
     mut reset_events: EventWriter<super::super::ResetCameraEvent>,
 ) {
     for (interaction, toggle) in interaction_query.iter_mut() {
@@ -78,7 +79,15 @@ pub fn viewport_button_system(
             match toggle.0 {
                 ViewportToggleType::Grid => viewport_settings.grid = !viewport_settings.grid,
                 ViewportToggleType::Slices => viewport_settings.slices = !viewport_settings.slices,
-                ViewportToggleType::Sockets => viewport_settings.sockets = !viewport_settings.sockets,
+                ViewportToggleType::Sockets => {
+                    viewport_settings.sockets = !viewport_settings.sockets;
+                    // Sync editor mode with viewport toggle
+                    *editor_mode = if viewport_settings.sockets {
+                        crate::actor_editor::EditorMode::Sockets
+                    } else {
+                        crate::actor_editor::EditorMode::Slicing
+                    };
+                }
                 ViewportToggleType::Gizmos => viewport_settings.gizmos = !viewport_settings.gizmos,
                 ViewportToggleType::Xray => {
                     viewport_settings.xray = !viewport_settings.xray;

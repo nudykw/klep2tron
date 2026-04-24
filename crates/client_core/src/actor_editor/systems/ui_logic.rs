@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use bevy::render::mesh::VertexAttributeValues;
 use rfd::FileDialog;
-use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, EditorHelper, ToastEvent, ToastType, ActorImportEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor};
+use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, EditorHelper, ToastEvent, ToastType, ActorImportEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings};
+use super::super::ui_project::{ModeTab, ProjectModeContent};
+use super::super::ui::inspector::types::{SocketsSectionMarker, PartsSectionMarker, SelectedSocket};
+use super::super::widgets::CollapsibleSection;
 
 pub fn status_update_system(
     status: Res<EditorStatus>,
@@ -339,6 +342,130 @@ pub fn slicer_lock_system(
 
         if let Ok(mut text) = text_query.get_mut(children[0]) {
             text.sections[0].value = icon.to_string();
+        }
+    }
+}
+
+pub fn mode_tab_interaction_system(
+    mut editor_mode: ResMut<EditorMode>,
+    interaction_query: Query<(&Interaction, &ModeTab), (Changed<Interaction>, With<ModeTab>)>,
+    mut toast_events: EventWriter<ToastEvent>,
+) {
+    for (interaction, tab) in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            if *editor_mode != tab.0 {
+                *editor_mode = tab.0;
+                toast_events.send(ToastEvent {
+                    message: format!("Mode: {:?}", *editor_mode),
+                    toast_type: ToastType::Info,
+                });
+            }
+        }
+    }
+}
+
+pub fn mode_visual_sync_system(
+    editor_mode: Res<EditorMode>,
+    mut tab_query: Query<(&mut BackgroundColor, &ModeTab)>,
+) {
+    if !editor_mode.is_changed() { return; }
+    for (mut bg, tab) in tab_query.iter_mut() {
+        let is_active = *editor_mode == tab.0;
+        bg.0 = if is_active { Color::srgba(0.3, 0.5, 1.0, 0.3) } else { Color::srgba(1.0, 1.0, 1.0, 0.05) };
+    }
+}
+
+pub fn mode_content_visibility_system(
+    editor_mode: Res<EditorMode>,
+    mut content_query: Query<(&mut Style, &ProjectModeContent)>,
+) {
+    if !editor_mode.is_changed() { return; }
+    for (mut style, content) in content_query.iter_mut() {
+        style.display = if *editor_mode == content.0 { Display::Flex } else { Display::None };
+    }
+}
+
+pub fn inspector_section_sync_system(
+    mut editor_mode: ResMut<EditorMode>,
+    mut viewport_settings: ResMut<ViewportSettings>,
+    mut selected_socket: ResMut<SelectedSocket>,
+    sockets_marker: Query<&Parent, With<SocketsSectionMarker>>,
+    parts_marker: Query<&Parent, With<PartsSectionMarker>>,
+    mut section_set: ParamSet<(
+        Query<Ref<CollapsibleSection>>,
+        Query<&mut CollapsibleSection>,
+    )>,
+) {
+    let Ok(sockets_p) = sockets_marker.get_single() else { return; };
+    let Ok(parts_p) = parts_marker.get_single() else { return; };
+
+    let sockets_entity = sockets_p.get();
+    let parts_entity = parts_p.get();
+
+    // 1. Sync from UI to Resource: Check if user manually opened a section
+    let mut target_mode = *editor_mode;
+
+    {
+        let section_ref_query = section_set.p0();
+        if let Ok(sockets) = section_ref_query.get(sockets_entity) {
+            if sockets.is_changed() && sockets.is_open && *editor_mode != EditorMode::Sockets {
+                target_mode = EditorMode::Sockets;
+            }
+        }
+        if let Ok(parts) = section_ref_query.get(parts_entity) {
+            if parts.is_changed() && parts.is_open && *editor_mode != EditorMode::Slicing {
+                target_mode = EditorMode::Slicing;
+            }
+        }
+    }
+
+    if *editor_mode != target_mode {
+        *editor_mode = target_mode;
+        // Clear selection when leaving Sockets mode
+        if target_mode == EditorMode::Slicing {
+            selected_socket.0 = None;
+        }
+    }
+
+    // 2. Sync from Resource to UI: Ensure only the active mode's section is open
+    if editor_mode.is_changed() {
+        let current_mode = *editor_mode;
+
+        // Auto-enable socket visibility in viewport when entering Sockets mode
+        if current_mode == EditorMode::Sockets {
+            viewport_settings.sockets = true;
+        }
+
+        // Sync Sockets section
+        let mut needs_sockets_update = false;
+        {
+            let section_ref_query = section_set.p0();
+            if let Ok(sockets) = section_ref_query.get(sockets_entity) {
+                if sockets.is_open != (current_mode == EditorMode::Sockets) {
+                    needs_sockets_update = true;
+                }
+            }
+        }
+        if needs_sockets_update {
+            if let Ok(mut s_mut) = section_set.p1().get_mut(sockets_entity) {
+                s_mut.is_open = current_mode == EditorMode::Sockets;
+            }
+        }
+
+        // Sync Parts section
+        let mut needs_parts_update = false;
+        {
+            let section_ref_query = section_set.p0();
+            if let Ok(parts) = section_ref_query.get(parts_entity) {
+                if parts.is_open != (current_mode == EditorMode::Slicing) {
+                    needs_parts_update = true;
+                }
+            }
+        }
+        if needs_parts_update {
+            if let Ok(mut p_mut) = section_set.p1().get_mut(parts_entity) {
+                p_mut.is_open = current_mode == EditorMode::Slicing;
+            }
         }
     }
 }

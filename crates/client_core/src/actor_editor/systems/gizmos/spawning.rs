@@ -7,24 +7,26 @@ pub fn update_socket_gizmos_system(
     selected: Res<SelectedSocket>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    editor_mode: Res<crate::actor_editor::EditorMode>,
+    viewport_settings: Res<crate::actor_editor::ViewportSettings>,
     gizmo_query: Query<Entity, With<SocketGizmo>>,
     socket_query: Query<Entity, With<ActorSocket>>,
 ) {
-    let selected_entity = selected.0;
+    let is_visible = *editor_mode == crate::actor_editor::EditorMode::Sockets && viewport_settings.sockets;
+    let selected_entity = if is_visible { selected.0 } else { None };
     
     // Log selection state for debugging
-    if selected.is_changed() {
-        info!("SelectedSocket changed to: {:?}", selected_entity);
+    if selected.is_changed() || editor_mode.is_changed() {
+        info!("Gizmo Sync: Selected={:?}, Visible={}", selected_entity, is_visible);
     }
 
     let mut needs_spawn = false;
     
     // Check if we need to despawn current gizmo
     for entity in gizmo_query.iter() {
-        // If nothing selected or selection changed, despawn
-        if selected_entity.is_none() || selected.is_changed() {
+        // If nothing selected, mode changed, visibility changed, or selection changed, despawn
+        if selected_entity.is_none() || selected.is_changed() || editor_mode.is_changed() || viewport_settings.is_changed() {
             commands.entity(entity).despawn_recursive();
-            needs_spawn = selected_entity.is_some();
         }
     }
 

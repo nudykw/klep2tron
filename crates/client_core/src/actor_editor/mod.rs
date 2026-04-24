@@ -9,6 +9,13 @@ pub mod geometry;
 pub mod navigation;
 pub mod widgets;
 
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditorMode {
+    #[default]
+    Slicing,
+    Sockets,
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 pub struct EditorFonts {
@@ -23,6 +30,7 @@ impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
            .add_plugins(bevy_mod_picking::DefaultPickingPlugins)
+           .init_resource::<EditorMode>()
            .init_resource::<ui::inspector::SelectedSocket>()
            .init_resource::<ui::inspector::SocketFilterState>()
            .init_resource::<widgets::PanelSettings>()
@@ -57,11 +65,18 @@ impl Plugin for ActorEditorPlugin {
                 widgets::update_panel_style_system,
                 widgets::panel_toggle_system,
                 widgets::tooltip_system,
+           ).run_if(in_state(GameState::ActorEditor)))
+           .add_systems(Update, (
+                systems::mode_tab_interaction_system,
+                systems::mode_visual_sync_system,
+                systems::mode_content_visibility_system,
+                systems::inspector_section_sync_system,
                 ui::inspector::socket_transform_update_system,
                 systems::gizmo_sync_system,
                 navigation::camera_reset_handler,
                 navigation::grid_system,
-                navigation::camera_control_blocking_system, widgets::text_input_system,
+                navigation::camera_control_blocking_system, 
+                widgets::text_input_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
                 systems::gizmo_viewport_system,

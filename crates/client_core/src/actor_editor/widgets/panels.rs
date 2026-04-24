@@ -263,7 +263,7 @@ pub fn scrollbar_sync_visibility_system(
         let content_height = node.size().y;
         let container_height = parent_node.size().y;
         
-        bevy::log::info!("Scroll debug: content_height={}, container_height={}", content_height, container_height);
+        //bevy::log::info!("Scroll debug: content_height={}, container_height={}", content_height, container_height);
         
         for (mut style, track) in track_query.iter_mut() {
             if track.target == list_entity {

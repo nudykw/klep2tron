@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use rfd::FileDialog;
-use super::super::{ActorImportEvent, SlicingSettings, ToastEvent, ToastType, ActorEditorBackButton, ViewportSettings, ResetCameraEvent, ConfirmationRequestEvent, ActorSaveEvent, EditorAction};
+use super::super::{ActorImportEvent, SlicingSettings, ToastEvent, ToastType, ActorEditorBackButton, ViewportSettings, ResetCameraEvent, ConfirmationRequestEvent, ActorSaveEvent, EditorAction, EditorMode};
 
 pub fn actor_editor_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -12,6 +12,7 @@ pub fn actor_editor_input_system(
     mut save_events: EventWriter<ActorSaveEvent>,
     mut toast_events: EventWriter<ToastEvent>,
     mut slicing_settings: ResMut<SlicingSettings>,
+    mut editor_mode: ResMut<EditorMode>,
 ) {
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight) 
                || keyboard.pressed(KeyCode::SuperLeft) || keyboard.pressed(KeyCode::SuperRight);
@@ -28,6 +29,18 @@ pub fn actor_editor_input_system(
         if keyboard.just_pressed(KeyCode::KeyS) {
             save_events.send(ActorSaveEvent);
         }
+    }
+
+    // Mode Switching
+    if keyboard.just_pressed(KeyCode::Tab) {
+        *editor_mode = match *editor_mode {
+            EditorMode::Slicing => EditorMode::Sockets,
+            EditorMode::Sockets => EditorMode::Slicing,
+        };
+        toast_events.send(ToastEvent {
+            message: format!("Mode: {:?}", *editor_mode),
+            toast_type: ToastType::Info,
+        });
     }
 
     if keyboard.just_pressed(KeyCode::KeyL) {
