@@ -160,7 +160,7 @@ pub fn collapsible_system(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct ScrollingList {
     pub position: f32,
 }

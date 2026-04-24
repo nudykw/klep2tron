@@ -37,6 +37,7 @@ pub fn mesh_slicing_system(
                                 material: materials.add(StandardMaterial {
                                     base_color: color,
                                     perceptual_roughness: 0.5,
+                                    alpha_mode: AlphaMode::Blend, // Support X-Ray
                                     ..default()
                                 }),
                                 visibility: Visibility::Visible,
@@ -44,6 +45,10 @@ pub fn mesh_slicing_system(
                             },
                             EditorHelper,
                             part_type,
+                            bevy_mod_picking::prelude::Pickable {
+                                should_block_lower: false, // Let rays pass through to the gizmo
+                                is_hoverable: true,
+                            },
                             Name::new(name.to_string()),
                         )).set_parent(parent_entity);
                     }

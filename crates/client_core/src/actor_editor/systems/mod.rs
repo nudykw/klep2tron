@@ -5,6 +5,7 @@ pub mod sync;
 pub mod ui_logic;
 pub mod inspection;
 pub mod picking;
+pub mod gizmos;
 
 pub use input::*;
 pub use normalization::*;
@@ -13,3 +14,4 @@ pub use sync::*;
 pub use ui_logic::*;
 pub use inspection::*;
 pub use picking::*;
+pub use gizmos::*;

@@ -62,18 +62,27 @@ pub fn camera_reset_handler(
 pub fn camera_control_blocking_system(
     mut camera_query: Query<&mut PanOrbitCamera, With<MainEditorCamera>>,
     ui_query: Query<&Interaction, With<Node>>,
+    gizmo_busy: Res<super::GizmoBusy>,
 ) {
-    let mut any_hovered = false;
+    let mut blocked = false;
+
+    // 1. Block if hovering UI
     for interaction in ui_query.iter() {
         if *interaction != Interaction::None {
-            any_hovered = true;
+            blocked = true;
             break;
         }
     }
     
+    // 2. Block if hovering Gizmo Axis
+    if !blocked && gizmo_busy.0 {
+        blocked = true;
+    }
+
     if let Ok(mut camera) = camera_query.get_single_mut() {
-        if camera.enabled == any_hovered {
-            camera.enabled = !any_hovered;
+        if camera.enabled == blocked {
+            camera.enabled = !blocked;
+            info!("Camera enabled state changed to: {}", !blocked);
         }
     }
 }

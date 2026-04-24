@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::{widgets::{spawn_collapsible_section, spawn_collapsible_section_ext, spawn_slider}, ActorPart};
+use super::{widgets::{spawn_collapsible_section, spawn_collapsible_section_ext, spawn_slider, ScrollingList}, ActorPart};
 
 #[derive(Component)]
 pub struct InspectorPanel;
@@ -8,9 +8,10 @@ pub struct InspectorPanel;
 pub struct SocketSearchInput;
 
 #[derive(Component)]
-pub struct SocketListItem {
-    pub name: String,
-}
+pub struct SocketListItem(pub Entity);
+
+#[derive(Component)]
+pub struct SocketListContainer;
 
 #[derive(Component)]
 pub struct SocketAddModeButton;
@@ -163,29 +164,19 @@ pub fn setup_inspector(
                     });
                 });
 
-                let sockets = vec!["head", "hand_l", "hand_r", "back", "foot_l", "foot_r"];
-                for name in sockets {
-                    content.spawn((
-                        ButtonBundle {
-                            style: Style {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(25.0),
-                                margin: UiRect::bottom(Val::Px(2.0)),
-                                padding: UiRect::horizontal(Val::Px(10.0)),
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.02).into(),
+                content.spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Percent(100.0),
+                            flex_direction: FlexDirection::Column,
+                            max_height: Val::Px(200.0),
                             ..default()
                         },
-                        SocketListItem { name: name.to_string() },
-                    )).with_children(|item| {
-                        item.spawn(TextBundle::from_section(
-                            name,
-                            TextStyle { font: font.clone(), font_size: 14.0, color: Color::srgb(0.9, 0.9, 0.9) },
-                        ));
-                    });
-                }
+                        ..default()
+                    },
+                    SocketListContainer,
+                    ScrollingList::default(),
+                ));
                 
                 content.spawn(NodeBundle {
                     style: Style {
@@ -383,19 +374,95 @@ pub fn setup_inspector(
     });
 }
 
+pub fn socket_ui_list_sync_system(
+    mut commands: Commands,
+    fonts: Res<super::EditorFonts>,
+    container_query: Query<Entity, With<SocketListContainer>>,
+    socket_query: Query<(Entity, &super::ActorSocket)>,
+    list_items_query: Query<(Entity, &SocketListItem)>,
+) {
+    let Ok(container) = container_query.get_single() else { return; };
+    
+    // Simple reconciliation: check if we have an item for each socket
+    let existing_entities: std::collections::HashSet<Entity> = list_items_query.iter().map(|(_, item)| item.0).collect();
+    let current_sockets: Vec<(Entity, &super::ActorSocket)> = socket_query.iter().collect();
+    
+    // If mismatch, rebuild the list (simplified approach for now)
+    let current_entities: std::collections::HashSet<Entity> = current_sockets.iter().map(|(e, _)| *e).collect();
+    
+    if existing_entities != current_entities {
+        // Despawn all existing items
+        for (item_entity, _) in list_items_query.iter() {
+            commands.entity(item_entity).despawn_recursive();
+        }
+        
+        // Spawn new items
+        commands.entity(container).with_children(|parent| {
+            for (socket_entity, socket) in current_sockets {
+                parent.spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Percent(100.0),
+                            height: Val::Px(25.0),
+                            margin: UiRect::bottom(Val::Px(2.0)),
+                            padding: UiRect::horizontal(Val::Px(10.0)),
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.02).into(),
+                        ..default()
+                    },
+                    SocketListItem(socket_entity),
+                )).with_children(|item| {
+                    item.spawn(TextBundle::from_section(
+                        &socket.definition.name,
+                        TextStyle { font: fonts.regular.clone(), font_size: 14.0, color: Color::srgb(0.9, 0.9, 0.9) },
+                    ));
+                });
+            }
+        });
+    }
+}
+
+pub fn socket_list_click_system(
+    mut selected: ResMut<SelectedSocket>,
+    query: Query<(&Interaction, &SocketListItem), Changed<Interaction>>,
+) {
+    for (interaction, item) in query.iter() {
+        if *interaction == Interaction::Pressed {
+            selected.0 = Some(item.0);
+        }
+    }
+}
+
+pub fn socket_list_highlight_system(
+    selected: Res<SelectedSocket>,
+    mut query: Query<(&SocketListItem, &mut BackgroundColor, &Interaction)>,
+) {
+    for (item, mut bg, interaction) in query.iter_mut() {
+        if selected.0 == Some(item.0) {
+            *bg = Color::srgba(0.0, 0.6, 1.0, 0.3).into();
+        } else if *interaction == Interaction::Hovered {
+            *bg = Color::srgba(1.0, 1.0, 1.0, 0.1).into();
+        } else {
+            *bg = Color::srgba(1.0, 1.0, 1.0, 0.02).into();
+        }
+    }
+}
+
 pub fn socket_filter_system(
     filter: Res<SocketFilter>,
-    mut query: Query<(&SocketListItem, &mut Visibility, &mut BackgroundColor)>,
+    socket_query: Query<&super::ActorSocket>,
+    mut query: Query<(&SocketListItem, &mut Visibility)>,
 ) {
     if !filter.is_changed() { return; }
     let search = filter.0.to_lowercase();
-    for (item, mut visibility, mut bg) in query.iter_mut() {
+    for (item, mut visibility) in query.iter_mut() {
+        let Ok(socket) = socket_query.get(item.0) else { continue; };
         if search.is_empty() {
             *visibility = Visibility::Visible;
-            *bg = Color::srgba(1.0, 1.0, 1.0, 0.02).into();
-        } else if item.name.to_lowercase().contains(&search) {
+        } else if socket.definition.name.to_lowercase().contains(&search) {
             *visibility = Visibility::Visible;
-            *bg = Color::srgba(0.3, 0.6, 1.0, 0.2).into();
         } else {
             *visibility = Visibility::Hidden;
         }

@@ -61,7 +61,7 @@ pub fn spawn_status_bar(parent: &mut ChildBuilder, font: &Handle<Font>, icon_fon
 }
 
 #[derive(Component, Clone, Copy)]
-pub enum ViewportToggleType { Grid, Slices, Sockets, Gizmos, Reset, }
+pub enum ViewportToggleType { Grid, Slices, Sockets, Gizmos, Xray, Reset, }
 
 #[derive(Component)]
 pub struct ViewportToggleButton(pub ViewportToggleType);
@@ -69,6 +69,7 @@ pub struct ViewportToggleButton(pub ViewportToggleType);
 pub fn viewport_button_system(
     mut interaction_query: Query<(&Interaction, &ViewportToggleButton), Changed<Interaction>>,
     mut viewport_settings: ResMut<ViewportSettings>,
+    mut inspection_settings: ResMut<crate::actor_editor::InspectionSettings>,
     mut all_buttons: Query<(&ViewportToggleButton, &mut BackgroundColor)>,
     mut reset_events: EventWriter<super::super::ResetCameraEvent>,
 ) {
@@ -79,6 +80,12 @@ pub fn viewport_button_system(
                 ViewportToggleType::Slices => viewport_settings.slices = !viewport_settings.slices,
                 ViewportToggleType::Sockets => viewport_settings.sockets = !viewport_settings.sockets,
                 ViewportToggleType::Gizmos => viewport_settings.gizmos = !viewport_settings.gizmos,
+                ViewportToggleType::Xray => {
+                    viewport_settings.xray = !viewport_settings.xray;
+                    if viewport_settings.xray {
+                        inspection_settings.is_active = false;
+                    }
+                }
                 ViewportToggleType::Reset => {
                     reset_events.send(super::super::ResetCameraEvent);
                 }
@@ -92,6 +99,7 @@ pub fn viewport_button_system(
             ViewportToggleType::Slices => viewport_settings.slices,
             ViewportToggleType::Sockets => viewport_settings.sockets,
             ViewportToggleType::Gizmos => viewport_settings.gizmos,
+            ViewportToggleType::Xray => viewport_settings.xray,
             ViewportToggleType::Reset => false,
         };
         if active { *bg = Color::srgba(0.3, 0.6, 1.0, 0.8).into(); } else { *bg = Color::srgba(0.2, 0.2, 0.2, 0.9).into(); }

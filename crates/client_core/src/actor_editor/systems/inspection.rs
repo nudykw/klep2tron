@@ -191,8 +191,10 @@ pub fn inspection_ui_logic_system(
     hover_query: Query<(&Interaction, Option<&PartFocusButton>, Option<&PartSoloButton>)>,
     mut btn_query: Query<(&mut BackgroundColor, Option<&PartSoloButton>, Option<&InspectionToggle>, Option<&InspectionMasterToggle>, Option<&Interaction>)>,
 ) {
-    // Update hovered_part
-    settings.hovered_part = None;
+    // Update hovered_part (only if not already None to avoid constant Change detection)
+    if settings.hovered_part.is_some() {
+        settings.hovered_part = None;
+    }
     for (interaction, focus_opt, solo_opt) in hover_query.iter() {
         if *interaction == Interaction::Hovered {
             if let Some(focus) = focus_opt { settings.hovered_part = Some(focus.0); }
@@ -274,6 +276,7 @@ pub fn inspection_ui_logic_system(
 
 pub fn inspection_ui_sync_system(
     mut settings: ResMut<InspectionSettings>,
+    mut viewport_settings: ResMut<super::super::ViewportSettings>,
     mut last_is_active: Local<bool>,
     marker_query: Query<&Parent, With<PartsSectionMarker>>,
     mut section_query: Query<&mut CollapsibleSection>,
@@ -289,15 +292,20 @@ pub fn inspection_ui_sync_system(
     // but ONLY if settings.is_active hasn't changed this frame via other means.
     if current_open != *last_is_active && current_active == *last_is_active {
         settings.is_active = current_open;
-        *last_is_active = current_open;
     }
     // 2. If settings.is_active was toggled (by master button, hotkey, or solo/focus buttons)
     else if current_active != *last_is_active {
         section.is_open = current_active;
-        *last_is_active = current_active;
     }
-    // 3. Keep visual state in sync with model if they drifted for some reason
+    // Keep visual state in sync with model if they drifted for some reason
     else if current_open != current_active {
         section.is_open = current_active;
     }
+
+    // Auto-turn off X-Ray if inspection just became active (regardless of HOW)
+    if settings.is_active && !*last_is_active {
+        viewport_settings.xray = false;
+    }
+
+    *last_is_active = settings.is_active;
 }

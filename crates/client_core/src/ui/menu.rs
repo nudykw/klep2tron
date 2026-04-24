@@ -938,7 +938,7 @@ pub fn setup_menu(
         commands.spawn((
             Camera3dBundle {
                 camera: Camera {
-                    order: 0,
+                    order: -1,
                     ..default()
                 },
                 transform: Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(1.0, 0.0, 0.0), Vec3::Y),

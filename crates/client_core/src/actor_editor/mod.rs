@@ -11,12 +11,19 @@ pub mod navigation;
 pub mod widgets;
 
 #[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource)]
+pub struct EditorFonts {
+    pub regular: Handle<Font>,
+    pub icon: Handle<Font>,
+}
+
 pub struct ActorEditorPlugin;
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
+           .add_plugins(bevy_mod_picking::DefaultPickingPlugins)
            .init_resource::<ui_inspector::SocketFilter>()
            .init_resource::<ui_inspector::SelectedSocket>()
            .init_resource::<widgets::PanelSettings>()
@@ -29,6 +36,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<systems::SlicingTask>()
            .init_resource::<InspectionSettings>()
            .init_resource::<SocketSettings>()
+           .init_resource::<GizmoBusy>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -82,12 +90,26 @@ impl Plugin for ActorEditorPlugin {
                     systems::inspection_debug_draw_system,
                     systems::inspection_ui_logic_system,
                     systems::inspection_ui_sync_system,
+            ).run_if(in_state(GameState::ActorEditor)))
+            .add_systems(Update, (
                     systems::socket_picking_system,
                     systems::socket_spawn_system,
                     systems::draw_socket_previews_system,
                     systems::socket_ui_interaction_system,
+                    systems::socket_3d_selection_system,
                     systems::socket_button_visuals_system,
-                ).chain().run_if(in_state(GameState::ActorEditor)))
+                    systems::update_socket_gizmos_system,
+                    systems::manual_gizmo_picking_system,
+                    systems::gizmo_highlight_system,
+                    systems::manual_gizmo_dragging_system,
+                    systems::gizmo_position_sync_system,
+                    systems::actor_part_picking_priority_system,
+                    systems::socket_gizmo_sync_system,
+                    systems::xray_material_system,
+                    ui_inspector::socket_ui_list_sync_system,
+                    ui_inspector::socket_list_click_system,
+                    ui_inspector::socket_list_highlight_system,
+                ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
                 systems::mesh_slicing_system,
@@ -165,6 +187,7 @@ pub struct ViewportSettings {
     pub slices: bool,
     pub sockets: bool,
     pub gizmos: bool,
+    pub xray: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -189,6 +212,7 @@ impl Default for ViewportSettings {
             slices: true,
             sockets: true,
             gizmos: true,
+            xray: false,
         }
     }
 }
@@ -332,3 +356,5 @@ pub struct NormalizationState {
 pub struct ImportProgress(pub f32);
 
 pub const GIZMO_LAYER: bevy::render::view::RenderLayers = bevy::render::view::RenderLayers::layer(1);
+#[derive(Resource, Default)]
+pub struct GizmoBusy(pub bool);

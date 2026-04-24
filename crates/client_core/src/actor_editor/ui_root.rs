@@ -47,10 +47,11 @@ pub fn setup_actor_editor(
         GIZMO_LAYER,
     ));
 
+
     // Spawn Gizmo Axes
     let mesh_handle = meshes.add(Mesh::from(Cuboid::new(0.02, 0.02, 0.8)));
     
-    // X - Red
+    // X - Red (Point Right)
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle.clone(),
@@ -65,12 +66,12 @@ pub fn setup_actor_editor(
         GIZMO_LAYER,
     ));
 
-    // Y - Green
+    // Y - Green (Point Up)
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle.clone(),
             material: materials.add(StandardMaterial { base_color: Color::srgb(0.2, 1.0, 0.2), unlit: true, ..default() }),
-            transform: Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2))
+            transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
                         .with_translation(Vec3::Y * 0.4),
             ..default()
         },
@@ -79,7 +80,7 @@ pub fn setup_actor_editor(
         super::EditorHelper,
         GIZMO_LAYER,
     ));
-    // Z - Blue
+    // Z - Blue (Point Forward)
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle.clone(),
@@ -154,6 +155,11 @@ pub fn setup_actor_editor(
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
 
+    commands.insert_resource(super::EditorFonts {
+        regular: font.clone(),
+        icon: icon_font.clone(),
+    });
+
     // Spawn Tooltip Root
     spawn_tooltip_root(&mut commands, &font, Some(main_camera_entity));
 
@@ -166,6 +172,7 @@ pub fn setup_actor_editor(
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
+            focus_policy: bevy::ui::FocusPolicy::Pass,
             ..default()
         },
         ActorEditorEntity,
@@ -179,6 +186,7 @@ pub fn setup_actor_editor(
                 flex_direction: FlexDirection::Row,
                 ..default()
             },
+            focus_policy: bevy::ui::FocusPolicy::Pass,
             ..default()
         }).with_children(|parent| {
             // --- LEFT SIDEBAR ---
@@ -289,6 +297,7 @@ pub fn setup_actor_editor(
                         spawn_viewport_button(btns, ViewportToggleType::Slices, "\u{f121}", "Toggle Slices (S)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Sockets, "\u{f1e0}", "Toggle Sockets (K)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Gizmos, "\u{f047}", "Toggle Gizmos (Z)", &icon_font);
+                        spawn_viewport_button(btns, ViewportToggleType::Xray, "\u{f06e}", "Toggle X-Ray (X)", &icon_font);
                         btns.spawn(NodeBundle {
                             style: Style { width: Val::Px(2.0), height: Val::Px(20.0), margin: UiRect::horizontal(Val::Px(8.0)), ..default() },
                             background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
