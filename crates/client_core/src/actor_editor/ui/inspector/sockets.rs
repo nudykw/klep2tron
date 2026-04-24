@@ -9,6 +9,7 @@ pub fn spawn_sockets_section(
     p: &mut ChildBuilder,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
+    vfx_presets: &crate::actor_editor::vfx_assets::VfxPresets,
 ) {
     spawn_collapsible_section(
         p,
@@ -301,7 +302,9 @@ pub fn spawn_sockets_section(
                             },
                             ..default()
                         }).with_children(|grid| {
-                            for preset in ["Plasma", "MuzzleFlash", "Smoke"] {
+                            let mut names: Vec<_> = vfx_presets.library.presets.keys().collect();
+                            names.sort();
+                            for preset in names {
                                 grid.spawn((
                                     ButtonBundle {
                                         style: Style {

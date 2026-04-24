@@ -14,6 +14,7 @@ pub fn setup_inspector(
     parent: &mut ChildBuilder,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
+    vfx_presets: &crate::actor_editor::vfx_assets::VfxPresets,
 ) {
     parent.spawn((
         NodeBundle {
@@ -30,7 +31,7 @@ pub fn setup_inspector(
         Interaction::default(),
     )).with_children(|p| {
         materials::spawn_materials_section(p, font, icon_font);
-        sockets::spawn_sockets_section(p, font, icon_font);
+        sockets::spawn_sockets_section(p, font, icon_font, vfx_presets);
         parts::spawn_parts_section(p, font, icon_font);
     });
 }

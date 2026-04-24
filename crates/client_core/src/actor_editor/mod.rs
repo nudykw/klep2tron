@@ -54,9 +54,9 @@ impl Plugin for ActorEditorPlugin {
            .add_event::<ConfirmationRequestEvent>()
            .add_event::<InspectionFocusEvent>()
            .add_systems(OnEnter(GameState::ActorEditor), (
+               vfx_assets::load_vfx_presets,
                ui::layout::setup_actor_editor, 
                navigation::setup_navigation,
-               vfx_assets::load_vfx_presets
            ).chain())
            .add_systems(Update, (
                 systems::actor_editor_input_system,
