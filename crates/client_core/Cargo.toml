@@ -15,6 +15,7 @@ wgpu = "0.20"
 bevy_framepace = "0.17"
 bevy_panorbit_camera = "0.20"
 bevy_mod_picking = { version = "0.20", features = ["selection", "highlight", "backend_raycast", "backend_bevy_ui"] }
+bevy_hanabi = "0.13"
 rfd = "0.14"
 rayon = "1.10"
 ron = "0.12.1"

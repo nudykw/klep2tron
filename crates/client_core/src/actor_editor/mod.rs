@@ -31,6 +31,7 @@ impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
            .add_plugins(bevy_mod_picking::DefaultPickingPlugins)
+           .add_plugins(bevy_hanabi::HanabiPlugin)
            .init_resource::<EditorMode>()
            .init_resource::<ui::inspector::SelectedSocket>()
            .init_resource::<ui::inspector::SocketFilterState>()
@@ -146,6 +147,7 @@ impl Plugin for ActorEditorPlugin {
                     systems::socket_metadata_sync_system,
                     systems::socket_validation_feedback_system,
                     systems::socket_vfx_preview_system,
+                    systems::vfx_spawner::socket_vfx_spawner_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (

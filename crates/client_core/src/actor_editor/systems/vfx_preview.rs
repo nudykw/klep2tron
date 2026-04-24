@@ -118,6 +118,7 @@ pub fn socket_vfx_preview_system(
                         gizmos.circle(p, normal, r * 0.7, Color::Hsla(hsla));
                     }
                 }
+                EffectType::Hanabi => {}
             }
         }
     }

@@ -36,5 +36,18 @@
             scale: 1.5,
             intensity: 0.7,
         ),
+        "Kenney": (
+            effect_type: Hanabi,
+            color: Srgba((
+                red: 1.0,
+                green: 1.0,
+                blue: 1.0,
+                alpha: 1.0,
+            )),
+            speed: 1.0,
+            scale: 1.0,
+            intensity: 1.0,
+            asset_path: Some("Kenney"),
+        ),
     }
 )
