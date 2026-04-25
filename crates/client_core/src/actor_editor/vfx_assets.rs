@@ -73,15 +73,14 @@ pub fn register_kenney_textures(
             if path.extension().and_then(|s| s.to_str()) == Some("png") {
                 if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
                     let asset_path = format!("vfx/kenney/{}", file_name);
-                    let handle = asset_server.load(asset_path);
+                    let handle = asset_server.load(asset_path.clone());
                     
-                    let file_name_str = file_name.to_string();
-                    registry.textures.push((file_name_str.clone(), handle.clone()));
+                    registry.textures.push((asset_path.clone(), handle.clone()));
                     
                     // Grouping logic: "slash_01.png" -> "slash"
                     if let Some(pos) = file_name.find('_') {
                         let group_name = file_name[..pos].to_string();
-                        temp_groups.entry(group_name).or_default().push((file_name_str, handle));
+                        temp_groups.entry(group_name).or_default().push((asset_path, handle));
                     }
 
                     count += 1;

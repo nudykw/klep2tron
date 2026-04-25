@@ -38,6 +38,7 @@ pub fn socket_vfx_sync_system(
 pub fn socket_vfx_spawner_system(
     mut commands: Commands,
     mut effects: ResMut<Assets<EffectAsset>>,
+    asset_server: Res<AssetServer>,
     vfx_presets: Res<crate::actor_editor::vfx_assets::VfxPresets>,
     socket_query: Query<(Entity, &GlobalTransform, &ActorSocket), Changed<ActorSocket>>,
     instance_query: Query<(Entity, &SocketVfxInstance)>,
@@ -95,7 +96,7 @@ pub fn socket_vfx_spawner_system(
 
             let init_pos = SetPositionSphereModifier {
                 center: writer.lit(Vec3::ZERO).expr(),
-                radius: writer.lit(base_size * effect_config.visuals.scale).expr(), // Use scale for radius too
+                radius: writer.lit(base_size * effect_config.visuals.scale).expr(),
                 dimension: ShapeDimension::Volume,
             };
             
@@ -125,20 +126,49 @@ pub fn socket_vfx_spawner_system(
             size_gradient.add_key(1.0, Vec3::splat(base_size * effect_config.visuals.size_end));
             let render_size = SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false };
 
-            let effect_asset = EffectAsset::new(4096, spawner, writer.finish())
+            let texture_slot = writer.lit(0u32).expr();
+            let mut module = writer.finish();
+            let mut texture_handle = None;
+
+            if let Some(asset_path) = &effect_config.asset_path {
+                module.add_texture("color");
+                // Handle legacy short paths or new full paths
+                let full_path = if !asset_path.contains('/') {
+                    format!("vfx/kenney/{}", asset_path)
+                } else {
+                    asset_path.clone()
+                };
+                texture_handle = Some(asset_server.load(full_path));
+            }
+
+            let mut effect_asset = EffectAsset::new(4096, spawner, module)
                 .with_name("Procedural_VFX")
                 .with_simulation_space(SimulationSpace::Local)
+                .with_alpha_mode(bevy_hanabi::AlphaMode::Blend)
                 .init(init_pos)
                 .init(init_vel)
                 .init(init_lifetime)
-                .update(accel) // ForceFieldModifier is an update modifier
+                .update(accel)
                 .update(drag)
                 .render(render_color)
                 .render(render_size);
 
+            if texture_handle.is_some() {
+                effect_asset = effect_asset.render(ParticleTextureModifier {
+                    texture_slot,
+                    sample_mapping: ImageSampleMapping::ModulateOpacityFromR,
+                });
+            }
+
+            // Always use billboarding for particles
+            effect_asset = effect_asset.render(OrientModifier {
+                mode: OrientMode::FaceCameraPosition,
+                rotation: None,
+            });
+
             let effect_handle = effects.add(effect_asset);
 
-            commands.spawn((
+            let mut entity_cmd = commands.spawn((
                 ParticleEffectBundle {
                     effect: ParticleEffect::new(effect_handle),
                     ..default()
@@ -148,6 +178,12 @@ pub fn socket_vfx_spawner_system(
                 },
                 Name::new("VFX_Procedural"),
             ));
+
+            if let Some(texture) = texture_handle {
+                entity_cmd.insert(EffectMaterial {
+                    images: vec![texture],
+                });
+            }
         }
     }
 }

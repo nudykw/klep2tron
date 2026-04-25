@@ -10,7 +10,7 @@
 - [x] [04. Slicing & Capping](./04.ActorEditor.Slicing.md)
 - [x] [05. Сокеты](./05.ActorEditor.Sockets.md)
 - [/] [06. Сохранение проекта](./06.ActorEditor.Save.md) (В процессе: GLB экспорт)
-- [/] [07. Загрузка проекта](./07.ActorEditor.Load.md) (Почти готово: ожидаются материалы)
+- [/] [07. Загрузка проекта](./07.ActorEditor.Load.md) (Почти готово: Сокеты и VFX восстанавливаются, ожидаются материалы)
 - [x] [08. Undo/Redo](./08.ActorEditor.UndoRedo.md)
 - [x] [09. Горячие клавиши (Hotkeys)](./09.ActorEditor.Hotkeys.md)
 - [x] [10. Режим инспекции (Inspection Mode)](./10.ActorEditor.Inspection.md)
