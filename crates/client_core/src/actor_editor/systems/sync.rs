@@ -82,6 +82,13 @@ pub fn draw_slicing_contours_system(
     }
 }
 
+pub fn init_gizmos_system(
+    mut config_store: ResMut<GizmoConfigStore>,
+) {
+    let config = config_store.config_mut::<DefaultGizmoConfigGroup>();
+    config.0.depth_bias = -0.01;
+}
+
 pub fn draw_actor_bounds_debug_system(
     query: Query<(&ActorBounds, &GlobalTransform)>,
     mut gizmos: Gizmos,
@@ -141,7 +148,7 @@ pub fn slicing_gizmo_manager_system(
                     material: materials.add(StandardMaterial {
                         base_color: color,
                         alpha_mode: AlphaMode::Blend,
-                        unlit: true,
+                        unlit: false, // Make it respect lighting and depth better
                         double_sided: true,
                         cull_mode: None,
                         ..default()
@@ -181,13 +188,19 @@ pub fn slicing_gizmo_sync_system(
         };
 
         let y = world_base_y + (ratio * height);
-        gizmo_transform.translation = Vec3::new(transform.translation().x, y, transform.translation().z);
+        let pos = Vec3::new(transform.translation().x, y, transform.translation().z);
+        gizmo_transform.translation = pos;
         gizmo_transform.scale = Vec3::splat(radius);
         gizmo_transform.rotation = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
 
+        let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);
+        
+        // Draw an "Always Visible" outline using Gizmos
+        // The intersection effect is now achieved naturally by depth testing against the opaque model.
+        // No gizmo outlines are needed as they would draw on top of everything.
+
         if let Some(mat) = materials.get_mut(mat_handle) {
-            let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);
-            let alpha = if is_hovered { 0.8 } else { 0.05 };
+            let alpha = if is_hovered { 0.7 } else { 0.3 }; 
             let color = match *gizmo_type {
                 SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, alpha),
                 SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, alpha),

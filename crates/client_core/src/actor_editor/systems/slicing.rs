@@ -38,7 +38,7 @@ pub fn mesh_slicing_system(
                                 material: materials.add(StandardMaterial {
                                     base_color: color,
                                     perceptual_roughness: 0.5,
-                                    alpha_mode: AlphaMode::Blend, // Support X-Ray
+                                    alpha_mode: AlphaMode::Opaque, // Will be switched to Blend by xray_material_system if needed
                                     ..default()
                                 }),
                                 visibility: Visibility::Visible,

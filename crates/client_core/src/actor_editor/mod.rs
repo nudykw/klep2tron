@@ -66,9 +66,10 @@ impl Plugin for ActorEditorPlugin {
            .add_systems(OnEnter(GameState::ActorEditor), (
                vfx_assets::load_vfx_presets,
                vfx_assets::register_kenney_textures,
-               ui::layout::setup_actor_editor, 
-               navigation::setup_navigation,
-           ).chain())
+                ui::layout::setup_actor_editor, 
+                navigation::setup_navigation,
+                systems::init_gizmos_system,
+            ).chain())
            .add_systems(Update, (
                 systems::actor_editor_input_system,
                 widgets::collapsible_system,
