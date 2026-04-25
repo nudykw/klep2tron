@@ -13,7 +13,9 @@ pub fn manual_gizmo_dragging_system(
     mut active_axis: Local<Option<(Entity, GizmoAxisType, GizmoAction, Entity)>>,
     mut initial_rotation_vector: Local<Option<Vec3>>,
     mut initial_socket_rotation: Local<Option<Quat>>,
+    mut initial_transforms: Local<Vec<(Entity, Transform)>>,
     selected: Res<crate::actor_editor::ui::inspector::SelectedSocket>,
+    mut action_stack: ResMut<crate::actor_editor::systems::undo_redo::ActionStack>,
 ) {
     let Ok(window) = window_query.get_single() else { return; };
     let Some(cursor_pos) = window.cursor_position() else { return; };
@@ -31,6 +33,14 @@ pub fn manual_gizmo_dragging_system(
                 *interaction = ManualGizmoInteraction::Pressed;
                 *active_axis = Some((entity, axis.axis, axis.action, link.0));
                 
+                // Record initial transforms for undo/redo
+                initial_transforms.clear();
+                for &sel_entity in selected.0.iter() {
+                    if let Ok(t) = socket_query.get(sel_entity) {
+                        initial_transforms.push((sel_entity, *t));
+                    }
+                }
+
                 if axis.action == GizmoAction::Rotate {
                     let Ok((camera, camera_gt)) = camera_query.get_single() else { continue; };
                     if let Some(ray) = camera.viewport_to_world(camera_gt, cursor_pos) {
@@ -134,6 +144,28 @@ pub fn manual_gizmo_dragging_system(
     } else {
         if let Some((entity, _, _, _)) = *active_axis {
             info!("--- GIZMO DRAG STOP ---");
+
+            // Record final state and push to action stack if changed
+            if !initial_transforms.is_empty() {
+                let mut transforms = Vec::new();
+                let mut changed = false;
+                for (sel_entity, old_t) in initial_transforms.iter() {
+                    if let Ok(new_t) = socket_query.get(*sel_entity) {
+                        if old_t.translation.distance(new_t.translation) > 0.0001 || 
+                           old_t.rotation.dot(new_t.rotation).abs() < 0.9999 {
+                            changed = true;
+                        }
+                        transforms.push((*sel_entity, *old_t, *new_t));
+                    }
+                }
+                if changed {
+                    action_stack.push(Box::new(crate::actor_editor::systems::undo_redo::TransformSocketGroupCommand {
+                        transforms,
+                    }));
+                }
+                initial_transforms.clear();
+            }
+
             if let Ok((_, mut interaction, _, _, _)) = gizmo_query.get_mut(entity) {
                 *interaction = ManualGizmoInteraction::None;
             }

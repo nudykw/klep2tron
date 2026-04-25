@@ -9,6 +9,7 @@ pub mod gizmos;
 pub mod socket_metadata;
 pub mod vfx_preview;
 pub mod vfx_spawner;
+pub mod undo_redo;
 
 pub use input::*;
 pub use normalization::*;
@@ -21,3 +22,4 @@ pub use gizmos::*;
 pub use socket_metadata::*;
 pub use vfx_preview::*;
 pub use vfx_spawner::*;
+pub use undo_redo::*;

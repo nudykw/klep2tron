@@ -9,7 +9,7 @@ pub fn update_socket_gizmos_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     editor_mode: Res<crate::actor_editor::EditorMode>,
     viewport_settings: Res<crate::actor_editor::ViewportSettings>,
-    gizmo_query: Query<Entity, With<SocketGizmo>>,
+    gizmo_query: Query<(Entity, &SocketLink), With<SocketGizmo>>,
     socket_query: Query<Entity, With<ActorSocket>>,
 ) {
     let is_visible = *editor_mode == crate::actor_editor::EditorMode::Sockets && viewport_settings.sockets && viewport_settings.gizmos;
@@ -20,17 +20,18 @@ pub fn update_socket_gizmos_system(
         info!("Gizmo Sync: Selected={:?}, Visible={}", selected_entity, is_visible);
     }
 
-    let mut needs_spawn = false;
-    
     // Check if we need to despawn current gizmo
-    for entity in gizmo_query.iter() {
-        // If nothing selected, mode changed, visibility changed, or selection changed, despawn
-        if selected_entity.is_none() || selected.is_changed() || editor_mode.is_changed() || viewport_settings.is_changed() {
+    for (entity, link) in gizmo_query.iter() {
+        let socket_exists = socket_query.get(link.0).is_ok();
+        
+        // If socket is gone, nothing selected, mode changed, visibility changed, or selection changed, despawn
+        if !socket_exists || selected_entity.is_none() || selected.is_changed() || editor_mode.is_changed() || viewport_settings.is_changed() {
             commands.entity(entity).despawn_recursive();
         }
     }
 
     // If nothing spawned yet but something is selected, spawn
+    let mut needs_spawn = false;
     if gizmo_query.iter().count() == 0 && selected_entity.is_some() {
         needs_spawn = true;
     }

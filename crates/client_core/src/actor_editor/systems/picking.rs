@@ -58,6 +58,8 @@ pub fn socket_spawn_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut selected: ResMut<super::super::ui::inspector::SelectedSocket>,
+    mut action_stack: ResMut<super::super::systems::undo_redo::ActionStack>,
+    actor_root_query: Query<(Entity, &GlobalTransform), With<crate::actor_editor::Actor3DRoot>>,
     part_query: Query<&GlobalTransform, With<ActorPart>>,
     socket_query: Query<&ActorSocket>,
 ) {
@@ -65,16 +67,19 @@ pub fn socket_spawn_system(
     
     if mouse_button.just_pressed(MouseButton::Left) {
         if let Some(data) = settings.hovered_data.clone() {
-            let Ok(part_global_transform) = part_query.get(data.part_entity) else { return; };
+            let Ok((actor_root, root_transform)) = actor_root_query.get_single() else { 
+                info!("Socket Spawn Failed: Actor3DRoot not found");
+                return; 
+            };
             
             // Calculate world rotation aligned with normal
             let world_rotation = Quat::from_rotation_arc(Vec3::Y, data.normal);
             let offset_point = data.point + data.normal * 0.01;
             
-            // Calculate local transform relative to the parent part
-            let inv_matrix = part_global_transform.compute_matrix().inverse();
+            // Calculate local transform relative to the actor root
+            let inv_matrix = root_transform.compute_matrix().inverse();
             let local_point = inv_matrix.transform_point3(offset_point);
-            let local_rotation = part_global_transform.to_scale_rotation_translation().1.inverse() * world_rotation;
+            let local_rotation = root_transform.to_scale_rotation_translation().1.inverse() * world_rotation;
 
             let name = find_next_socket_name(data.part_type, &socket_query);
 
@@ -95,7 +100,7 @@ pub fn socket_spawn_system(
                 },
                 ActorSocket {
                     definition: SocketDefinition {
-                        name,
+                        name: name.clone(),
                         part: data.part_type,
                         position: local_point,
                         rotation: local_rotation,
@@ -106,8 +111,9 @@ pub fn socket_spawn_system(
                 },
                 bevy_mod_picking::PickableBundle::default(),
                 Name::new("ActorSocket"),
+                crate::actor_editor::ActorEditorEntity, // Mark as editor entity so it's not cleaned up accidentally
             )).with_children(|parent| {
-                // Pin: Points along the normal (Y axis of torus mesh)
+                // ... (children same as before)
                 parent.spawn(PbrBundle {
                     mesh: meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.15))),
                     material: materials.add(StandardMaterial {
@@ -119,7 +125,6 @@ pub fn socket_spawn_system(
                     transform: Transform::from_xyz(0.0, 0.075, 0.0),
                     ..default()
                 });
-                // Cone tip for the Pin
                 parent.spawn(PbrBundle {
                     mesh: meshes.add(Mesh::from(bevy::math::primitives::Cone { radius: 0.015, height: 0.05 })),
                     material: materials.add(StandardMaterial {
@@ -133,9 +138,24 @@ pub fn socket_spawn_system(
                 });
             }).id();
             
-            commands.entity(data.part_entity).add_child(socket_entity);
+            commands.entity(actor_root).add_child(socket_entity);
             selected.0 = vec![socket_entity];
             settings.is_adding = false; // Turn off "plus" mode after spawn
+            
+            // Record for Undo/Redo
+            action_stack.push(Box::new(super::super::systems::undo_redo::AddSocketCommand {
+                entity: socket_entity,
+                definition: SocketDefinition {
+                    name,
+                    part: data.part_type,
+                    position: local_point,
+                    rotation: local_rotation,
+                    comment: String::new(),
+                    color: Color::srgb(0.2, 0.8, 0.2),
+                    effect: None,
+                },
+            }));
+
             info!("Spawned and Selected new socket: {:?} ({:?})", socket_entity, data.part_type);
         }
     }
@@ -241,5 +261,30 @@ pub fn draw_socket_previews_system(
         
         // Small dot at center
         gizmos.sphere(p, Quat::IDENTITY, 0.005, Color::WHITE);
+    }
+}
+
+pub fn socket_deletion_system(
+    mut commands: Commands,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut selected: ResMut<SelectedSocket>,
+    mut action_stack: ResMut<super::super::systems::undo_redo::ActionStack>,
+    socket_query: Query<&ActorSocket>,
+) {
+    if keyboard.just_pressed(KeyCode::Delete) || keyboard.just_pressed(KeyCode::Backspace) {
+        let to_delete = selected.0.clone();
+        for entity in to_delete {
+            if let Ok(socket) = socket_query.get(entity) {
+                // Record
+                action_stack.push(Box::new(super::super::systems::undo_redo::DeleteSocketCommand {
+                    entity,
+                    definition: socket.definition.clone(),
+                }));
+                
+                // Hide and remove component instead of despawn to keep Entity ID stable for undo
+                commands.entity(entity).remove::<ActorSocket>().insert(Visibility::Hidden);
+            }
+        }
+        selected.0.clear();
     }
 }

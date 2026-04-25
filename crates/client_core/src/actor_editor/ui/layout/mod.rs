@@ -229,12 +229,14 @@ pub fn setup_actor_editor(
                         spawn_viewport_button(btns, ViewportToggleType::Sockets, "\u{f1e0}", "Toggle Sockets (K)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Gizmos, "\u{f047}", "Toggle Gizmos (Z)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Xray, "\u{f06e}", "Toggle X-Ray (X)", &icon_font);
+                        spawn_viewport_button(btns, ViewportToggleType::Reset, "\u{f021}", "Reset Camera (R)", &icon_font);
                         btns.spawn(NodeBundle {
                             style: Style { width: Val::Px(2.0), height: Val::Px(20.0), margin: UiRect::horizontal(Val::Px(8.0)), ..default() },
                             background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
                             ..default()
                         });
-                        spawn_viewport_button(btns, ViewportToggleType::Reset, "\u{f01e}", "Reset Camera (R)", &icon_font);
+                        spawn_undo_redo_button(btns, true, &icon_font);
+                        spawn_undo_redo_button(btns, false, &icon_font);
                     });
                 });
 
@@ -479,4 +481,44 @@ fn spawn_viewport_button(
             TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::WHITE },
         ));
     });
+}
+
+fn spawn_undo_redo_button(
+    parent: &mut ChildBuilder,
+    is_undo: bool,
+    icon_font: &Handle<Font>,
+) {
+    let mut builder = parent.spawn((
+        ButtonBundle {
+            style: Style {
+                width: Val::Px(36.0),
+                height: Val::Px(36.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: UiRect::horizontal(Val::Px(2.0)),
+                ..default()
+            },
+            background_color: Color::srgba(0.2, 0.2, 0.2, 0.9).into(),
+            border_radius: BorderRadius::all(Val::Px(6.0)),
+            ..default()
+        },
+    ));
+
+    if is_undo {
+        builder.insert((crate::actor_editor::UndoButton, Tooltip("Undo (Ctrl+Z)".to_string())));
+        builder.with_children(|btn| {
+            btn.spawn(TextBundle::from_section(
+                "\u{f0e2}",
+                TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::WHITE },
+            ));
+        });
+    } else {
+        builder.insert((crate::actor_editor::RedoButton, Tooltip("Redo (Ctrl+Y / Ctrl+Shift+Z)".to_string())));
+        builder.with_children(|btn| {
+            btn.spawn(TextBundle::from_section(
+                "\u{f01e}",
+                TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::WHITE },
+            ));
+        });
+    }
 }

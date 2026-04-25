@@ -50,12 +50,15 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<GizmoBusy>()
            .init_resource::<vfx_assets::VfxPresets>()
            .init_resource::<vfx_assets::VfxRegistry>()
+           .init_resource::<systems::undo_redo::ActionStack>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
            .add_event::<ToastEvent>()
            .add_event::<ConfirmationRequestEvent>()
            .add_event::<InspectionFocusEvent>()
+           .add_event::<systems::undo_redo::UndoEvent>()
+           .add_event::<systems::undo_redo::RedoEvent>()
            .add_systems(OnEnter(GameState::ActorEditor), (
                vfx_assets::load_vfx_presets,
                vfx_assets::register_kenney_textures,
@@ -122,6 +125,7 @@ impl Plugin for ActorEditorPlugin {
             .add_systems(Update, (
                     systems::socket_picking_system,
                     systems::socket_spawn_system,
+                    systems::socket_deletion_system,
                     systems::draw_socket_previews_system,
                     systems::socket_ui_interaction_system,
                     systems::socket_3d_selection_system,
@@ -155,6 +159,12 @@ impl Plugin for ActorEditorPlugin {
                     systems::socket_vfx_preview_system,
                     systems::vfx_spawner::socket_vfx_spawner_system,
                     systems::vfx_spawner::socket_vfx_sync_system,
+                    systems::undo_redo::undo_redo_shortcuts_system,
+                    systems::undo_redo::undo_redo_ui_system,
+                    systems::undo_redo::undo_redo_button_visual_system,
+                ).run_if(in_state(GameState::ActorEditor)))
+            .add_systems(Update, (
+                    systems::undo_redo::handle_undo_redo,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
@@ -274,6 +284,7 @@ pub struct SlicingSettings {
     pub hovered_gizmo: Option<SlicingGizmoType>,
     // Confirmation mechanic
     pub dragging_gizmo: Option<SlicingGizmoType>,
+    pub suppress_undo: bool,
     pub needs_confirm: bool,
     pub confirm_pos: Vec3,
     pub trigger_slice: bool,
@@ -296,8 +307,8 @@ impl Default for SlicingSettings {
             confirm_pos: Vec3::ZERO,
             trigger_slice: false,
             last_top: -1.0,
-
             last_bottom: -1.0,
+            suppress_undo: false,
         }
     }
 }
@@ -410,6 +421,9 @@ pub struct MaterialUpdateEvent {
 pub struct ActorEditorEntity;
 
 #[derive(Component)]
+pub struct Actor3DRoot;
+
+#[derive(Component)]
 pub struct MainEditorCamera;
 
 #[derive(Component)]
@@ -423,6 +437,12 @@ pub struct EditorHelper;
 
 #[derive(Component)]
 pub struct ActorEditorBackButton;
+
+#[derive(Component)]
+pub struct UndoButton;
+
+#[derive(Component)]
+pub struct RedoButton;
 
 #[derive(Component)]
 pub struct OriginalMeshComponent(pub Handle<Mesh>);

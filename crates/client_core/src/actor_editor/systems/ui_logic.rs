@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::VertexAttributeValues;
 use rfd::FileDialog;
-use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, EditorHelper, ToastEvent, ToastType, ActorImportEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings};
+use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings};
 use super::super::ui_project::{ModeTab, ProjectModeContent};
 use super::super::ui::inspector::types::{SocketsSectionMarker, PartsSectionMarker, SelectedSocket};
 use super::super::widgets::CollapsibleSection;
@@ -26,7 +26,7 @@ pub fn status_update_system(
 pub fn polycount_update_system(
     meshes: Res<Assets<Mesh>>,
     mesh_query: Query<&Handle<Mesh>>,
-    root_query: Query<(Entity, Option<&ActorBounds>), (With<ActorEditorEntity>, Without<EditorHelper>)>,
+    root_query: Query<(Entity, Option<&ActorBounds>), (With<Actor3DRoot>, Without<EditorHelper>)>,
     children_query: Query<&Children>,
     mut text_query: Query<&mut Text, With<super::super::widgets::PolycountText>>,
 ) {
@@ -134,6 +134,8 @@ pub fn color_picker_system(
     mut container_query: Query<&mut Style, With<super::super::widgets::ColorPickerContainer>>,
     mut preview_query: Query<&mut BackgroundColor, (With<super::super::widgets::ColorPickerButton>, Without<super::super::widgets::ColorPreset>)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut initial_color: Local<Option<Color>>,
+    mut action_stack: ResMut<super::super::systems::undo_redo::ActionStack>,
 ) {
     for interaction in button_query.iter() {
         if *interaction == Interaction::Pressed {
@@ -147,21 +149,43 @@ pub fn color_picker_system(
     let Ok(window) = window_query.get_single() else { return; };
     if let Some(cursor) = window.cursor_position() {
         for (interaction, node, transform) in hue_query.iter() {
-            if *interaction == Interaction::Pressed || *interaction == Interaction::Hovered {
-                if *interaction == Interaction::Pressed {
-                    let rect = node.size();
-                    let pos = transform.translation().truncate();
-                    let local_x = cursor.x - (pos.x - rect.x / 2.0);
-                    let hue = (local_x / rect.x).clamp(0.0, 1.0) * 360.0;
-                    color_res.hue = hue;
-                    color_res.color = Color::hsla(hue, 0.8, 0.5, 1.0);
+            if *interaction == Interaction::Pressed {
+                if initial_color.is_none() {
+                    *initial_color = Some(color_res.color);
                 }
+                let rect = node.size();
+                let pos = transform.translation().truncate();
+                let local_x = cursor.x - (pos.x - rect.x / 2.0);
+                let hue = (local_x / rect.x).clamp(0.0, 1.0) * 360.0;
+                color_res.hue = hue;
+                color_res.color = Color::hsla(hue, 0.8, 0.5, 1.0);
+            } else if initial_color.is_some() {
+                // Drag finished
+                let old = initial_color.unwrap();
+                let new = color_res.color;
+                if old != new {
+                    action_stack.push(Box::new(super::super::systems::undo_redo::ChangeMaterialColorCommand {
+                        old_color: old,
+                        new_color: new,
+                    }));
+                }
+                *initial_color = None;
             }
         }
     }
 
     for (interaction, preset) in preset_query.iter() {
-        if *interaction == Interaction::Pressed { color_res.color = preset.0; }
+        if *interaction == Interaction::Pressed { 
+            let old = color_res.color;
+            let new = preset.0;
+            if old != new {
+                color_res.color = new; 
+                action_stack.push(Box::new(super::super::systems::undo_redo::ChangeMaterialColorCommand {
+                    old_color: old,
+                    new_color: new,
+                }));
+            }
+        }
     }
 
     if color_res.is_changed() {
@@ -295,6 +319,7 @@ pub fn actor_import_processing_system(
             commands.spawn((
                 SpatialBundle::default(),
                 ActorEditorEntity, 
+                Actor3DRoot,
                 crate::actor_editor::AwaitingNormalization,
             )).with_children(|p| {
                 p.spawn(PbrBundle { 
@@ -304,7 +329,7 @@ pub fn actor_import_processing_system(
                 });
             });
         } else if pending.handle.is_some() {
-             commands.spawn(( SceneBundle { scene: pending.handle.clone().unwrap(), ..default() }, ActorEditorEntity, crate::actor_editor::AwaitingNormalization, ));
+             commands.spawn(( SceneBundle { scene: pending.handle.clone().unwrap(), ..default() }, ActorEditorEntity, Actor3DRoot, crate::actor_editor::AwaitingNormalization, ));
         }
         *status = EditorStatus::Processing;
         pending.handle = None;

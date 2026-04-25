@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::super::{SlicingSettings, ActorBounds, ActorEditorEntity, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper};
+use super::super::{SlicingSettings, ActorBounds, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper};
 
 #[derive(Resource, Default)]
 pub struct SlicingTask(pub Option<bevy::tasks::Task<SlicingResult>>);
@@ -11,7 +11,7 @@ pub struct SlicingResult {
 pub fn mesh_slicing_system(
     mut commands: Commands,
     mut slicing_settings: ResMut<SlicingSettings>,
-    actor_root_query: Query<(&ActorBounds, &GlobalTransform), With<ActorEditorEntity>>,
+    actor_root_query: Query<(&ActorBounds, &GlobalTransform), With<crate::actor_editor::Actor3DRoot>>,
     mesh_query: Query<(Entity, &OriginalMeshComponent, &GlobalTransform, Option<&Handle<StandardMaterial>>, Option<&mut SlicingContours>)>,
     child_query: Query<Entity, With<ActorPart>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -21,6 +21,7 @@ pub fn mesh_slicing_system(
 
     mut progress: ResMut<ImportProgress>,
     mut status: ResMut<EditorStatus>,
+    mut action_stack: ResMut<crate::actor_editor::systems::undo_redo::ActionStack>,
 ) {
 
 
@@ -95,8 +96,20 @@ pub fn mesh_slicing_system(
     
     // Trigger logic for UI confirmation
     if slicing_settings.trigger_slice {
+        let old_top = slicing_settings.last_top;
+        let old_bottom = slicing_settings.last_bottom;
+        let new_top = slicing_settings.top_cut;
+        let new_bottom = slicing_settings.bottom_cut;
+
+        if !slicing_settings.suppress_undo && old_top >= 0.0 && ((old_top - new_top).abs() > 0.001 || (old_bottom - new_bottom).abs() > 0.001) {
+            action_stack.push(Box::new(crate::actor_editor::systems::undo_redo::UpdateSlicingCommand {
+                old_top, old_bottom, new_top, new_bottom
+            }));
+        }
+
         should_slice = true;
         slicing_settings.trigger_slice = false;
+        slicing_settings.suppress_undo = false; // Reset after trigger
         slicing_settings.needs_confirm = false;
         slicing_settings.dragging_gizmo = None;
     }
