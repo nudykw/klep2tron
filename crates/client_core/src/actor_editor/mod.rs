@@ -55,6 +55,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<systems::undo_redo::ActionStack>()
            .init_resource::<systems::optimization::OptimizationSettings>()
            .init_resource::<systems::optimization::OptimizationTask>()
+           .init_resource::<ScalingSettings>()
            .init_resource::<PendingSockets>()
             .init_resource::<LastUsedDirectory>()
            .add_event::<ResetCameraEvent>()
@@ -162,6 +163,9 @@ impl Plugin for ActorEditorPlugin {
                     ui::inspector::vfx::socket_vfx_interaction_system,
                     ui::inspector::optimization::mesh_optimization_system,
                     ui::inspector::optimization::mesh_optimization_visuals_system,
+                    systems::scaling::mesh_scaling_ui_sync_system,
+                    systems::scaling::mesh_scaling_interaction_system,
+                    systems::scaling::mesh_scaling_apply_system,
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     systems::socket_color_picker_system,
@@ -319,6 +323,25 @@ pub struct SlicingSettings {
     pub last_bottom: f32,
     pub show_caps: bool,
     pub rim_thickness: f32,
+}
+
+#[derive(Resource)]
+pub struct ScalingSettings {
+    pub width: f32,
+    pub height: f32,
+    pub length: f32,
+    pub link_proportions: bool,
+}
+
+impl Default for ScalingSettings {
+    fn default() -> Self {
+        Self {
+            width: 1.0,
+            height: 1.0,
+            length: 1.0,
+            link_proportions: true,
+        }
+    }
 }
 
 impl Default for SlicingSettings {
@@ -480,6 +503,7 @@ pub struct OriginalMeshComponent(pub Handle<Mesh>);
 pub struct PendingImport {
     pub handle: Option<Handle<Scene>>,
     pub mesh_handle: Option<Handle<Mesh>>,
+    pub scale: Option<Vec3>,
 }
 #[derive(Resource, Default)]
 pub struct CurrentProject {

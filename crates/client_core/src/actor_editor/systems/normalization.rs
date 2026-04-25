@@ -14,6 +14,7 @@ pub fn normalization_system(
     meshes: Res<Assets<Mesh>>,
     mut progress: ResMut<ImportProgress>,
     mut status: ResMut<EditorStatus>,
+    mut scaling_settings: ResMut<crate::actor_editor::ScalingSettings>,
 ) {
     for root_entity in query.iter() {
         let mut stack = vec![root_entity];
@@ -136,6 +137,12 @@ pub fn normalization_system(
                         max: Vec3::new(s.x * 0.5, s.y, s.z * 0.5),
                         original_polys: state.total_original_polys,
                     });
+
+                    // Sync Scaling Settings
+                    scaling_settings.width = s.x;
+                    scaling_settings.height = s.y;
+                    scaling_settings.length = s.z;
+
                     for (entity, handle) in &state.found_meshes { 
                         commands.entity(*entity).insert(OriginalMeshComponent(handle.clone())); 
                     }

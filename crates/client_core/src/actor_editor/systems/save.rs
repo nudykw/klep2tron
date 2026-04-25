@@ -10,6 +10,7 @@ pub fn actor_save_system(
     mut current_project: ResMut<CurrentProject>,
     slicing_settings: Res<SlicingSettings>,
     socket_query: Query<&ActorSocket>,
+    transform_query: Query<&Transform, With<super::super::Actor3DRoot>>,
     mut status: ResMut<EditorStatus>,
     mut toast_events: EventWriter<ToastEvent>,
     mut modal_events: EventWriter<ConfirmationRequestEvent>,
@@ -64,6 +65,7 @@ pub fn actor_save_system(
             source_path: current_project.source_path.clone(),
             cut_top: slicing_settings.top_cut,
             cut_bottom: slicing_settings.bottom_cut,
+            scale: transform_query.get_single().map(|t| t.scale).unwrap_or(Vec3::ONE),
             config: ActorConfig { sockets },
         };
 

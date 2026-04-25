@@ -97,7 +97,7 @@ pub fn mesh_slicing_system(
     }
 
     // 2. Start new task if needed
-    let Ok((bounds, _)) = actor_root_query.get_single() else { return; };
+    let Ok((bounds, root_global)) = actor_root_query.get_single() else { return; };
     
     // Check if we need to apply initial slice (only after auto-setup)
     let needs_initial_slice = child_query.is_empty() && !mesh_query.is_empty();
@@ -199,11 +199,15 @@ pub fn mesh_slicing_system(
 
     let thread_pool = bevy::tasks::AsyncComputeTaskPool::get();
 
+    let root_matrix = root_global.compute_matrix();
     let task = thread_pool.spawn(async move {
         let mut results = Vec::new();
         for (entity, mesh, inv_local) in mesh_data {
-            let mesh_local_top = inv_local.transform_point3(Vec3::new(0.0, plane_top_local, 0.0)).y;
-            let mesh_local_bottom = inv_local.transform_point3(Vec3::new(0.0, plane_bottom_local, 0.0)).y;
+            let world_top = root_matrix.transform_point3(Vec3::new(0.0, plane_top_local, 0.0));
+            let world_bottom = root_matrix.transform_point3(Vec3::new(0.0, plane_bottom_local, 0.0));
+
+            let mesh_local_top = inv_local.transform_point3(world_top).y;
+            let mesh_local_bottom = inv_local.transform_point3(world_bottom).y;
 
             let parts = geometry::slicer::split_mesh_by_planes(&mesh, mesh_local_top, mesh_local_bottom, show_caps, rim_thickness);
             results.push((entity, parts));

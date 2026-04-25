@@ -10,6 +10,7 @@ pub fn actor_load_system(
     mut current_project: ResMut<CurrentProject>,
     mut slicing_settings: ResMut<SlicingSettings>,
     mut pending_sockets: ResMut<PendingSockets>,
+    mut pending_import: ResMut<super::super::PendingImport>,
     mut status: ResMut<EditorStatus>,
     mut toast_events: EventWriter<ToastEvent>,
 ) {
@@ -53,8 +54,9 @@ pub fn actor_load_system(
         slicing_settings.trigger_slice = false; 
         slicing_settings.suppress_undo = true; // Don't record the load as an undoable action
 
-        // 3. Prepare Sockets for spawning
+        // 3. Prepare Sockets and Scale for spawning
         pending_sockets.0 = project.config.sockets;
+        pending_import.scale = Some(project.scale);
 
         // 4. Trigger Model Import
         // Path should be relative to assets in project, but we need absolute for the event

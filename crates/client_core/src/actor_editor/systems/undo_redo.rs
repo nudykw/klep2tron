@@ -174,6 +174,33 @@ impl Command for DeleteSocketCommand {
         }
     }
 }
+pub struct ScaleModelCommand {
+    pub entity: Entity,
+    pub old_scale: Vec3,
+    pub new_scale: Vec3,
+}
+
+impl Command for ScaleModelCommand {
+    fn name(&self) -> String { "Scale Model".to_string() }
+    
+    fn execute(&self, world: &mut World) {
+        if let Some(mut transform) = world.get_mut::<Transform>(self.entity) {
+            transform.scale = self.new_scale;
+        }
+        if let Some(mut slicing) = world.get_resource_mut::<SlicingSettings>() {
+            slicing.trigger_slice = true;
+        }
+    }
+    
+    fn undo(&self, world: &mut World) {
+        if let Some(mut transform) = world.get_mut::<Transform>(self.entity) {
+            transform.scale = self.old_scale;
+        }
+        if let Some(mut slicing) = world.get_resource_mut::<SlicingSettings>() {
+            slicing.trigger_slice = true;
+        }
+    }
+}
 
 // --- Systems ---
 

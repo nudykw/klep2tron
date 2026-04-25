@@ -431,11 +431,21 @@ pub fn actor_import_processing_system(
     progress.0 = target_progress;
 
     if finished {
-        for entity in actor_entities.iter() { commands.entity(entity).despawn_recursive(); }
+        for entity in actor_entities.iter() { 
+            if let Some(e) = commands.get_entity(entity) {
+                e.despawn_recursive();
+            }
+        }
 
         if let Some(mesh_handle) = loaded_mesh {
             commands.spawn((
-                SpatialBundle::default(),
+                SpatialBundle {
+                    transform: Transform {
+                        scale: pending.scale.unwrap_or(Vec3::ONE),
+                        ..default()
+                    },
+                    ..default()
+                },
                 ActorEditorEntity, 
                 Actor3DRoot,
                 crate::actor_editor::AwaitingNormalization,
@@ -447,11 +457,24 @@ pub fn actor_import_processing_system(
                 });
             });
         } else if pending.handle.is_some() {
-             commands.spawn(( SceneBundle { scene: pending.handle.clone().unwrap(), ..default() }, ActorEditorEntity, Actor3DRoot, crate::actor_editor::AwaitingNormalization, ));
+             commands.spawn(( 
+                 SceneBundle { 
+                     scene: pending.handle.clone().unwrap(), 
+                     transform: Transform {
+                         scale: pending.scale.unwrap_or(Vec3::ONE),
+                         ..default()
+                     },
+                     ..default() 
+                 }, 
+                 ActorEditorEntity, 
+                 Actor3DRoot, 
+                 crate::actor_editor::AwaitingNormalization, 
+             ));
         }
         *status = EditorStatus::Processing;
         pending.handle = None;
         pending.mesh_handle = None;
+        pending.scale = None;
     }
 }
 

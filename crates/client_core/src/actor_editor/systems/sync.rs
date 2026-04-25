@@ -179,7 +179,6 @@ pub fn slicing_gizmo_sync_system(
     
     let height = bounds.max.y - bounds.min.y;
     let radius = (bounds.max.x - bounds.min.x).max(bounds.max.z - bounds.min.z) * 0.7;
-    let world_base_y = transform.transform_point(Vec3::Y * bounds.min.y).y;
 
     for (mut gizmo_transform, gizmo_type, mat_handle) in gizmo_query.iter_mut() {
         let ratio = match *gizmo_type {
@@ -187,10 +186,12 @@ pub fn slicing_gizmo_sync_system(
             SlicingGizmoType::Bottom => slicing_settings.bottom_cut,
         };
 
-        let y = world_base_y + (ratio * height);
+        let y = transform.transform_point(Vec3::Y * (bounds.min.y + ratio * height)).y;
         let pos = Vec3::new(transform.translation().x, y, transform.translation().z);
         gizmo_transform.translation = pos;
-        gizmo_transform.scale = Vec3::splat(radius);
+        
+        let (root_scale, _, _) = transform.to_scale_rotation_translation();
+        gizmo_transform.scale = Vec3::splat(radius * root_scale.x.max(root_scale.z));
         gizmo_transform.rotation = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
 
         let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);

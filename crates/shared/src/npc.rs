@@ -108,11 +108,28 @@ pub struct ActorConfig {
     pub sockets: Vec<SocketDefinition>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct ActorProject {
     pub name: String,
     pub source_path: String,
     pub cut_top: f32,
     pub cut_bottom: f32,
+    #[serde(default = "default_scale")]
+    pub scale: Vec3,
     pub config: ActorConfig,
+}
+
+fn default_scale() -> Vec3 { Vec3::ONE }
+
+impl Default for ActorProject {
+    fn default() -> Self {
+        Self {
+            name: "".to_string(),
+            source_path: "".to_string(),
+            cut_top: 0.75,
+            cut_bottom: 0.25,
+            scale: Vec3::ONE,
+            config: ActorConfig::default(),
+        }
+    }
 }

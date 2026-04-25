@@ -323,10 +323,12 @@ pub fn wireframe_sync_system(
         
         let should_have = show && is_isolated;
         
-        if should_have {
-            commands.entity(entity).insert(bevy::pbr::wireframe::Wireframe);
-        } else {
-            commands.entity(entity).remove::<bevy::pbr::wireframe::Wireframe>();
+        if let Some(mut e) = commands.get_entity(entity) {
+            if should_have {
+                e.insert(bevy::pbr::wireframe::Wireframe);
+            } else {
+                e.remove::<bevy::pbr::wireframe::Wireframe>();
+            }
         }
     }
 }

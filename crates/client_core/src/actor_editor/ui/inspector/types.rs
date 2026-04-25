@@ -167,3 +167,21 @@ pub struct SocketVfxDetachPresetButton;
 
 #[derive(Component)]
 pub struct SocketVfxPresetStatusLabel;
+
+#[derive(Component)]
+pub struct ScalingSectionMarker;
+
+#[derive(Component)]
+pub struct ScalingInputX;
+
+#[derive(Component)]
+pub struct ScalingInputY;
+
+#[derive(Component)]
+pub struct ScalingInputZ;
+
+#[derive(Component)]
+pub struct ScalingLinkToggle;
+
+#[derive(Component)]
+pub struct ScalingApplyButton;
