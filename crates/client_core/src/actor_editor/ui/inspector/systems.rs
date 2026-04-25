@@ -12,8 +12,11 @@ pub fn socket_ui_list_sync_system(
     
     // Simple reconciliation: check if we have an item for each socket
     let existing_entities: std::collections::HashSet<Entity> = list_items_query.iter().map(|(_, item)| item.0).collect();
-    let current_sockets: Vec<(Entity, &crate::actor_editor::ActorSocket)> = socket_query.iter().collect();
+    let mut current_sockets: Vec<(Entity, &crate::actor_editor::ActorSocket)> = socket_query.iter().collect();
     
+    // Sort by name to ensure stable UI order
+    current_sockets.sort_by(|(_, a), (_, b)| a.definition.name.cmp(&b.definition.name));
+
     // If mismatch, rebuild the list (simplified approach for now)
     let current_entities: std::collections::HashSet<Entity> = current_sockets.iter().map(|(e, _)| *e).collect();
     
@@ -77,42 +80,63 @@ pub fn socket_list_click_system(
     mut multi_state: ResMut<MultiSelectionState>,
     keys: Res<ButtonInput<KeyCode>>,
     query: Query<(&Interaction, &SocketListItem), Changed<Interaction>>,
-    all_items: Query<&SocketListItem>,
+    container_query: Query<&Children, With<SocketListContainer>>,
+    item_visibility_query: Query<(&SocketListItem, &Visibility)>,
 ) {
-    for (interaction, item) in query.iter() {
+    let Ok(children) = container_query.get_single() else { return; };
+    
+    // Get visible items in order they appear in UI
+    let mut visible_entities = Vec::new();
+    for &child in children.iter() {
+        if let Ok((item, visibility)) = item_visibility_query.get(child) {
+            if visibility != Visibility::Hidden {
+                visible_entities.push(item.0);
+            }
+        }
+    }
+
+    for (interaction, clicked_item) in query.iter() {
         if *interaction == Interaction::Pressed {
-            let entity = item.0;
+            let entity = clicked_item.0;
             
-            if keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight) {
+            let is_ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+            let is_shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+
+            if is_shift {
+                if let Some(anchor) = multi_state.last_selected {
+                    // Range selection from anchor to current
+                    let start_idx = visible_entities.iter().position(|&e| e == anchor).unwrap_or(0);
+                    let end_idx = visible_entities.iter().position(|&e| e == entity).unwrap_or(0);
+                    
+                    let min = start_idx.min(end_idx);
+                    let max = start_idx.max(end_idx);
+                    
+                    // If not holding Ctrl, replace selection
+                    if !is_ctrl {
+                        selected.0.clear();
+                    }
+                    
+                    for i in min..=max {
+                        let e = visible_entities[i];
+                        if !selected.0.contains(&e) {
+                            selected.0.push(e);
+                        }
+                    }
+                    // Note: anchor (last_selected) stays the same for next Shift-click
+                } else {
+                    selected.0 = vec![entity];
+                    multi_state.last_selected = Some(entity);
+                }
+            } else if is_ctrl {
                 if let Some(pos) = selected.0.iter().position(|&e| e == entity) {
                     selected.0.remove(pos);
                 } else {
                     selected.0.push(entity);
                 }
-                multi_state.last_selected = Some(entity);
-            } else if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
-                if let Some(last) = multi_state.last_selected {
-                    // Range selection
-                    let entities: Vec<Entity> = all_items.iter().map(|i| i.0).collect();
-                    let start_idx = entities.iter().position(|&e| e == last).unwrap_or(0);
-                    let end_idx = entities.iter().position(|&e| e == entity).unwrap_or(0);
-                    
-                    let min = start_idx.min(end_idx);
-                    let max = start_idx.max(end_idx);
-                    
-                    for i in min..=max {
-                        let e = entities[i];
-                        if !selected.0.contains(&e) {
-                            selected.0.push(e);
-                        }
-                    }
-                } else {
-                    selected.0 = vec![entity];
-                    multi_state.last_selected = Some(entity);
-                }
+                multi_state.last_selected = Some(entity); // Becomes new anchor
             } else {
                 selected.0 = vec![entity];
-                multi_state.last_selected = Some(entity);
+                multi_state.last_selected = Some(entity); // Becomes new anchor
             }
         }
     }

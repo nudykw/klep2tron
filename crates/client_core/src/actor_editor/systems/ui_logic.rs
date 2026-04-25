@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::VertexAttributeValues;
 use rfd::FileDialog;
-use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, ActorSaveEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings, CurrentProject};
+use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, ActorSaveEvent, ActorLoadEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings, CurrentProject, LastUsedDirectory};
 use super::super::ui_project::{ModeTab, ProjectModeContent};
 use super::super::ui::inspector::types::{SocketsSectionMarker, PartsSectionMarker, SelectedSocket};
 use super::super::widgets::CollapsibleSection;
@@ -222,13 +222,14 @@ pub fn material_sync_system(
 pub fn project_action_system(
     interaction_query: Query<(&Interaction, &super::super::ui_project::ProjectAction), Changed<Interaction>>,
     mut import_events: EventWriter<ActorImportEvent>,
-    mut load_events: EventWriter<super::super::ActorLoadEvent>,
+    mut load_events: EventWriter<ActorLoadEvent>,
     mut save_events: EventWriter<ActorSaveEvent>,
     mut toast_events: EventWriter<ToastEvent>,
     current_project: Res<CurrentProject>,
     asset_server: Res<AssetServer>,
     camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
     mut commands: Commands,
+    mut last_dir: ResMut<LastUsedDirectory>,
 ) {
     for (interaction, action) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
@@ -237,12 +238,17 @@ pub fn project_action_system(
                     let current_dir = std::env::current_dir().unwrap_or_default();
                     let assets_dir = current_dir.join("assets");
                     
+                    let directory = last_dir.0.clone().unwrap_or(assets_dir);
+                    
                     if let Some(path) = FileDialog::new()
                         .set_title("Import Model")
-                        .set_directory(assets_dir)
+                        .set_directory(directory)
                         .add_filter("Models", &["gltf", "glb", "obj"])
                         .pick_file() {
-                        import_events.send(ActorImportEvent(path));
+                        if let Some(parent) = path.parent() {
+                            last_dir.0 = Some(parent.to_path_buf());
+                        }
+                        import_events.send(ActorImportEvent(path, true));
                     }
                 }
                 super::super::ui_project::ProjectAction::Save => {
@@ -258,10 +264,17 @@ pub fn project_action_system(
                     let current_dir = std::env::current_dir().unwrap_or_default();
                     let actors_dir = current_dir.join("assets").join("actors");
                     
+                    let directory = last_dir.0.clone().unwrap_or(actors_dir);
+                    
                     if let Some(path) = FileDialog::new()
                         .set_title("Open Actor Project Folder")
-                        .set_directory(actors_dir)
+                        .set_directory(directory)
                         .pick_folder() {
+                        
+                        // Remember this directory (the parent of the selected project folder)
+                        if let Some(parent) = path.parent() {
+                            last_dir.0 = Some(parent.to_path_buf());
+                        }
                         
                         let ron_path = path.join("actor.ron");
                         if ron_path.exists() {
@@ -285,10 +298,21 @@ pub fn actor_import_event_system(
     mut status: ResMut<EditorStatus>,
     mut pending: ResMut<PendingImport>,
     mut current_project: ResMut<CurrentProject>,
+    mut slicing_settings: ResMut<SlicingSettings>,
     mut toast_events: EventWriter<ToastEvent>,
 ) {
     for event in events.read() {
         let path = &event.0;
+        let reset_slicing = event.1;
+
+        if reset_slicing {
+            *slicing_settings = SlicingSettings::default();
+            // Explicitly set the initial slice values for new models
+            slicing_settings.top_cut = 0.75;
+            slicing_settings.bottom_cut = 0.25;
+            slicing_settings.last_top = -1.0; // Keep this to trigger the initial slice logic if needed, but the values are now correct
+        }
+
         let current_dir = std::env::current_dir().unwrap_or_default();
         let assets_dir = current_dir.join("assets");
         

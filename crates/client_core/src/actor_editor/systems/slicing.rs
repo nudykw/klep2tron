@@ -131,9 +131,7 @@ pub fn mesh_slicing_system(
 
 
     
-    // Update last values to prevent re-triggering
-    slicing_settings.last_top = slicing_settings.top_cut;
-    slicing_settings.last_bottom = slicing_settings.bottom_cut;
+    // Update last values to prevent re-triggering (Moved after initial slice check)
 
     
     // Despawn old parts immediately to show we are working
@@ -148,6 +146,9 @@ pub fn mesh_slicing_system(
         slicing_settings.last_bottom = 0.25;
         info!("Applied auto-slicing defaults (0.75 / 0.25)");
     }
+    
+    slicing_settings.last_top = slicing_settings.top_cut;
+    slicing_settings.last_bottom = slicing_settings.bottom_cut;
 
     let local_height = bounds.max.y - bounds.min.y;
     let plane_top_local = bounds.min.y + slicing_settings.top_cut * local_height;

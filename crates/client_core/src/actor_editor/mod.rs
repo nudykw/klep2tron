@@ -53,6 +53,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<vfx_assets::VfxRegistry>()
            .init_resource::<systems::undo_redo::ActionStack>()
            .init_resource::<PendingSockets>()
+            .init_resource::<LastUsedDirectory>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -190,13 +191,16 @@ pub struct ActorSaveEvent {
     pub force: bool,
 }
 #[derive(Event)]
-pub struct ActorImportEvent(pub std::path::PathBuf);
+pub struct ActorImportEvent(pub std::path::PathBuf, pub bool);
 
 #[derive(Event)]
 pub struct ActorLoadEvent(pub std::path::PathBuf);
 
 #[derive(Event)]
 pub struct ResetCameraEvent;
+
+#[derive(Resource, Default)]
+pub struct LastUsedDirectory(pub Option<std::path::PathBuf>);
 
 #[derive(Resource, Default, PartialEq, Eq)]
 pub enum EditorStatus {

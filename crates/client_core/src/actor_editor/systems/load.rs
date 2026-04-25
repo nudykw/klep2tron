@@ -72,7 +72,7 @@ pub fn actor_load_system(
             // We still set metadata, but import will fail
         }
 
-        import_events.send(ActorImportEvent(full_path));
+        import_events.send(ActorImportEvent(full_path, false));
         
         toast_events.send(ToastEvent {
             message: format!("Project '{}' loaded. Importing model...", current_project.name),

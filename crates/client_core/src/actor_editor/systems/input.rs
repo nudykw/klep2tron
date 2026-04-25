@@ -1,17 +1,23 @@
 use bevy::prelude::*;
+use bevy::ecs::system::SystemParam;
 use rfd::FileDialog;
-use super::super::{ActorImportEvent, SlicingSettings, ToastEvent, ToastType, ActorEditorBackButton, ViewportSettings, ResetCameraEvent, ConfirmationRequestEvent, ActorSaveEvent, EditorAction, EditorMode};
+use super::super::{ActorImportEvent, ActorLoadEvent, SlicingSettings, ToastEvent, ToastType, ActorEditorBackButton, ViewportSettings, ResetCameraEvent, ConfirmationRequestEvent, ActorSaveEvent, EditorAction, EditorMode, LastUsedDirectory};
+
+#[derive(SystemParam)]
+pub struct EditorEvents<'w> {
+    pub reset: EventWriter<'w, ResetCameraEvent>,
+    pub modal: EventWriter<'w, ConfirmationRequestEvent>,
+    pub load: EventWriter<'w, ActorLoadEvent>,
+    pub import: EventWriter<'w, ActorImportEvent>,
+    pub save: EventWriter<'w, ActorSaveEvent>,
+    pub toast: EventWriter<'w, ToastEvent>,
+}
 
 pub fn actor_editor_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     interaction_query: Query<&Interaction, (Changed<Interaction>, With<ActorEditorBackButton>)>,
     mut viewport_settings: ResMut<ViewportSettings>,
-    mut reset_events: EventWriter<ResetCameraEvent>,
-    mut modal_events: EventWriter<ConfirmationRequestEvent>,
-    mut load_events: EventWriter<super::super::ActorLoadEvent>,
-    mut import_events: EventWriter<ActorImportEvent>,
-    mut save_events: EventWriter<ActorSaveEvent>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut events: EditorEvents,
     mut slicing_settings: ResMut<SlicingSettings>,
     mut editor_mode: ResMut<EditorMode>,
     mut socket_settings: ResMut<super::super::SocketSettings>,
@@ -19,6 +25,7 @@ pub fn actor_editor_input_system(
     asset_server: Res<AssetServer>,
     camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
     mut commands: Commands,
+    mut last_dir: ResMut<LastUsedDirectory>,
 ) {
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight) 
                || keyboard.pressed(KeyCode::SuperLeft) || keyboard.pressed(KeyCode::SuperRight);
@@ -29,16 +36,22 @@ pub fn actor_editor_input_system(
             let current_dir = std::env::current_dir().unwrap_or_default();
             let actors_dir = current_dir.join("assets").join("actors");
 
+            let directory = last_dir.0.clone().unwrap_or(actors_dir);
+            
             if let Some(path) = FileDialog::new()
                 .set_title("Open Actor Project Folder")
-                .set_directory(actors_dir)
+                .set_directory(directory)
                 .pick_folder() {
                 
+                if let Some(parent) = path.parent() {
+                    last_dir.0 = Some(parent.to_path_buf());
+                }
+
                 let ron_path = path.join("actor.ron");
                 if ron_path.exists() {
-                    load_events.send(super::super::ActorLoadEvent(ron_path));
+                    events.load.send(super::super::ActorLoadEvent(ron_path));
                 } else {
-                    toast_events.send(ToastEvent {
+                    events.toast.send(ToastEvent {
                         message: "Selected folder is not a valid project (actor.ron not found)".to_string(),
                         toast_type: ToastType::Error,
                     });
@@ -49,12 +62,17 @@ pub fn actor_editor_input_system(
             let current_dir = std::env::current_dir().unwrap_or_default();
             let assets_dir = current_dir.join("assets");
 
+            let directory = last_dir.0.clone().unwrap_or(assets_dir);
+
             if let Some(path) = FileDialog::new()
                 .set_title("Import Model")
-                .set_directory(assets_dir)
+                .set_directory(directory)
                 .add_filter("Models", &["gltf", "glb", "obj"])
                 .pick_file() {
-                import_events.send(ActorImportEvent(path));
+                if let Some(parent) = path.parent() {
+                    last_dir.0 = Some(parent.to_path_buf());
+                }
+                events.import.send(ActorImportEvent(path, true));
             }
         }
         if keyboard.just_pressed(KeyCode::KeyS) {
@@ -63,7 +81,7 @@ pub fn actor_editor_input_system(
                 let target_camera = camera_query.get_single().ok();
                 super::super::widgets::spawn_save_modal(&mut commands, &font, &current_project.name, target_camera);
             } else {
-                save_events.send(ActorSaveEvent { name: None, force: false });
+                events.save.send(ActorSaveEvent { name: None, force: false });
             }
         }
     }
@@ -74,7 +92,7 @@ pub fn actor_editor_input_system(
             EditorMode::Slicing => EditorMode::Sockets,
             EditorMode::Sockets => EditorMode::Slicing,
         };
-        toast_events.send(ToastEvent {
+        events.toast.send(ToastEvent {
             message: format!("Mode: {:?}", *editor_mode),
             toast_type: ToastType::Info,
         });
@@ -82,7 +100,7 @@ pub fn actor_editor_input_system(
 
     if keyboard.just_pressed(KeyCode::KeyL) {
         slicing_settings.locked = !slicing_settings.locked;
-        toast_events.send(ToastEvent {
+        events.toast.send(ToastEvent {
             message: if slicing_settings.locked { "Slicer Locked" } else { "Slicer Unlocked" }.to_string(),
             toast_type: ToastType::Info,
         });
@@ -101,7 +119,7 @@ pub fn actor_editor_input_system(
     }
 
     if trigger_back {
-        modal_events.send(ConfirmationRequestEvent {
+        events.modal.send(ConfirmationRequestEvent {
             title: "Discard Changes?".to_string(),
             message: "Are you sure you want to return to menu? Any unsaved changes will be lost.".to_string(),
             action: EditorAction::BackToMenu,
@@ -113,13 +131,13 @@ pub fn actor_editor_input_system(
     if keyboard.just_pressed(KeyCode::KeyS) { viewport_settings.slices = !viewport_settings.slices; }
     if keyboard.just_pressed(KeyCode::KeyK) { viewport_settings.sockets = !viewport_settings.sockets; }
     if keyboard.just_pressed(KeyCode::KeyZ) { viewport_settings.gizmos = !viewport_settings.gizmos; }
-    if keyboard.just_pressed(KeyCode::KeyR) { reset_events.send(ResetCameraEvent); }
+    if keyboard.just_pressed(KeyCode::KeyR) { events.reset.send(ResetCameraEvent); }
 
     // Fast Socket Spawn Hotkey
     if keyboard.just_pressed(KeyCode::Equal) || keyboard.just_pressed(KeyCode::NumpadAdd) {
         *editor_mode = EditorMode::Sockets;
         socket_settings.is_adding = true;
-        toast_events.send(ToastEvent {
+        events.toast.send(ToastEvent {
             message: "Socket Placement Active".to_string(),
             toast_type: ToastType::Info,
         });
