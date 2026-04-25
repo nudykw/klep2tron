@@ -7,7 +7,7 @@ pub struct VfxPresetLibrary {
     pub presets: HashMap<String, EffectConfig>,
 }
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Reflect, Default)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Reflect, Default)]
 #[reflect(Component)]
 pub enum ActorPart {
     Head,

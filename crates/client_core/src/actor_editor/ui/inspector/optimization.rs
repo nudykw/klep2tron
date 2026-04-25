@@ -162,31 +162,8 @@ pub fn spawn_optimization_section_v2(
                     ));
                 });
 
-                // Fill Caps Toggle
-                row.spawn((
-                    ButtonBundle {
-                        style: Style {
-                            width: Val::Px(40.0),
-                            height: Val::Px(30.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
-                    OptimizationCapsToggle,
-                    crate::actor_editor::widgets::Tooltip("Fill Cut Surfaces (Caps)".to_string()),
-                )).with_children(|b| {
-                    b.spawn(TextBundle::from_section(
-                        "\u{f1b2}", // cube/solid icon
-                        TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
-                    ));
-                });
             });
 
-            // Rim Thickness Slider
             content.spawn(NodeBundle {
                 style: Style {
                     width: Val::Percent(100.0),
@@ -199,7 +176,7 @@ pub fn spawn_optimization_section_v2(
                 ..default()
             }).with_children(|row| {
                 row.spawn(TextBundle::from_section(
-                    "Rim Thick:",
+                    "Fill/Rim:",
                     TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.8, 0.8, 0.8) },
                 ));
                 
@@ -213,11 +190,11 @@ pub fn spawn_optimization_section_v2(
                     crate::actor_editor::widgets::spawn_slider_ext(
                         slider_p,
                         0.0,
-                        0.1,
+                        1.0,
                         0.0,
                         (
                             OptimizationRimSlider,
-                            crate::actor_editor::widgets::Tooltip("Thickness of the cut surface rim (0.0 = Solid)".to_string()),
+                            crate::actor_editor::widgets::Tooltip("Left: Solid, Right: Hollow, Center: Rim Thickness".to_string()),
                         ),
                     );
                 });
@@ -347,10 +324,22 @@ pub fn mesh_optimization_system(
         }
     }
 
-    // 7. Handle Rim Thickness Slider
+    // 7. Handle Unified Fill/Rim Slider
     for slider in rim_slider_query.iter() {
-        if (slicing_settings.rim_thickness - slider.value).abs() > 0.0001 {
-            slicing_settings.rim_thickness = slider.value;
+        let (new_rim, new_caps) = if slider.value < 0.01 {
+            (0.0, true) // Solid
+        } else if slider.value > 0.99 {
+            (0.0, false) // Hollow
+        } else {
+            // Map 0.01..0.99 to thick..thin rim
+            // We'll use 15cm as max rim thickness
+            let t = (1.0 - slider.value) * 0.15;
+            (t.max(0.001), true)
+        };
+
+        if (slicing_settings.rim_thickness - new_rim).abs() > 0.0001 || slicing_settings.show_caps != new_caps {
+            slicing_settings.rim_thickness = new_rim;
+            slicing_settings.show_caps = new_caps;
             slicing_settings.trigger_slice = true;
         }
     }

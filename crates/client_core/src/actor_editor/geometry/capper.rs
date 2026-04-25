@@ -271,6 +271,11 @@ fn triangulate_rim(vertices: &[Vec3], facing_up: bool, thickness: f32) -> Vec<[s
     let normal = if facing_up { Vec3::Y } else { Vec3::NEG_Y };
     let mut tris = Vec::with_capacity(count * 2);
 
+    // Determine loop orientation (CCW vs CW)
+    let indices: Vec<usize> = (0..count).collect();
+    let area = calculate_area_2d(vertices, &indices);
+    let is_ccw = area > 0.0;
+
     // 1. Calculate inner loop
     let mut inner_vertices = Vec::with_capacity(count);
     for i in 0..count {
@@ -281,12 +286,14 @@ fn triangulate_rim(vertices: &[Vec3], facing_up: bool, thickness: f32) -> Vec<[s
         let v1 = (curr - prev).normalize();
         let v2 = (next - curr).normalize();
 
-        // Inward normal for CCW loop in XZ (looking from Y+)
-        let n1 = Vec3::new(v1.z, 0.0, -v1.x);
-        let n2 = Vec3::new(v2.z, 0.0, -v2.x);
-        let bisector = (n1 + n2).normalize();
+        // Inward normal for CCW loop in XZ (looking from Y+) is (z, 0, -x)
+        // If loop is CW, the same formula points outward, so we negate it
+        let mut inward_dir = Vec3::new(v1.z + v2.z, 0.0, -v1.x - v2.x).normalize();
+        if !is_ccw {
+            inward_dir = -inward_dir;
+        }
 
-        inner_vertices.push(curr + bisector * thickness);
+        inner_vertices.push(curr + inward_dir * thickness);
     }
 
     // 2. Build triangle strip

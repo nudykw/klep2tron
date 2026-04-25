@@ -13,7 +13,7 @@ pub fn mesh_slicing_system(
     mut slicing_settings: ResMut<SlicingSettings>,
     actor_root_query: Query<(&ActorBounds, &GlobalTransform), With<crate::actor_editor::Actor3DRoot>>,
     mesh_query: Query<(Entity, &OriginalMeshComponent, Option<&OptimizedMeshComponent>, &GlobalTransform, Option<&Handle<StandardMaterial>>, Option<&mut SlicingContours>)>,
-    child_query: Query<Entity, With<ActorPart>>,
+    child_query: Query<(Entity, &ActorPart, &Visibility)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut slicing_task: ResMut<SlicingTask>,
@@ -29,26 +29,39 @@ pub fn mesh_slicing_system(
     // 1. Check if a task is already running
     if let Some(ref mut task) = slicing_task.0 {
         if let Some(result) = bevy::tasks::block_on(bevy::tasks::poll_once(task)) {
-            // Apply result
+            // 1. Collect current visibility states to preserve them
+            let mut part_visibility = std::collections::HashMap::new();
+            for (_entity, part, visibility) in child_query.iter() {
+                part_visibility.insert(*part, *visibility);
+            }
+
+            // 2. Despawn old parts (Atomic swap start)
+            for (entity, _, _) in child_query.iter() {
+                commands.entity(entity).despawn_recursive();
+            }
+
+            // 3. Apply result
             for (parent_entity, parts) in result.mesh_parts {
                 let mut spawn_part = |cmds: &mut ChildBuilder, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart, color: Color| {
                     if let Some(m) = mesh_opt {
+                        let visibility = part_visibility.get(&part_type).cloned().unwrap_or(Visibility::Visible);
+                        
                         cmds.spawn((
                             PbrBundle {
                                 mesh: meshes.add(m),
                                 material: materials.add(StandardMaterial {
                                     base_color: color,
                                     perceptual_roughness: 0.5,
-                                    alpha_mode: AlphaMode::Opaque, // Will be switched to Blend by xray_material_system if needed
+                                    alpha_mode: AlphaMode::Opaque,
                                     ..default()
                                 }),
-                                visibility: Visibility::Visible,
+                                visibility,
                                 ..default()
                             },
                             EditorHelper,
                             part_type,
                             bevy_mod_picking::prelude::Pickable {
-                                should_block_lower: false, // Let rays pass through to the gizmo
+                                should_block_lower: false,
                                 is_hoverable: true,
                             },
                             Name::new(name.to_string()),
@@ -132,9 +145,6 @@ pub fn mesh_slicing_system(
     // Update last values to prevent re-triggering (Moved after initial slice check)
 
     
-    // Despawn old parts immediately to show we are working
-    for child in child_query.iter() { commands.entity(child).despawn_recursive(); }
-
     // Use LOCAL coordinates for slicing to avoid rotation issues
     // Apply defaults for the first run BEFORE calculating planes
     if needs_initial_slice && slicing_settings.last_top == -1.0 {
