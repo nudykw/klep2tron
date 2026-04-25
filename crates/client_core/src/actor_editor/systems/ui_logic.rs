@@ -222,7 +222,9 @@ pub fn material_sync_system(
 pub fn project_action_system(
     interaction_query: Query<(&Interaction, &super::super::ui_project::ProjectAction), Changed<Interaction>>,
     mut import_events: EventWriter<ActorImportEvent>,
+    mut load_events: EventWriter<super::super::ActorLoadEvent>,
     mut save_events: EventWriter<ActorSaveEvent>,
+    mut toast_events: EventWriter<ToastEvent>,
     current_project: Res<CurrentProject>,
     asset_server: Res<AssetServer>,
     camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
@@ -248,7 +250,20 @@ pub fn project_action_system(
                     }
                 }
                 super::super::ui_project::ProjectAction::Open => {
-                    // TODO: Implement Open
+                    if let Some(path) = FileDialog::new()
+                        .set_title("Open Actor Project Folder")
+                        .pick_folder() {
+                        
+                        let ron_path = path.join("actor.ron");
+                        if ron_path.exists() {
+                            load_events.send(super::super::ActorLoadEvent(ron_path));
+                        } else {
+                            toast_events.send(ToastEvent {
+                                message: "Selected folder is not a valid project (actor.ron not found)".to_string(),
+                                toast_type: ToastType::Error,
+                            });
+                        }
+                    }
                 }
             }
         }

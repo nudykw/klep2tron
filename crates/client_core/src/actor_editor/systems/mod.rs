@@ -5,6 +5,7 @@ pub mod sync;
 pub mod ui_logic;
 pub mod inspection;
 pub mod picking;
+pub mod load;
 pub mod gizmos;
 pub mod socket_metadata;
 pub mod vfx_preview;

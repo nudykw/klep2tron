@@ -290,3 +290,67 @@ pub fn socket_deletion_system(
         selected.0.clear();
     }
 }
+
+pub fn socket_restoration_system(
+    mut commands: Commands,
+    mut pending: ResMut<super::super::PendingSockets>,
+    status: Res<super::super::EditorStatus>,
+    actor_root_query: Query<Entity, With<crate::actor_editor::Actor3DRoot>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if *status != super::super::EditorStatus::Ready || pending.0.is_empty() { return; }
+    
+    let Ok(actor_root) = actor_root_query.get_single() else { return; };
+    
+    info!("Restoring {} sockets...", pending.0.len());
+    
+    for def in pending.0.drain(..) {
+        let socket_entity = commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(bevy::math::primitives::Torus::new(0.01, 0.04))),
+                material: materials.add(StandardMaterial {
+                    base_color: def.color,
+                    metallic: 0.8,
+                    perceptual_roughness: 0.2,
+                    depth_bias: 500.0,
+                    alpha_mode: AlphaMode::Blend,
+                    ..default()
+                }),
+                transform: Transform::from_translation(def.position).with_rotation(def.rotation),
+                ..default()
+            },
+            super::super::ActorSocket { definition: def.clone() },
+            bevy_mod_picking::PickableBundle::default(),
+            Name::new("ActorSocket"),
+            crate::actor_editor::ActorEditorEntity,
+        )).with_children(|parent| {
+            // Forward indicator
+            parent.spawn(PbrBundle {
+                mesh: meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.15))),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::srgb(1.0, 1.0, 0.0),
+                    unlit: true,
+                    depth_bias: 500.0,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(0.0, 0.075, 0.0),
+                ..default()
+            });
+            parent.spawn(PbrBundle {
+                mesh: meshes.add(Mesh::from(bevy::math::primitives::Cone { radius: 0.015, height: 0.05 })),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::srgb(1.0, 1.0, 0.0),
+                    unlit: true,
+                    depth_bias: 500.0,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(0.0, 0.15, 0.0),
+                ..default()
+            });
+        }).id();
+        
+        commands.entity(actor_root).add_child(socket_entity);
+    }
+}
+

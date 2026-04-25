@@ -52,9 +52,11 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<vfx_assets::VfxPresets>()
            .init_resource::<vfx_assets::VfxRegistry>()
            .init_resource::<systems::undo_redo::ActionStack>()
+           .init_resource::<PendingSockets>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
+           .add_event::<ActorLoadEvent>()
            .add_event::<ToastEvent>()
            .add_event::<ConfirmationRequestEvent>()
            .add_event::<InspectionFocusEvent>()
@@ -127,6 +129,7 @@ impl Plugin for ActorEditorPlugin {
                     systems::socket_picking_system,
                     systems::socket_spawn_system,
                     systems::socket_deletion_system,
+                    systems::picking::socket_restoration_system,
                     systems::draw_socket_previews_system,
                     systems::socket_ui_interaction_system,
                     systems::socket_3d_selection_system,
@@ -167,6 +170,7 @@ impl Plugin for ActorEditorPlugin {
             .add_systems(Update, (
                     systems::undo_redo::handle_undo_redo,
                     systems::actor_save_system,
+                    systems::load::actor_load_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
@@ -187,6 +191,9 @@ pub struct ActorSaveEvent {
 }
 #[derive(Event)]
 pub struct ActorImportEvent(pub std::path::PathBuf);
+
+#[derive(Event)]
+pub struct ActorLoadEvent(pub std::path::PathBuf);
 
 #[derive(Event)]
 pub struct ResetCameraEvent;
@@ -478,6 +485,9 @@ pub struct NormalizationState {
     pub found_meshes: Vec<(Entity, Handle<Mesh>)>,
     pub total_original_polys: usize,
 }
+
+#[derive(Resource, Default)]
+pub struct PendingSockets(pub Vec<SocketDefinition>);
 
 #[derive(Resource, Default)]
 pub struct ImportProgress(pub f32);

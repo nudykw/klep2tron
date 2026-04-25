@@ -141,9 +141,11 @@ pub fn mesh_slicing_system(
 
     // Use LOCAL coordinates for slicing to avoid rotation issues
     // Apply defaults for the first run BEFORE calculating planes
-    if needs_initial_slice {
+    if needs_initial_slice && slicing_settings.last_top == -1.0 {
         slicing_settings.top_cut = 0.75;
         slicing_settings.bottom_cut = 0.25;
+        slicing_settings.last_top = 0.75;
+        slicing_settings.last_bottom = 0.25;
         info!("Applied auto-slicing defaults (0.75 / 0.25)");
     }
 
