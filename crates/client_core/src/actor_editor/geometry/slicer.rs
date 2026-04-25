@@ -9,6 +9,7 @@ pub struct VertexData {
     pub pos: Vec3,
     pub normal: Vec3,
     pub uv: Vec2,
+    pub color: LinearRgba,
 }
 
 impl VertexData {
@@ -17,13 +18,14 @@ impl VertexData {
             pos: a.pos.lerp(b.pos, t),
             normal: a.normal.lerp(b.normal, t).normalize(),
             uv: a.uv.lerp(b.uv, t),
+            color: LinearRgba::from_vec4(a.color.to_vec4().lerp(b.color.to_vec4(), t)),
         }
     }
 }
 
 impl PartialEq for VertexData {
     fn eq(&self, other: &Self) -> bool {
-        self.pos == other.pos && self.normal == other.normal && self.uv == other.uv
+        self.pos == other.pos && self.normal == other.normal && self.uv == other.uv && self.color == other.color
     }
 }
 
@@ -39,6 +41,10 @@ impl std::hash::Hash for VertexData {
         self.normal.z.to_bits().hash(state);
         self.uv.x.to_bits().hash(state);
         self.uv.y.to_bits().hash(state);
+        self.color.red.to_bits().hash(state);
+        self.color.green.to_bits().hash(state);
+        self.color.blue.to_bits().hash(state);
+        self.color.alpha.to_bits().hash(state);
     }
 }
 
@@ -68,6 +74,13 @@ pub fn split_mesh_by_planes(
         uvs_storage = vec![[0.0, 0.0]; positions.len()];
         &uvs_storage
     };
+    let colors_storage;
+    let colors = if let Some(VertexAttributeValues::Float32x4(c)) = mesh.attribute(Mesh::ATTRIBUTE_COLOR) {
+        c
+    } else {
+        colors_storage = vec![[1.0, 1.0, 1.0, 1.0]; positions.len()];
+        &colors_storage
+    };
     let indices = match mesh.indices() {
         Some(Indices::U16(i)) => i.iter().map(|&x| x as usize).collect::<Vec<usize>>(),
         Some(Indices::U32(i)) => i.iter().map(|&x| x as usize).collect::<Vec<usize>>(),
@@ -85,9 +98,24 @@ pub fn split_mesh_by_planes(
         if tri_indices.len() < 3 { continue; }
         
         let tri_verts = [
-            VertexData { pos: positions[tri_indices[0]].into(), normal: normals[tri_indices[0]].into(), uv: uvs[tri_indices[0]].into() },
-            VertexData { pos: positions[tri_indices[1]].into(), normal: normals[tri_indices[1]].into(), uv: uvs[tri_indices[1]].into() },
-            VertexData { pos: positions[tri_indices[2]].into(), normal: normals[tri_indices[2]].into(), uv: uvs[tri_indices[2]].into() },
+            VertexData { 
+                pos: positions[tri_indices[0]].into(), 
+                normal: normals[tri_indices[0]].into(), 
+                uv: uvs[tri_indices[0]].into(),
+                color: LinearRgba::from_f32_array(colors[tri_indices[0]]),
+            },
+            VertexData { 
+                pos: positions[tri_indices[1]].into(), 
+                normal: normals[tri_indices[1]].into(), 
+                uv: uvs[tri_indices[1]].into(),
+                color: LinearRgba::from_f32_array(colors[tri_indices[1]]),
+            },
+            VertexData { 
+                pos: positions[tri_indices[2]].into(), 
+                normal: normals[tri_indices[2]].into(), 
+                uv: uvs[tri_indices[2]].into(),
+                color: LinearRgba::from_f32_array(colors[tri_indices[2]]),
+            },
         ];
 
         let min_y = tri_verts[0].pos.y.min(tri_verts[1].pos.y).min(tri_verts[2].pos.y);
@@ -195,6 +223,7 @@ fn build_mesh_from_tris(tris: &[[VertexData; 3]]) -> Mesh {
     let mut pos = Vec::with_capacity(tris.len() * 3);
     let mut norm = Vec::with_capacity(tris.len() * 3);
     let mut uv = Vec::with_capacity(tris.len() * 3);
+    let mut col = Vec::with_capacity(tris.len() * 3);
     let mut idx = Vec::with_capacity(tris.len() * 3);
 
     for (i, tri) in tris.iter().enumerate() {
@@ -202,6 +231,7 @@ fn build_mesh_from_tris(tris: &[[VertexData; 3]]) -> Mesh {
             pos.push(v.pos.to_array());
             norm.push(v.normal.to_array());
             uv.push(v.uv.to_array());
+            col.push(v.color.to_f32_array());
         }
         let start = (i * 3) as u32;
         idx.push(start);
@@ -226,6 +256,10 @@ fn build_mesh_from_tris(tris: &[[VertexData; 3]]) -> Mesh {
     mesh.insert_attribute(
         Mesh::ATTRIBUTE_UV_0,
         VertexAttributeValues::Float32x2(uv),
+    );
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_COLOR,
+        VertexAttributeValues::Float32x4(col),
     );
     mesh.insert_indices(Indices::U32(idx));
     mesh

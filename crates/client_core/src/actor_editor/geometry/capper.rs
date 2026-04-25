@@ -68,7 +68,7 @@ pub fn build_caps_from_segments(segments: &[[Vec3; 2]], facing_up: bool) -> Vec<
 
 
         if current_loop.len() >= 3 {
-            loops.push(current_loop);
+            loops.push(simplify_loop(current_loop));
         }
     }
 
@@ -115,9 +115,9 @@ pub fn triangulate_polygon(vertices: &[Vec3], facing_up: bool) -> Vec<[super::sl
                 let v1 = vertices[curr];
                 let v2 = vertices[next];
 
-                let vd0 = super::slicer::VertexData { pos: v0, normal, uv: Vec2::new(v0.x, v0.z) };
-                let vd1 = super::slicer::VertexData { pos: v1, normal, uv: Vec2::new(v1.x, v1.z) };
-                let vd2 = super::slicer::VertexData { pos: v2, normal, uv: Vec2::new(v2.x, v2.z) };
+                let vd0 = super::slicer::VertexData { pos: v0, normal, uv: Vec2::new(v0.x, v0.z), color: LinearRgba::WHITE };
+                let vd1 = super::slicer::VertexData { pos: v1, normal, uv: Vec2::new(v1.x, v1.z), color: LinearRgba::WHITE };
+                let vd2 = super::slicer::VertexData { pos: v2, normal, uv: Vec2::new(v2.x, v2.z), color: LinearRgba::WHITE };
 
                 // If facing down, we need to flip the triangle winding to CW (from top)
                 if facing_up {
@@ -201,4 +201,32 @@ fn calculate_area_2d(vertices: &[Vec3], indices: &[usize]) -> f32 {
         area += (v1.z * v2.x) - (v2.z * v1.x);
     }
     area / 2.0
+}
+
+fn simplify_loop(vertices: Vec<Vec3>) -> Vec<Vec3> {
+    if vertices.len() <= 3 { return vertices; }
+    
+    let mut result = Vec::with_capacity(vertices.len());
+    let len = vertices.len();
+    
+    for i in 0..len {
+        let prev = vertices[(i + len - 1) % len];
+        let curr = vertices[i];
+        let next = vertices[(i + 1) % len];
+        
+        let v1 = (curr - prev).normalize();
+        let v2 = (next - curr).normalize();
+        
+        // If vectors are not collinear (dot product < 0.9999)
+        if v1.dot(v2).abs() < 0.9999 {
+            result.push(curr);
+        }
+    }
+    
+    if result.len() < 3 {
+        // Fallback to original if simplified too much (shouldn't happen with 0.9999)
+        return vertices;
+    }
+    
+    result
 }

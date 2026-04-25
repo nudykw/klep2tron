@@ -156,11 +156,7 @@ pub fn inspection_debug_draw_system(
         }
 
         if let Some(mesh) = meshes.get(mesh_handle) {
-            if settings.wireframe {
-                if let Some(aabb) = mesh.compute_aabb() {
-                    gizmos.cuboid(*transform * Transform::from_translation(Vec3::from(aabb.center)).with_scale(Vec3::from(aabb.half_extents) * 2.0), Color::srgba(1.0, 1.0, 1.0, 0.2));
-                }
-            }
+            // Real wireframe is now handled by wireframe_sync_system using bevy_mod_wireframe
 
             if settings.show_normals {
                 if let Some(positions) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
@@ -308,4 +304,29 @@ pub fn inspection_ui_sync_system(
     }
 
     *last_is_active = settings.is_active;
+}
+
+pub fn wireframe_sync_system(
+    settings: Res<InspectionSettings>,
+    opt_settings: Res<super::optimization::OptimizationSettings>,
+    mut commands: Commands,
+    query: Query<(Entity, &ActorPart), With<Handle<Mesh>>>,
+) {
+    let show = (settings.is_active && settings.wireframe) || opt_settings.wireframe;
+    
+    for (entity, part) in query.iter() {
+        let is_isolated = if settings.is_active {
+            settings.isolated_part.map_or(true, |p| p == *part)
+        } else {
+            true
+        };
+        
+        let should_have = show && is_isolated;
+        
+        if should_have {
+            commands.entity(entity).insert(bevy::pbr::wireframe::Wireframe);
+        } else {
+            commands.entity(entity).remove::<bevy::pbr::wireframe::Wireframe>();
+        }
+    }
 }

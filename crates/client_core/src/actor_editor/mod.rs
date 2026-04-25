@@ -32,6 +32,7 @@ impl Plugin for ActorEditorPlugin {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
            .add_plugins(bevy_mod_picking::DefaultPickingPlugins)
            .add_plugins(bevy_hanabi::HanabiPlugin)
+           .add_plugins(bevy::pbr::wireframe::WireframePlugin)
            .init_resource::<EditorMode>()
            .init_resource::<ui::inspector::SelectedSocket>()
            .init_resource::<ui::inspector::MultiSelectionState>()
@@ -52,6 +53,8 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<vfx_assets::VfxPresets>()
            .init_resource::<vfx_assets::VfxRegistry>()
            .init_resource::<systems::undo_redo::ActionStack>()
+           .init_resource::<systems::optimization::OptimizationSettings>()
+           .init_resource::<systems::optimization::OptimizationTask>()
            .init_resource::<PendingSockets>()
             .init_resource::<LastUsedDirectory>()
            .add_event::<ResetCameraEvent>()
@@ -126,6 +129,7 @@ impl Plugin for ActorEditorPlugin {
                     systems::inspection_debug_draw_system,
                     systems::inspection_ui_logic_system,
                     systems::inspection_ui_sync_system,
+                    systems::wireframe_sync_system,
             ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     systems::socket_picking_system,
@@ -156,6 +160,8 @@ impl Plugin for ActorEditorPlugin {
                     ui::inspector::socket_filter_ui_system,
                     ui::inspector::vfx::socket_vfx_ui_sync_system,
                     ui::inspector::vfx::socket_vfx_interaction_system,
+                    ui::inspector::optimization::mesh_optimization_system,
+                    ui::inspector::optimization::mesh_optimization_visuals_system,
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     systems::socket_color_picker_system,

@@ -12,6 +12,7 @@ pub mod vfx_preview;
 pub mod vfx_spawner;
 pub mod undo_redo;
 pub mod save;
+pub mod optimization;
 
 pub use input::*;
 pub use normalization::*;
@@ -26,3 +27,4 @@ pub use vfx_preview::*;
 pub use vfx_spawner::*;
 pub use undo_redo::*;
 pub use save::*;
+pub use optimization::*;

@@ -15,6 +15,8 @@
 - [x] [09. Горячие клавиши (Hotkeys)](./09.ActorEditor.Hotkeys.md)
 - [x] [10. Режим инспекции (Inspection Mode)](./10.ActorEditor.Inspection.md)
 - [ ] [11. Материалы деталей](./11.ActorEditor.Materials.md) (Планируется)
+- [x] [12. Оптимизация моделей (Integrated GPU focus)](./12.Model_Optimization.md)
+
 
 ---
 > [!NOTE]

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::VertexAttributeValues;
 use rfd::FileDialog;
-use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, ActorSaveEvent, ActorLoadEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings, CurrentProject, LastUsedDirectory};
+use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, ActorSaveEvent, ActorLoadEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings, CurrentProject, LastUsedDirectory, ActorPart};
 use super::super::ui_project::{ModeTab, ProjectModeContent};
 use super::super::ui::inspector::types::{SocketsSectionMarker, PartsSectionMarker, SelectedSocket};
 use super::super::widgets::CollapsibleSection;
@@ -25,7 +25,9 @@ pub fn status_update_system(
 
 pub fn polycount_update_system(
     meshes: Res<Assets<Mesh>>,
-    mesh_query: Query<&Handle<Mesh>>,
+    mesh_query: Query<(&Handle<Mesh>, &ActorPart)>,
+    visibility_query: Query<&Visibility>,
+    inherited_visibility_query: Query<&InheritedVisibility>,
     root_query: Query<(Entity, Option<&ActorBounds>), (With<Actor3DRoot>, Without<EditorHelper>)>,
     children_query: Query<&Children>,
     mut text_query: Query<&mut Text, With<super::super::widgets::PolycountText>>,
@@ -36,28 +38,53 @@ pub fn polycount_update_system(
     for (root_entity, bounds_opt) in root_query.iter() {
         if let Some(bounds) = bounds_opt { original_polys = bounds.original_polys; }
 
-        let mut stack = vec![root_entity];
-        while let Some(entity) = stack.pop() {
-            if let Ok(handle) = mesh_query.get(entity) {
-                if let Some(mesh) = meshes.get(handle) {
-                    if let Some(indices) = mesh.indices() {
-                        total_polys += indices.len() / 3;
-                    } else if let Some(VertexAttributeValues::Float32x3(pos)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
-                        total_polys += pos.len() / 3;
+        let mut stack = vec![(root_entity, true)];
+        while let Some((entity, visible)) = stack.pop() {
+            let mut is_visible = visible;
+            if let Ok(inherited) = inherited_visibility_query.get(entity) {
+                is_visible = inherited.get();
+            }
+            if let Ok(vis) = visibility_query.get(entity) {
+                if *vis == Visibility::Hidden { is_visible = false; }
+            }
+
+            if is_visible {
+                // ONLY count if it's a model part (ActorPart)
+                if let Ok((handle, _part)) = mesh_query.get(entity) {
+                    if let Some(mesh) = meshes.get(handle) {
+                        let count = if let Some(indices) = mesh.indices() {
+                            indices.len() / 3
+                        } else if let Some(VertexAttributeValues::Float32x3(pos)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+                            pos.len() / 3
+                        } else {
+                            0
+                        };
+                        total_polys += count;
+                        // info!("Counting part {:?}: {} polys (visible: {})", part, count, is_visible);
                     }
                 }
             }
             if let Ok(children) = children_query.get(entity) {
-                for child in children.iter() { stack.push(*child); }
+                for child in children.iter() { stack.push((*child, is_visible)); }
             }
         }
     }
     
+    fn format_number(n: usize) -> String {
+        let s = n.to_string();
+        let mut result = String::new();
+        for (i, c) in s.chars().rev().enumerate() {
+            if i > 0 && i % 3 == 0 { result.push(' '); }
+            result.push(c);
+        }
+        result.chars().rev().collect()
+    }
+
     if let Ok(mut text) = text_query.get_single_mut() {
         if original_polys > 0 {
-            text.sections[0].value = format!("POLYS: {} / ORIG: {}", total_polys, original_polys);
+            text.sections[0].value = format!("POLYS: {} / ORIG: {}", format_number(total_polys), format_number(original_polys));
         } else {
-            text.sections[0].value = format!("POLYS: {}", total_polys);
+            text.sections[0].value = format!("POLYS: {}", format_number(total_polys));
         }
     }
 }

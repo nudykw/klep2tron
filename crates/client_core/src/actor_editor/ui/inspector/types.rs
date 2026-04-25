@@ -89,6 +89,24 @@ pub struct SocketsSectionMarker;
 pub struct PartsSectionMarker;
 
 #[derive(Component)]
+pub struct OptimizationSectionMarker;
+
+#[derive(Component)]
+pub struct OptimizationTargetInput;
+
+#[derive(Component)]
+pub struct OptimizeMeshButton;
+
+#[derive(Component)]
+pub struct OptimizationOriginalToggle;
+
+#[derive(Component)]
+pub struct OptimizationTargetInputMarker;
+
+#[derive(Component)]
+pub struct OptimizationWireframeToggle;
+
+#[derive(Component)]
 pub struct InspectionToggle(pub InspectionToggleType);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

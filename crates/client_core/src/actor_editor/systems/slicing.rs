@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::super::{SlicingSettings, ActorBounds, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper};
+use super::super::{SlicingSettings, ActorBounds, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper, systems::optimization::OptimizedMeshComponent};
 
 #[derive(Resource, Default)]
 pub struct SlicingTask(pub Option<bevy::tasks::Task<SlicingResult>>);
@@ -12,7 +12,7 @@ pub fn mesh_slicing_system(
     mut commands: Commands,
     mut slicing_settings: ResMut<SlicingSettings>,
     actor_root_query: Query<(&ActorBounds, &GlobalTransform), With<crate::actor_editor::Actor3DRoot>>,
-    mesh_query: Query<(Entity, &OriginalMeshComponent, &GlobalTransform, Option<&Handle<StandardMaterial>>, Option<&mut SlicingContours>)>,
+    mesh_query: Query<(Entity, &OriginalMeshComponent, Option<&OptimizedMeshComponent>, &GlobalTransform, Option<&Handle<StandardMaterial>>, Option<&mut SlicingContours>)>,
     child_query: Query<Entity, With<ActorPart>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -22,6 +22,7 @@ pub fn mesh_slicing_system(
     mut progress: ResMut<ImportProgress>,
     mut status: ResMut<EditorStatus>,
     mut action_stack: ResMut<crate::actor_editor::systems::undo_redo::ActionStack>,
+    opt_settings: Res<super::optimization::OptimizationSettings>,
 ) {
 
 
@@ -117,10 +118,7 @@ pub fn mesh_slicing_system(
     // Trigger ONLY if values actually changed, or initial load, or explicit trigger
     let trigger = should_slice;
 
-    if !trigger || (!values_changed && !needs_initial_slice) { 
-        if values_changed && !trigger {
-            // This is the "preview" state - values changed but not triggered yet
-        }
+    if !trigger && !values_changed && !needs_initial_slice { 
         return; 
     }
 
@@ -159,10 +157,23 @@ pub fn mesh_slicing_system(
 
     // Capture data for thread
     let mut mesh_data = Vec::new();
-    for (entity, original, transform, _, contours_opt) in mesh_query.iter() {
-        if let Some(mesh) = meshes.get(&original.0) {
-            // Collect data if we have the component OR if it's the very first slice
-            if contours_opt.is_some() || needs_initial_slice {
+    for (entity, original, optimized_opt, transform, _, _contours_opt) in mesh_query.iter() {
+        let mesh_handle = if opt_settings.is_optimized {
+            if let Some(opt) = optimized_opt { 
+                info!("Slicing: Using OPTIMIZED mesh");
+                &opt.0 
+            } else {
+                info!("Slicing: Waiting for OPTIMIZED mesh to appear in ECS...");
+                return; 
+            }
+        } else {
+            info!("Slicing: Using ORIGINAL mesh");
+            &original.0
+        };
+        
+        if let Some(mesh) = meshes.get(mesh_handle) {
+            // Collect data if we have an explicit trigger, initial slice, or if values changed
+            if trigger || needs_initial_slice || values_changed {
                 let local_matrix = transform.compute_matrix();
                 mesh_data.push((entity, mesh.clone(), local_matrix.inverse()));
             }
