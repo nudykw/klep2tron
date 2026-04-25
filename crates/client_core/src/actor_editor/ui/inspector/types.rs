@@ -131,3 +131,15 @@ pub struct SocketVfxGroupItem(pub String);
 
 #[derive(Component)]
 pub struct SocketVfxColorPicker;
+
+#[derive(Component)]
+pub struct SocketVfxSavePresetButton;
+
+#[derive(Component)]
+pub struct SocketVfxPresetNameInput;
+
+#[derive(Component)]
+pub struct SocketVfxDetachPresetButton;
+
+#[derive(Component)]
+pub struct SocketVfxPresetStatusLabel;

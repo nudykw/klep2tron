@@ -45,6 +45,66 @@ pub fn spawn_confirmation_modal(commands: &mut Commands, font: &Handle<Font>, _i
     });
 }
 
+pub fn spawn_save_modal(commands: &mut Commands, font: &Handle<Font>, initial_name: &str, target_camera: Option<Entity>) {
+    let mut cmd = commands.spawn((NodeBundle { style: Style { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), align_items: AlignItems::Center, justify_content: JustifyContent::Center, ..default() }, background_color: Color::srgba(0.0, 0.0, 0.0, 0.6).into(), z_index: ZIndex::Global(200), ..default() }, ModalOverlay, ActorEditorEntity, ));
+    if let Some(camera) = target_camera { cmd.insert(bevy::ui::TargetCamera(camera)); }
+    cmd.with_children(|p| {
+        p.spawn(NodeBundle { style: Style { width: Val::Px(400.0), padding: UiRect::all(Val::Px(25.0)), flex_direction: FlexDirection::Column, ..default() }, background_color: Color::srgba(0.15, 0.15, 0.15, 1.0).into(), border_radius: BorderRadius::all(Val::Px(12.0)), ..default() }).with_children(|modal| {
+            modal.spawn(TextBundle::from_section("SAVE PROJECT", TextStyle { font: font.clone(), font_size: 20.0, color: Color::WHITE }));
+            
+            modal.spawn(NodeBundle { style: Style { margin: UiRect::vertical(Val::Px(15.0)), flex_direction: FlexDirection::Column, ..default() }, ..default() }).with_children(|m| { 
+                m.spawn(TextBundle::from_section("Model Name:", TextStyle { font: font.clone(), font_size: 14.0, color: Color::srgb(0.6, 0.6, 0.6) })); 
+                
+                m.spawn((
+                    super::text_input::TextInputBundle {
+                        button: ButtonBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(28.0),
+                                padding: UiRect::horizontal(Val::Px(8.0)),
+                                align_items: AlignItems::Center,
+                                margin: UiRect::top(Val::Px(5.0)),
+                                ..default()
+                            },
+                            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
+                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                            ..default()
+                        },
+                        input: super::text_input::TextInput {
+                            value: initial_name.to_string(),
+                            placeholder: "Enter model name...".to_string(),
+                            ..default()
+                        },
+                    },
+                    super::super::SaveModalInput,
+                )).with_children(|p| {
+                    p.spawn((
+                        TextBundle::from_section(
+                            if initial_name.is_empty() { "Enter model name..." } else { initial_name },
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 13.0,
+                                color: if initial_name.is_empty() { Color::srgb(0.5, 0.5, 0.5) } else { Color::WHITE },
+                            },
+                        ),
+                        super::text_input::TextInputContent,
+                    ));
+                });
+            });
+
+            // Mark the text input for identification
+            // Note: spawn_text_input returns the entity, but we want to mark the TextInput component.
+            // Actually, we can just look for the entity with SaveModalInput.
+            // I'll manually spawn it to have more control if needed, but let's try to wrap it.
+            
+            modal.spawn(NodeBundle { style: Style { flex_direction: FlexDirection::Row, justify_content: JustifyContent::End, margin: UiRect::top(Val::Px(10.0)), ..default() }, ..default() }).with_children(|btns| {
+                btns.spawn((ButtonBundle { style: Style { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, margin: UiRect::right(Val::Px(10.0)), ..default() }, background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, CancelModalButton, )).with_children(|btn| { btn.spawn(TextBundle::from_section("CANCEL", TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE })); });
+                btns.spawn((ButtonBundle { style: Style { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() }, background_color: Color::srgba(0.3, 0.6, 1.0, 0.8).into(), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, ConfirmModalButton(EditorAction::SaveProject(initial_name.to_string())), )).with_children(|btn| { btn.spawn(TextBundle::from_section("SAVE", TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE })); });
+            });
+        });
+    });
+}
+
 #[derive(Component)]
 pub struct ProgressBarFill;
 

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::VertexAttributeValues;
 use rfd::FileDialog;
-use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings};
+use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, ActorSaveEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings, CurrentProject};
 use super::super::ui_project::{ModeTab, ProjectModeContent};
 use super::super::ui::inspector::types::{SocketsSectionMarker, PartsSectionMarker, SelectedSocket};
 use super::super::widgets::CollapsibleSection;
@@ -103,13 +103,15 @@ pub fn modal_manager_system(
     overlay_query: Query<Entity, With<super::super::widgets::ModalOverlay>>,
     camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
     mut next_state: ResMut<NextState<GameState>>,
+    input_query: Query<&super::super::widgets::text_input::TextInput, With<super::super::SaveModalInput>>,
+    mut save_events: EventWriter<ActorSaveEvent>,
 ) {
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
     let target_camera = camera_query.get_single().ok();
 
     for event in modal_events.read() {
-        super::super::widgets::spawn_confirmation_modal(&mut commands, &font, &icon_font, &event.title, &event.message, event.action, target_camera);
+        super::super::widgets::spawn_confirmation_modal(&mut commands, &font, &icon_font, &event.title, &event.message, event.action.clone(), target_camera);
     }
 
     for interaction in cancel_query.iter() {
@@ -120,7 +122,20 @@ pub fn modal_manager_system(
 
     for (interaction, confirm) in confirm_query.iter() {
         if *interaction == Interaction::Pressed {
-            match confirm.0 { EditorAction::BackToMenu => { next_state.set(GameState::Menu); } }
+            match &confirm.0 { 
+                EditorAction::BackToMenu => { next_state.set(GameState::Menu); } 
+                EditorAction::SaveProject(_) => {
+                    if let Ok(input) = input_query.get_single() {
+                        let name = input.value.trim();
+                        if !name.is_empty() {
+                            save_events.send(ActorSaveEvent { name: Some(name.to_string()), force: false });
+                        }
+                    }
+                }
+                EditorAction::OverwriteProject(name) => {
+                    save_events.send(ActorSaveEvent { name: Some(name.clone()), force: true });
+                }
+            }
             for entity in overlay_query.iter() { commands.entity(entity).despawn_recursive(); }
         }
     }
@@ -204,16 +219,37 @@ pub fn material_sync_system(
     }
 }
 
-pub fn actor_import_button_system(
-    interaction_query: Query<&Interaction, (Changed<Interaction>, With<super::super::ui_project::ProjectAction>)>,
+pub fn project_action_system(
+    interaction_query: Query<(&Interaction, &super::super::ui_project::ProjectAction), Changed<Interaction>>,
     mut import_events: EventWriter<ActorImportEvent>,
+    mut save_events: EventWriter<ActorSaveEvent>,
+    current_project: Res<CurrentProject>,
+    asset_server: Res<AssetServer>,
+    camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
+    mut commands: Commands,
 ) {
-    for interaction in interaction_query.iter() {
+    for (interaction, action) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
-            if let Some(path) = FileDialog::new()
-                .add_filter("Models", &["gltf", "glb", "obj"])
-                .pick_file() {
-                import_events.send(ActorImportEvent(path));
+            match action {
+                super::super::ui_project::ProjectAction::Import => {
+                    if let Some(path) = FileDialog::new()
+                        .add_filter("Models", &["gltf", "glb", "obj"])
+                        .pick_file() {
+                        import_events.send(ActorImportEvent(path));
+                    }
+                }
+                super::super::ui_project::ProjectAction::Save => {
+                    if !current_project.is_saved {
+                        let font = asset_server.load("fonts/Roboto-Regular.ttf");
+                        let target_camera = camera_query.get_single().ok();
+                        super::super::widgets::spawn_save_modal(&mut commands, &font, &current_project.name, target_camera);
+                    } else {
+                        save_events.send(ActorSaveEvent { name: None, force: false });
+                    }
+                }
+                super::super::ui_project::ProjectAction::Open => {
+                    // TODO: Implement Open
+                }
             }
         }
     }
@@ -224,6 +260,7 @@ pub fn actor_import_event_system(
     asset_server: Res<AssetServer>,
     mut status: ResMut<EditorStatus>,
     mut pending: ResMut<PendingImport>,
+    mut current_project: ResMut<CurrentProject>,
     mut toast_events: EventWriter<ToastEvent>,
 ) {
     for event in events.read() {
@@ -240,6 +277,12 @@ pub fn actor_import_event_system(
             });
             continue;
         };
+
+        // Update project info
+        let file_name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Unnamed");
+        current_project.name = file_name.to_string();
+        current_project.source_path = relative_path.clone();
+        current_project.is_saved = false;
 
         *status = EditorStatus::Loading;
         

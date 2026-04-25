@@ -319,9 +319,114 @@ pub fn spawn_sockets_section(
                             crate::actor_editor::widgets::spawn_slider_ext(sub, 0.0, 5.0, 0.5, (SocketVfxSlider::VisualsSizeEnd, Tooltip("Particle size at the end of its life".to_string())));
                         });
                         
+                        // --- PRESETS MANAGEMENT ---
+                        vfx.spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(5.0),
+                                margin: UiRect::vertical(Val::Px(10.0)),
+                                ..default()
+                            },
+                            ..default()
+                        }).with_children(|manage| {
+                            manage.spawn((
+                                TextBundle::from_section(
+                                    "No Linked Preset",
+                                    TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.5, 0.5, 0.5) },
+                                ),
+                                SocketVfxPresetStatusLabel,
+                            ));
+
+                            manage.spawn(NodeBundle {
+                                style: Style {
+                                    width: Val::Percent(100.0),
+                                    flex_direction: FlexDirection::Row,
+                                    column_gap: Val::Px(5.0),
+                                    ..default()
+                                },
+                                ..default()
+                            }).with_children(|row| {
+                                row.spawn((
+                                    crate::actor_editor::widgets::TextInputBundle {
+                                        button: ButtonBundle {
+                                            style: Style {
+                                                flex_grow: 1.0,
+                                                height: Val::Px(24.0),
+                                                padding: UiRect::horizontal(Val::Px(6.0)),
+                                                align_items: AlignItems::Center,
+                                                ..default()
+                                            },
+                                            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
+                                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                                            ..default()
+                                        },
+                                        input: crate::actor_editor::widgets::TextInput {
+                                            placeholder: "Preset name...".to_string(),
+                                            ..default()
+                                        },
+                                    },
+                                    SocketVfxPresetNameInput,
+                                ))
+                                .with_children(|p| {
+                                    p.spawn((
+                                        TextBundle::from_section(
+                                            "Preset name...",
+                                            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.4, 0.4, 0.4) },
+                                        ),
+                                        crate::actor_editor::widgets::TextInputContent,
+                                    ));
+                                });
+
+                                row.spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            width: Val::Px(24.0),
+                                            height: Val::Px(24.0),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::srgba(0.2, 0.6, 1.0, 0.2).into(),
+                                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                                        ..default()
+                                    },
+                                    SocketVfxSavePresetButton,
+                                    Tooltip("Save current settings as preset".to_string()),
+                                )).with_children(|b| {
+                                    b.spawn(TextBundle::from_section(
+                                        "\u{f0c7}", // save icon
+                                        TextStyle { font: icon_font.clone(), font_size: 12.0, color: Color::WHITE },
+                                    ));
+                                });
+
+                                row.spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            width: Val::Px(24.0),
+                                            height: Val::Px(24.0),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::srgba(1.0, 0.3, 0.3, 0.2).into(),
+                                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                                        ..default()
+                                    },
+                                    SocketVfxDetachPresetButton,
+                                    Tooltip("Detach from preset (make unique)".to_string()),
+                                )).with_children(|b| {
+                                    b.spawn(TextBundle::from_section(
+                                        "\u{f127}", // link-broken icon
+                                        TextStyle { font: icon_font.clone(), font_size: 12.0, color: Color::WHITE },
+                                    ));
+                                });
+                            });
+                        });
+                        
                         // Preset Buttons (Simple list for now)
                         vfx.spawn(TextBundle::from_section(
-                            "Presets",
+                            "Library Presets",
                             TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6), ..default() },
                         ));
                         vfx.spawn(NodeBundle {

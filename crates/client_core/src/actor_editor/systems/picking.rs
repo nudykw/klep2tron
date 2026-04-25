@@ -60,7 +60,7 @@ pub fn socket_spawn_system(
     mut selected: ResMut<super::super::ui::inspector::SelectedSocket>,
     mut action_stack: ResMut<super::super::systems::undo_redo::ActionStack>,
     actor_root_query: Query<(Entity, &GlobalTransform), With<crate::actor_editor::Actor3DRoot>>,
-    part_query: Query<&GlobalTransform, With<ActorPart>>,
+    _part_query: Query<&GlobalTransform, With<ActorPart>>,
     socket_query: Query<&ActorSocket>,
 ) {
     if !settings.is_adding { return; }
@@ -107,6 +107,7 @@ pub fn socket_spawn_system(
                         comment: String::new(),
                         color: Color::srgb(0.2, 0.8, 0.2),
                         effect: None,
+                        effect_preset: None,
                     }
                 },
                 bevy_mod_picking::PickableBundle::default(),
@@ -153,6 +154,7 @@ pub fn socket_spawn_system(
                     comment: String::new(),
                     color: Color::srgb(0.2, 0.8, 0.2),
                     effect: None,
+                    effect_preset: None,
                 },
             }));
 

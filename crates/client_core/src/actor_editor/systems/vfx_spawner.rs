@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_hanabi::*;
-use crate::actor_editor::{ActorSocket, vfx_assets::VfxRegistry};
+use crate::actor_editor::ActorSocket;
 
 #[derive(Component)]
 pub struct SocketVfxInstance {
@@ -13,6 +13,7 @@ pub struct ActiveVfxConfig(pub Option<shared::npc::EffectConfig>);
 pub fn socket_vfx_sync_system(
     mut vfx_query: Query<(Entity, &mut Transform, &SocketVfxInstance)>,
     socket_query: Query<(&GlobalTransform, &ActorSocket)>,
+    vfx_presets: Res<crate::actor_editor::vfx_assets::VfxPresets>,
     mut commands: Commands,
 ) {
     for (entity, mut transform, instance) in vfx_query.iter_mut() {
@@ -21,7 +22,11 @@ pub fn socket_vfx_sync_system(
             transform.translation = translation;
             transform.rotation = rotation;
             
-            if let Some(effect_config) = &socket.definition.effect {
+            let config = socket.definition.effect_preset.as_ref()
+                .and_then(|name| vfx_presets.library.presets.get(name))
+                .or(socket.definition.effect.as_ref());
+
+            if let Some(effect_config) = config {
                 transform.scale = Vec3::splat(effect_config.visuals.scale);
             }
         } else {
@@ -33,13 +38,15 @@ pub fn socket_vfx_sync_system(
 pub fn socket_vfx_spawner_system(
     mut commands: Commands,
     mut effects: ResMut<Assets<EffectAsset>>,
-    _vfx_registry: Res<VfxRegistry>,
+    vfx_presets: Res<crate::actor_editor::vfx_assets::VfxPresets>,
     socket_query: Query<(Entity, &GlobalTransform, &ActorSocket), Changed<ActorSocket>>,
     instance_query: Query<(Entity, &SocketVfxInstance)>,
     active_config_query: Query<&ActiveVfxConfig>,
 ) {
     for (socket_entity, _transform, socket) in socket_query.iter() {
-        let new_config = &socket.definition.effect;
+        let new_config = socket.definition.effect_preset.as_ref()
+            .and_then(|name| vfx_presets.library.presets.get(name))
+            .or(socket.definition.effect.as_ref());
         
         let mut needs_recreate = true;
         if let Ok(active) = active_config_query.get(socket_entity) {
@@ -64,7 +71,7 @@ pub fn socket_vfx_spawner_system(
             continue;
         }
         
-        commands.entity(socket_entity).insert(ActiveVfxConfig(new_config.clone()));
+        commands.entity(socket_entity).insert(ActiveVfxConfig(new_config.cloned()));
 
         for (instance_entity, instance) in instance_query.iter() {
             if instance.socket_entity == socket_entity {

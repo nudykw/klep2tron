@@ -35,6 +35,23 @@ pub fn load_vfx_presets(mut vfx_presets: ResMut<VfxPresets>) {
     }
 }
 
+pub fn save_vfx_presets(vfx_presets: &VfxPresets) {
+    let path = "assets/vfx/presets.ron";
+    let config = ron::ser::PrettyConfig::default();
+    match ron::ser::to_string_pretty(&vfx_presets.library, config) {
+        Ok(content) => {
+            if let Err(e) = fs::write(path, content) {
+                warn!("Failed to save VFX presets to {}: {}", path, e);
+            } else {
+                info!("VFX Presets saved to {}", path);
+            }
+        }
+        Err(e) => {
+            warn!("Failed to serialize VFX presets: {}", e);
+        }
+    }
+}
+
 pub fn register_kenney_textures(
     asset_server: Res<AssetServer>,
     mut registry: ResMut<VfxRegistry>,

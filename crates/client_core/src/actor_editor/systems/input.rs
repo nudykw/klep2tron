@@ -14,6 +14,10 @@ pub fn actor_editor_input_system(
     mut slicing_settings: ResMut<SlicingSettings>,
     mut editor_mode: ResMut<EditorMode>,
     mut socket_settings: ResMut<super::super::SocketSettings>,
+    current_project: Res<super::super::CurrentProject>,
+    asset_server: Res<AssetServer>,
+    camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
+    mut commands: Commands,
 ) {
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight) 
                || keyboard.pressed(KeyCode::SuperLeft) || keyboard.pressed(KeyCode::SuperRight);
@@ -28,7 +32,13 @@ pub fn actor_editor_input_system(
             }
         }
         if keyboard.just_pressed(KeyCode::KeyS) {
-            save_events.send(ActorSaveEvent);
+            if !current_project.is_saved {
+                let font = asset_server.load("fonts/Roboto-Regular.ttf");
+                let target_camera = camera_query.get_single().ok();
+                super::super::widgets::spawn_save_modal(&mut commands, &font, &current_project.name, target_camera);
+            } else {
+                save_events.send(ActorSaveEvent { name: None, force: false });
+            }
         }
     }
 

@@ -43,6 +43,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<EditorMaterialColor>()
            .init_resource::<PendingImport>()
            .init_resource::<ImportProgress>()
+           .init_resource::<CurrentProject>()
            .init_resource::<systems::SlicingTask>()
            .init_resource::<InspectionSettings>()
            .init_resource::<SocketSettings>()
@@ -101,7 +102,7 @@ impl Plugin for ActorEditorPlugin {
                 systems::modal_manager_system,
                 systems::color_picker_system,
                 systems::material_sync_system,
-                systems::actor_import_button_system,
+                systems::project_action_system,
                 systems::actor_import_event_system,
                 systems::actor_import_processing_system,
                 systems::progress_bar_update_system,
@@ -165,6 +166,7 @@ impl Plugin for ActorEditorPlugin {
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     systems::undo_redo::handle_undo_redo,
+                    systems::actor_save_system,
                 ).run_if(in_state(GameState::ActorEditor)))
 
            .add_systems(PostUpdate, (
@@ -179,7 +181,10 @@ impl Plugin for ActorEditorPlugin {
 
 // Events for decoupling (SOLID)
 #[derive(Event)]
-pub struct ActorSaveEvent;
+pub struct ActorSaveEvent {
+    pub name: Option<String>,
+    pub force: bool,
+}
 #[derive(Event)]
 pub struct ActorImportEvent(pub std::path::PathBuf);
 
@@ -225,9 +230,11 @@ pub struct ToastEvent {
     pub toast_type: ToastType,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EditorAction {
     BackToMenu,
+    SaveProject(String),
+    OverwriteProject(String),
 }
 
 #[derive(Event)]
@@ -452,6 +459,12 @@ pub struct PendingImport {
     pub handle: Option<Handle<Scene>>,
     pub mesh_handle: Option<Handle<Mesh>>,
 }
+#[derive(Resource, Default)]
+pub struct CurrentProject {
+    pub name: String,
+    pub source_path: String,
+    pub is_saved: bool,
+}
 
 #[derive(Component)]
 pub struct AwaitingNormalization;
@@ -472,3 +485,6 @@ pub struct ImportProgress(pub f32);
 pub const GIZMO_LAYER: bevy::render::view::RenderLayers = bevy::render::view::RenderLayers::layer(1);
 #[derive(Resource, Default)]
 pub struct GizmoBusy(pub bool);
+
+#[derive(Component)]
+pub struct SaveModalInput;

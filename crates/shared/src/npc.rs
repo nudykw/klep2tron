@@ -100,9 +100,19 @@ pub struct SocketDefinition {
     pub comment: String,
     pub color: Color,
     pub effect: Option<EffectConfig>,
+    pub effect_preset: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect, Default)]
 pub struct ActorConfig {
     pub sockets: Vec<SocketDefinition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect, Default)]
+pub struct ActorProject {
+    pub name: String,
+    pub source_path: String,
+    pub cut_top: f32,
+    pub cut_bottom: f32,
+    pub config: ActorConfig,
 }
