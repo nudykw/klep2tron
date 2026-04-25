@@ -9,7 +9,7 @@ fn quantize(v: Vec3) -> [i32; 3] {
 }
 
 /// Собирает треугольники для "заглушек" (caps) из набора сегментов.
-pub fn build_caps_from_segments(segments: &[[Vec3; 2]], facing_up: bool) -> Vec<[super::slicer::VertexData; 3]> {
+pub fn build_caps_from_segments(segments: &[[Vec3; 2]], facing_up: bool, rim_thickness: f32) -> Vec<[super::slicer::VertexData; 3]> {
     if segments.is_empty() { return Vec::new(); }
 
     let mut loops = Vec::new();
@@ -74,7 +74,13 @@ pub fn build_caps_from_segments(segments: &[[Vec3; 2]], facing_up: bool) -> Vec<
 
 
     let all_tris: Vec<_> = loops.par_iter()
-        .map(|l| triangulate_polygon(l, facing_up))
+        .map(|l| {
+            if rim_thickness > 0.0001 {
+                triangulate_rim(l, facing_up, rim_thickness)
+            } else {
+                triangulate_polygon(l, facing_up)
+            }
+        })
         .flatten()
         .collect();
     
@@ -206,27 +212,108 @@ fn calculate_area_2d(vertices: &[Vec3], indices: &[usize]) -> f32 {
 fn simplify_loop(vertices: Vec<Vec3>) -> Vec<Vec3> {
     if vertices.len() <= 3 { return vertices; }
     
-    let mut result = Vec::with_capacity(vertices.len());
-    let len = vertices.len();
-    
-    for i in 0..len {
-        let prev = vertices[(i + len - 1) % len];
-        let curr = vertices[i];
-        let next = vertices[(i + 1) % len];
-        
-        let v1 = (curr - prev).normalize();
-        let v2 = (next - curr).normalize();
-        
-        // If vectors are not collinear (dot product < 0.9999)
-        if v1.dot(v2).abs() < 0.9999 {
-            result.push(curr);
-        }
-    }
-    
-    if result.len() < 3 {
-        // Fallback to original if simplified too much (shouldn't happen with 0.9999)
+    // Use Douglas-Peucker for smart simplification
+    // Epsilon is the max deviation in meters (0.002 = 2mm)
+    let epsilon = 0.002;
+    let simplified = douglas_peucker(&vertices, epsilon);
+
+    if simplified.len() < 3 {
         return vertices;
     }
     
-    result
+    simplified
+}
+
+fn douglas_peucker(points: &[Vec3], epsilon: f32) -> Vec<Vec3> {
+    if points.len() <= 2 {
+        return points.to_vec();
+    }
+
+    let mut d_max = 0.0;
+    let mut index = 0;
+    let end = points.len() - 1;
+
+    for i in 1..end {
+        let d = perpendicular_distance(points[i], points[0], points[end]);
+        if d > d_max {
+            index = i;
+            d_max = d;
+        }
+    }
+
+    if d_max > epsilon {
+        let mut left = douglas_peucker(&points[0..=index], epsilon);
+        let mut right = douglas_peucker(&points[index..=end], epsilon);
+        left.pop(); // Remove duplicate point
+        left.append(&mut right);
+        left
+    } else {
+        vec![points[0], points[end]]
+    }
+}
+
+fn perpendicular_distance(p: Vec3, a: Vec3, b: Vec3) -> f32 {
+    let ab = b - a;
+    let ap = p - a;
+    if ab.length_squared() < 1e-9 {
+        return ap.length();
+    }
+    let t = ap.dot(ab) / ab.length_squared();
+    let t = t.clamp(0.0, 1.0);
+    let projection = a + ab * t;
+    p.distance(projection)
+}
+
+fn triangulate_rim(vertices: &[Vec3], facing_up: bool, thickness: f32) -> Vec<[super::slicer::VertexData; 3]> {
+    let count = vertices.len();
+    if count < 3 { return Vec::new(); }
+
+    let normal = if facing_up { Vec3::Y } else { Vec3::NEG_Y };
+    let mut tris = Vec::with_capacity(count * 2);
+
+    // 1. Calculate inner loop
+    let mut inner_vertices = Vec::with_capacity(count);
+    for i in 0..count {
+        let prev = vertices[(i + count - 1) % count];
+        let curr = vertices[i];
+        let next = vertices[(i + 1) % count];
+
+        let v1 = (curr - prev).normalize();
+        let v2 = (next - curr).normalize();
+
+        // Inward normal for CCW loop in XZ (looking from Y+)
+        let n1 = Vec3::new(v1.z, 0.0, -v1.x);
+        let n2 = Vec3::new(v2.z, 0.0, -v2.x);
+        let bisector = (n1 + n2).normalize();
+
+        inner_vertices.push(curr + bisector * thickness);
+    }
+
+    // 2. Build triangle strip
+    for i in 0..count {
+        let next = (i + 1) % count;
+
+        let v0 = vertices[i];
+        let v1 = vertices[next];
+        let v0_inner = inner_vertices[i];
+        let v1_inner = inner_vertices[next];
+
+        let vd0 = super::slicer::VertexData { pos: v0, normal, uv: Vec2::new(v0.x, v0.z), color: LinearRgba::WHITE };
+        let vd1 = super::slicer::VertexData { pos: v1, normal, uv: Vec2::new(v1.x, v1.z), color: LinearRgba::WHITE };
+        let vd0_i = super::slicer::VertexData { pos: v0_inner, normal, uv: Vec2::new(v0_inner.x, v0_inner.z), color: LinearRgba::WHITE };
+        let vd1_i = super::slicer::VertexData { pos: v1_inner, normal, uv: Vec2::new(v1_inner.x, v1_inner.z), color: LinearRgba::WHITE };
+
+        if facing_up {
+            // Triangle 1: outer0, outer1, inner0
+            tris.push([vd0, vd1, vd0_i]);
+            // Triangle 2: outer1, inner1, inner0
+            tris.push([vd1, vd1_i, vd0_i]);
+        } else {
+            // Reversed winding for facing down
+            tris.push([vd0, vd0_i, vd1]);
+            tris.push([vd1, vd0_i, vd1_i]);
+        }
+    }
+
+    tris
 }

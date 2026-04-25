@@ -89,6 +89,12 @@ pub struct SocketsSectionMarker;
 pub struct PartsSectionMarker;
 
 #[derive(Component)]
+pub struct OptimizationCapsToggle;
+
+#[derive(Component)]
+pub struct OptimizationRimSlider;
+
+#[derive(Component)]
 pub struct OptimizationSectionMarker;
 
 #[derive(Component)]

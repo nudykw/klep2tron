@@ -53,6 +53,8 @@ pub fn split_mesh_by_planes(
     mesh: &Mesh,
     top_y: f32,
     bottom_y: f32,
+    show_caps: bool,
+    rim_thickness: f32,
 ) -> super::SlicedParts {
     // Collect vertices and indices
     let positions = if let Some(VertexAttributeValues::Float32x3(p)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
@@ -143,15 +145,18 @@ pub fn split_mesh_by_planes(
 
 
     let split_time = start_time.elapsed();
-    let cap_start = std::time::Instant::now();
 
-    // Capping: Add cap triangles to parts
-    head_tris.extend(super::capper::build_caps_from_segments(&top_segments, false));
-    body_tris.extend(super::capper::build_caps_from_segments(&top_segments, true));
-    body_tris.extend(super::capper::build_caps_from_segments(&bot_segments, false));
-    legs_tris.extend(super::capper::build_caps_from_segments(&bot_segments, true));
-
-    let cap_time = cap_start.elapsed();
+    let cap_time = if show_caps {
+        let cap_start = std::time::Instant::now();
+        // Capping: Add cap triangles to parts
+        head_tris.extend(super::capper::build_caps_from_segments(&top_segments, false, rim_thickness));
+        body_tris.extend(super::capper::build_caps_from_segments(&top_segments, true, rim_thickness));
+        body_tris.extend(super::capper::build_caps_from_segments(&bot_segments, false, rim_thickness));
+        legs_tris.extend(super::capper::build_caps_from_segments(&bot_segments, true, rim_thickness));
+        cap_start.elapsed()
+    } else {
+        std::time::Duration::ZERO
+    };
     info!("Slicing Speed: Split={:?}, Cap={:?} (Total={:?})", split_time, cap_time, start_time.elapsed());
 
 

@@ -152,10 +152,12 @@ pub fn mesh_slicing_system(
     let plane_top_local = bounds.min.y + slicing_settings.top_cut * local_height;
     let plane_bottom_local = bounds.min.y + slicing_settings.bottom_cut * local_height;
 
-    info!("Slicing (Local): top={}, bottom={}", plane_top_local, plane_bottom_local);
+    info!("Slicing (Local): top={}, bottom={}, caps={}, rim={}", plane_top_local, plane_bottom_local, slicing_settings.show_caps, slicing_settings.rim_thickness);
 
 
     // Capture data for thread
+    let show_caps = slicing_settings.show_caps;
+    let rim_thickness = slicing_settings.rim_thickness;
     let mut mesh_data = Vec::new();
     for (entity, original, optimized_opt, transform, _, _contours_opt) in mesh_query.iter() {
         let mesh_handle = if opt_settings.is_optimized {
@@ -193,7 +195,7 @@ pub fn mesh_slicing_system(
             let mesh_local_top = inv_local.transform_point3(Vec3::new(0.0, plane_top_local, 0.0)).y;
             let mesh_local_bottom = inv_local.transform_point3(Vec3::new(0.0, plane_bottom_local, 0.0)).y;
 
-            let parts = geometry::slicer::split_mesh_by_planes(&mesh, mesh_local_top, mesh_local_bottom);
+            let parts = geometry::slicer::split_mesh_by_planes(&mesh, mesh_local_top, mesh_local_bottom, show_caps, rim_thickness);
             results.push((entity, parts));
         }
         SlicingResult { mesh_parts: results }

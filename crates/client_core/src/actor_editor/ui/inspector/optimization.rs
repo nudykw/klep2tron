@@ -161,6 +161,66 @@ pub fn spawn_optimization_section_v2(
                         TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
                     ));
                 });
+
+                // Fill Caps Toggle
+                row.spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(40.0),
+                            height: Val::Px(30.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                        ..default()
+                    },
+                    OptimizationCapsToggle,
+                    crate::actor_editor::widgets::Tooltip("Fill Cut Surfaces (Caps)".to_string()),
+                )).with_children(|b| {
+                    b.spawn(TextBundle::from_section(
+                        "\u{f1b2}", // cube/solid icon
+                        TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
+                    ));
+                });
+            });
+
+            // Rim Thickness Slider
+            content.spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    margin: UiRect::top(Val::Px(10.0)),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    ..default()
+                },
+                ..default()
+            }).with_children(|row| {
+                row.spawn(TextBundle::from_section(
+                    "Rim Thick:",
+                    TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.8, 0.8, 0.8) },
+                ));
+                
+                row.spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Px(120.0),
+                        ..default()
+                    },
+                    ..default()
+                }).with_children(|slider_p| {
+                    crate::actor_editor::widgets::spawn_slider_ext(
+                        slider_p,
+                        0.0,
+                        0.1,
+                        0.0,
+                        (
+                            OptimizationRimSlider,
+                            crate::actor_editor::widgets::Tooltip("Thickness of the cut surface rim (0.0 = Solid)".to_string()),
+                        ),
+                    );
+                });
             });
         },
         |_header| {}
@@ -182,6 +242,8 @@ pub fn mesh_optimization_system(
     btn_query: Query<&Interaction, (With<OptimizeMeshButton>, Changed<Interaction>)>,
     toggle_query: Query<&Interaction, (With<OptimizationOriginalToggle>, Changed<Interaction>)>,
     wire_query: Query<&Interaction, (With<OptimizationWireframeToggle>, Changed<Interaction>)>,
+    caps_query: Query<&Interaction, (With<OptimizationCapsToggle>, Changed<Interaction>)>,
+    rim_slider_query: Query<&crate::actor_editor::widgets::Slider, (With<OptimizationRimSlider>, Changed<crate::actor_editor::widgets::Slider>)>,
     input_query: Query<&TextInput>,
     marker_query: Query<&Parent, With<OptimizationTargetInputMarker>>,
     mesh_query: Query<(Entity, &OriginalMeshComponent)>,
@@ -275,18 +337,38 @@ pub fn mesh_optimization_system(
             info!("Wireframe toggled: {}", opt_settings.wireframe);
         }
     }
+
+    // 6. Handle Fill Caps Toggle
+    for interaction in caps_query.iter() {
+        if *interaction == Interaction::Pressed {
+            slicing_settings.show_caps = !slicing_settings.show_caps;
+            slicing_settings.trigger_slice = true;
+            info!("Fill Caps toggled: {}", slicing_settings.show_caps);
+        }
+    }
+
+    // 7. Handle Rim Thickness Slider
+    for slider in rim_slider_query.iter() {
+        if (slicing_settings.rim_thickness - slider.value).abs() > 0.0001 {
+            slicing_settings.rim_thickness = slider.value;
+            slicing_settings.trigger_slice = true;
+        }
+    }
 }
 
 // I need to update the system signature to include the button background queries.
 pub fn mesh_optimization_visuals_system(
     opt_settings: Res<OptimizationSettings>,
-    mut btn_query: Query<(&mut BackgroundColor, &Interaction, Option<&OptimizationOriginalToggle>, Option<&OptimizationWireframeToggle>)>,
+    slicing_settings: Res<SlicingSettings>,
+    mut btn_query: Query<(&mut BackgroundColor, &Interaction, Option<&OptimizationOriginalToggle>, Option<&OptimizationWireframeToggle>, Option<&OptimizationCapsToggle>)>,
 ) {
-    for (mut bg, interaction, original_opt, wire_opt) in btn_query.iter_mut() {
+    for (mut bg, interaction, original_opt, wire_opt, caps_opt) in btn_query.iter_mut() {
         let active = if original_opt.is_some() {
             !opt_settings.is_optimized
         } else if wire_opt.is_some() {
             opt_settings.wireframe
+        } else if caps_opt.is_some() {
+            slicing_settings.show_caps
         } else {
             continue;
         };

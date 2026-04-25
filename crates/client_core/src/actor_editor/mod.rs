@@ -317,6 +317,8 @@ pub struct SlicingSettings {
 
     pub last_top: f32,
     pub last_bottom: f32,
+    pub show_caps: bool,
+    pub rim_thickness: f32,
 }
 
 impl Default for SlicingSettings {
@@ -328,12 +330,14 @@ impl Default for SlicingSettings {
             locked: false,
             hovered_gizmo: None,
             dragging_gizmo: None,
+            suppress_undo: false,
             needs_confirm: false,
             confirm_pos: Vec3::ZERO,
             trigger_slice: false,
             last_top: -1.0,
             last_bottom: -1.0,
-            suppress_undo: false,
+            show_caps: true,
+            rim_thickness: 0.0, // 0.0 means Solid
         }
     }
 }
