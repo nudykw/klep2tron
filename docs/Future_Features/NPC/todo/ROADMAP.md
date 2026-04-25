@@ -18,6 +18,12 @@
 - [ ] [11. Материалы деталей](./11.ActorEditor.Materials.md) (СЛЕДУЮЩИЙ ЭТАП)
 - [x] [12. Оптимизация моделей (Integrated GPU focus)](./12.Model_Optimization.md)
 - [x] [13. Масштабирование модели (Model Scaling)](./13.Model_Scaling.md)
+- [ ] [14. Ручное разделение меша (Manual Mesh Slicing)](./14.Manual_Mesh_Slicing.md)
+    - [ ] [14.1. Интерфейс и точная нарезка (Precision UI)](./14.1.Manual_Slicing_UI.md)
+    - [ ] [14.2. Инфраструктура Manual режима (Base)](./14.2.Manual_Slicing_Base.md)
+    - [ ] [14.3. Система выделения (Lasso & Selection)](./14.3.Manual_Slicing_Selection.md)
+    - [ ] [14.4. Переназначение меша (Geometry Reassignment)](./14.4.Manual_Slicing_Action.md)
+    - [ ] [14.5. Продвинутая интеграция (Optimization)](./14.5.Manual_Slicing_Integration.md)
 
 ---
 > [!NOTE]
