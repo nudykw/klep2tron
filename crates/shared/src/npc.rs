@@ -114,6 +114,12 @@ pub struct ActorProject {
     pub source_path: String,
     pub cut_top: f32,
     pub cut_bottom: f32,
+    #[serde(default)]
+    pub rim_thickness: f32,
+    pub optimization_budget: Option<usize>,
+    pub head_mesh: Option<String>,
+    pub body_mesh: Option<String>,
+    pub legs_mesh: Option<String>,
     #[serde(default = "default_scale")]
     pub scale: Vec3,
     pub config: ActorConfig,
@@ -128,6 +134,11 @@ impl Default for ActorProject {
             source_path: "".to_string(),
             cut_top: 0.75,
             cut_bottom: 0.25,
+            rim_thickness: 0.0,
+            optimization_budget: None,
+            head_mesh: None,
+            body_mesh: None,
+            legs_mesh: None,
             scale: Vec3::ONE,
             config: ActorConfig::default(),
         }

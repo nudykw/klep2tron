@@ -326,6 +326,7 @@ pub fn actor_import_event_system(
     mut pending: ResMut<PendingImport>,
     mut current_project: ResMut<CurrentProject>,
     mut slicing_settings: ResMut<SlicingSettings>,
+    mut opt_settings: ResMut<crate::actor_editor::systems::optimization::OptimizationSettings>,
     mut toast_events: EventWriter<ToastEvent>,
 ) {
     for event in events.read() {
@@ -333,6 +334,9 @@ pub fn actor_import_event_system(
         let reset_slicing = event.1;
 
         if reset_slicing {
+            // Reset optimization only on NEW imports
+            *opt_settings = crate::actor_editor::systems::optimization::OptimizationSettings::default();
+            
             *slicing_settings = SlicingSettings::default();
             // Explicitly set the initial slice values for new models
             slicing_settings.top_cut = 0.75;

@@ -138,10 +138,11 @@ pub fn normalization_system(
                         original_polys: state.total_original_polys,
                     });
 
-                    // Sync Scaling Settings
-                    scaling_settings.width = s.x;
-                    scaling_settings.height = s.y;
-                    scaling_settings.length = s.z;
+                    // Sync Scaling Settings - multiply normalized size by root scale to get world size
+                    let root_scale = transform_query.get(root_entity).map(|t| t.scale).unwrap_or(Vec3::ONE);
+                    scaling_settings.width = s.x * root_scale.x;
+                    scaling_settings.height = s.y * root_scale.y;
+                    scaling_settings.length = s.z * root_scale.z;
 
                     for (entity, handle) in &state.found_meshes { 
                         commands.entity(*entity).insert(OriginalMeshComponent(handle.clone())); 

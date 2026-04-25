@@ -223,7 +223,7 @@ pub fn mesh_optimization_system(
     rim_slider_query: Query<&crate::actor_editor::widgets::Slider, (With<OptimizationRimSlider>, Changed<crate::actor_editor::widgets::Slider>)>,
     input_query: Query<&TextInput>,
     marker_query: Query<&Parent, With<OptimizationTargetInputMarker>>,
-    mesh_query: Query<(Entity, &OriginalMeshComponent)>,
+    mesh_query: Query<(Entity, &OriginalMeshComponent, Option<&OptimizedMeshComponent>)>,
 ) {
     // 1. Check if a task is already running
     if let Some(ref mut task) = opt_task.0 {
@@ -270,31 +270,46 @@ pub fn mesh_optimization_system(
         }
     }
 
-    // 3. Handle Optimize Button
+    // 3. Handle Optimize Button OR Auto-trigger if loaded as optimized but not processed yet
+    let mut trigger_optimize = false;
     for interaction in btn_query.iter() {
         if *interaction == Interaction::Pressed && *status == EditorStatus::Ready {
-            if let Ok((entity, original)) = mesh_query.get_single() {
-                if let Some(source_mesh) = meshes.get(&original.0) {
-                    *status = EditorStatus::Processing;
-                    
-                    let mesh_copy = source_mesh.clone();
-                    let target_tris = opt_settings.target_triangles;
-                    let original_handle = original.0.clone();
-                    
-                    let thread_pool = bevy::tasks::AsyncComputeTaskPool::get();
-                    let task = thread_pool.spawn(async move {
-                        let optimized = perform_mesh_optimization(&mesh_copy, target_tris);
-                        crate::actor_editor::systems::optimization::OptimizationResult {
-                            entity,
-                            original_mesh_handle: original_handle,
-                            new_mesh: optimized,
-                            target_tris,
-                        }
-                    });
-                    
-                    opt_task.0 = Some(task);
-                    info!("Started background mesh optimization task...");
-                }
+            trigger_optimize = true;
+        }
+    }
+
+    // Auto-trigger if we just loaded an optimized project
+    if opt_settings.is_optimized && *status == EditorStatus::Ready {
+        if let Ok((_entity, _, opt_comp)) = mesh_query.get_single() {
+            if opt_comp.is_none() {
+                trigger_optimize = true;
+                info!("Auto-triggering optimization for loaded project...");
+            }
+        }
+    }
+
+    if trigger_optimize {
+        if let Ok((entity, original, _)) = mesh_query.get_single() {
+            if let Some(source_mesh) = meshes.get(&original.0) {
+                *status = EditorStatus::Processing;
+                
+                let mesh_copy = source_mesh.clone();
+                let target_tris = opt_settings.target_triangles;
+                let original_handle = original.0.clone();
+                
+                let thread_pool = bevy::tasks::AsyncComputeTaskPool::get();
+                let task = thread_pool.spawn(async move {
+                    let optimized = perform_mesh_optimization(&mesh_copy, target_tris);
+                    crate::actor_editor::systems::optimization::OptimizationResult {
+                        entity,
+                        original_mesh_handle: original_handle,
+                        new_mesh: optimized,
+                        target_tris,
+                    }
+                });
+                
+                opt_task.0 = Some(task);
+                info!("Started background mesh optimization task...");
             }
         }
     }

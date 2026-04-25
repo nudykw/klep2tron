@@ -14,6 +14,7 @@ pub mod undo_redo;
 pub mod save;
 pub mod optimization;
 pub mod scaling;
+pub mod export;
 
 pub use input::*;
 pub use normalization::*;

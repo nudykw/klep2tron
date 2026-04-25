@@ -57,6 +57,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<systems::optimization::OptimizationTask>()
            .init_resource::<ScalingSettings>()
            .init_resource::<PendingSockets>()
+           .init_resource::<PendingSlices>()
             .init_resource::<LastUsedDirectory>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
@@ -530,6 +531,9 @@ pub struct PendingSockets(pub Vec<SocketDefinition>);
 
 #[derive(Resource, Default)]
 pub struct ImportProgress(pub f32);
+
+#[derive(Resource, Default)]
+pub struct PendingSlices(pub std::collections::HashMap<ActorPart, Handle<Mesh>>);
 
 pub const GIZMO_LAYER: bevy::render::view::RenderLayers = bevy::render::view::RenderLayers::layer(1);
 #[derive(Resource, Default)]

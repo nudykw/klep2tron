@@ -23,7 +23,67 @@ pub fn mesh_slicing_system(
     mut status: ResMut<EditorStatus>,
     mut action_stack: ResMut<crate::actor_editor::systems::undo_redo::ActionStack>,
     opt_settings: Res<super::optimization::OptimizationSettings>,
+    mut pending_slices: ResMut<super::super::PendingSlices>,
 ) {
+    // 0. Handle Pre-sliced Meshes (from load)
+    if !pending_slices.0.is_empty() {
+        if let Ok((_bounds, _root_global)) = actor_root_query.get_single() {
+            // Find root entity
+            if let Ok((root_entity, _, _, _, _, _)) = mesh_query.get_single() {
+                // Despawn any existing parts
+                for (entity, _, _) in child_query.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+
+                commands.entity(root_entity).with_children(|p| {
+                    let mut spawn_part = |cmds: &mut ChildBuilder, mesh_handle: Handle<Mesh>, name: &str, part_type: ActorPart, color: Color| {
+                        cmds.spawn((
+                            PbrBundle {
+                                mesh: mesh_handle,
+                                material: materials.add(StandardMaterial {
+                                    base_color: color,
+                                    perceptual_roughness: 0.5,
+                                    alpha_mode: AlphaMode::Opaque,
+                                    ..default()
+                                }),
+                                ..default()
+                            },
+                            EditorHelper,
+                            part_type,
+                            bevy_mod_picking::prelude::Pickable {
+                                should_block_lower: false,
+                                is_hoverable: true,
+                            },
+                            Name::new(name.to_string()),
+                        )).set_parent(root_entity);
+                    };
+
+                    if let Some(h) = pending_slices.0.get(&ActorPart::Head) {
+                        spawn_part(p, h.clone(), "Top", ActorPart::Head, Color::srgb(0.3, 0.6, 1.0));
+                    }
+                    if let Some(h) = pending_slices.0.get(&ActorPart::Body) {
+                        spawn_part(p, h.clone(), "Mid", ActorPart::Body, Color::srgb(0.8, 0.8, 0.8));
+                    }
+                    if let Some(h) = pending_slices.0.get(&ActorPart::Engine) {
+                        spawn_part(p, h.clone(), "Bottom", ActorPart::Engine, Color::srgb(1.0, 0.6, 0.2));
+                    }
+                });
+
+                // Hide original mesh
+                commands.entity(root_entity).remove::<Handle<Mesh>>();
+                commands.entity(root_entity).remove::<Handle<StandardMaterial>>();
+
+                pending_slices.0.clear();
+                info!("Applied pre-sliced meshes from disk.");
+                
+                if progress.0 < 1.0 {
+                    progress.0 = 1.0;
+                    *status = EditorStatus::Ready;
+                }
+                return;
+            }
+        }
+    }
 
 
     // 1. Check if a task is already running

@@ -14,6 +14,9 @@ pub fn actor_save_system(
     mut status: ResMut<EditorStatus>,
     mut toast_events: EventWriter<ToastEvent>,
     mut modal_events: EventWriter<ConfirmationRequestEvent>,
+    opt_settings: Res<crate::actor_editor::systems::optimization::OptimizationSettings>,
+    meshes: Res<Assets<Mesh>>,
+    part_query: Query<(&shared::npc::ActorPart, &Handle<Mesh>)>,
 ) {
     for event in save_events.read() {
         let target_name = event.name.as_ref().unwrap_or(&current_project.name);
@@ -60,16 +63,21 @@ pub fn actor_save_system(
 
         let sockets: Vec<_> = socket_query.iter().map(|s| s.definition.clone()).collect();
         
-        let project = ActorProject {
+        let mut project = ActorProject {
             name: current_project.name.clone(),
             source_path: current_project.source_path.clone(),
             cut_top: slicing_settings.top_cut,
             cut_bottom: slicing_settings.bottom_cut,
+            rim_thickness: slicing_settings.rim_thickness,
+            optimization_budget: if opt_settings.is_optimized { Some(opt_settings.target_triangles) } else { None },
+            head_mesh: None,
+            body_mesh: None,
+            legs_mesh: None,
             scale: transform_query.get_single().map(|t| t.scale).unwrap_or(Vec3::ONE),
             config: ActorConfig { sockets },
         };
 
-        // Save to assets/actors/{name}/actor.ron
+        // Ensure project directory exists before exporting meshes
         if let Err(e) = fs::create_dir_all(&project_dir) {
             toast_events.send(ToastEvent {
                 message: format!("Failed to create project directory: {}", e),
@@ -77,6 +85,28 @@ pub fn actor_save_system(
             });
             *status = EditorStatus::Ready;
             continue;
+        }
+
+        // --- MESH EXPORT ---
+        for (part, mesh_handle) in part_query.iter() {
+            if let Some(mesh) = meshes.get(mesh_handle) {
+                let filename = match part {
+                    shared::npc::ActorPart::Head => "head.k2m",
+                    shared::npc::ActorPart::Body => "body.k2m",
+                    shared::npc::ActorPart::Engine => "legs.k2m",
+                };
+                
+                let mesh_path = format!("{}/{}", project_dir, filename);
+                if let Err(e) = super::export::export_mesh_to_k2m(mesh, &mesh_path) {
+                    warn!("Failed to export mesh {}: {}", filename, e);
+                } else {
+                    match part {
+                        shared::npc::ActorPart::Head => project.head_mesh = Some(filename.to_string()),
+                        shared::npc::ActorPart::Body => project.body_mesh = Some(filename.to_string()),
+                        shared::npc::ActorPart::Engine => project.legs_mesh = Some(filename.to_string()),
+                    }
+                }
+            }
         }
 
         if let Err(e) = fs::write(&actor_file, ron::ser::to_string_pretty(&project, ron::ser::PrettyConfig::default()).unwrap()) {
