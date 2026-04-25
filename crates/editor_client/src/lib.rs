@@ -49,6 +49,7 @@ impl Default for EditorState {
 }
 
 pub fn run_game() {
+    client_core::pre_init_gpu_settings();
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins
@@ -61,6 +62,10 @@ pub fn run_game() {
             })
             .set(AssetPlugin {
                 meta_check: AssetMetaCheck::Never,
+                ..default()
+            })
+            .set(bevy::render::RenderPlugin {
+                render_creation: bevy::render::settings::RenderCreation::Automatic(client_core::get_wgpu_settings()),
                 ..default()
             })
         )

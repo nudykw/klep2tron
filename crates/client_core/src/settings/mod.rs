@@ -119,6 +119,42 @@ impl Plugin for SettingsPlugin {
     }
 }
 
+pub fn pre_init_gpu_settings() {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Ok(content) = std::fs::read_to_string(SETTINGS_FILE) {
+            if let Ok(settings) = serde_json::from_str::<GraphicsSettings>(&content) {
+                if let Some(gpu_name) = settings.selected_gpu {
+                    println!("--- Forcing GPU Adapter: {} ---", gpu_name);
+                    std::env::set_var("WGPU_ADAPTER_NAME", gpu_name);
+                }
+            }
+        }
+    }
+}
+
+pub fn get_wgpu_settings() -> bevy::render::settings::WgpuSettings {
+    let mut wgpu_settings = bevy::render::settings::WgpuSettings::default();
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Ok(content) = std::fs::read_to_string(SETTINGS_FILE) {
+            if let Ok(settings) = serde_json::from_str::<GraphicsSettings>(&content) {
+                if let Some(gpu_name) = settings.selected_gpu {
+                    let name = gpu_name.to_lowercase();
+                    if name.contains("rtx") || name.contains("gtx") || name.contains("discrete") || name.contains("radeon rx") {
+                        wgpu_settings.power_preference = bevy::render::settings::PowerPreference::HighPerformance;
+                    } else if name.contains("integrated") || name.contains("intel") || name.contains("uhd") {
+                        wgpu_settings.power_preference = bevy::render::settings::PowerPreference::LowPower;
+                    }
+                }
+            }
+        }
+    }
+    
+    wgpu_settings
+}
+
 pub fn populate_gpu_list(
     gpu_list: &mut GpuList,
     instance_adapter_opt: Option<&RenderAdapterInfo>,

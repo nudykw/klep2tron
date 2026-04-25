@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::render::renderer::RenderAdapterInfo;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasBundle;
 use crate::{Project, Room, TileMap, GraphicsSettings, QualityLevel, UpscalingMode};
 use bevy::pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings, ScreenSpaceAmbientOcclusionQualityLevel};
@@ -105,13 +106,15 @@ pub fn apply_graphics_quality_system(
     mut initialized: Local<bool>,
     mut msaa: ResMut<Msaa>,
     mut shadow_map: ResMut<bevy::pbr::DirectionalLightShadowMap>,
+    adapter: Option<Res<RenderAdapterInfo>>,
 ) {
     let has_cameras = !camera_query.is_empty();
     if settings.is_loading { return; }
     if !settings.is_changed() && (*initialized && has_cameras) { return; }
     if has_cameras {
         *initialized = true;
-        info!("Applying graphics settings: {:?}", *settings);
+        let gpu_name = adapter.map(|a| a.name.clone()).unwrap_or_else(|| "Unknown".to_string());
+        info!("Applying graphics settings: {:?} (Current GPU: {})", *settings, gpu_name);
     }
 
     // Auto-disable MSAA if SSAO or TAA is used
