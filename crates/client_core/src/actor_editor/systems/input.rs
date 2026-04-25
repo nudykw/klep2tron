@@ -8,6 +8,7 @@ pub fn actor_editor_input_system(
     mut viewport_settings: ResMut<ViewportSettings>,
     mut reset_events: EventWriter<ResetCameraEvent>,
     mut modal_events: EventWriter<ConfirmationRequestEvent>,
+    mut load_events: EventWriter<super::super::ActorLoadEvent>,
     mut import_events: EventWriter<ActorImportEvent>,
     mut save_events: EventWriter<ActorSaveEvent>,
     mut toast_events: EventWriter<ToastEvent>,
@@ -24,8 +25,33 @@ pub fn actor_editor_input_system(
 
     // Global Hotkeys
     if ctrl {
-        if keyboard.just_pressed(KeyCode::KeyI) {
+        if keyboard.just_pressed(KeyCode::KeyO) {
+            let current_dir = std::env::current_dir().unwrap_or_default();
+            let actors_dir = current_dir.join("assets").join("actors");
+
             if let Some(path) = FileDialog::new()
+                .set_title("Open Actor Project Folder")
+                .set_directory(actors_dir)
+                .pick_folder() {
+                
+                let ron_path = path.join("actor.ron");
+                if ron_path.exists() {
+                    load_events.send(super::super::ActorLoadEvent(ron_path));
+                } else {
+                    toast_events.send(ToastEvent {
+                        message: "Selected folder is not a valid project (actor.ron not found)".to_string(),
+                        toast_type: ToastType::Error,
+                    });
+                }
+            }
+        }
+        if keyboard.just_pressed(KeyCode::KeyI) {
+            let current_dir = std::env::current_dir().unwrap_or_default();
+            let assets_dir = current_dir.join("assets");
+
+            if let Some(path) = FileDialog::new()
+                .set_title("Import Model")
+                .set_directory(assets_dir)
                 .add_filter("Models", &["gltf", "glb", "obj"])
                 .pick_file() {
                 import_events.send(ActorImportEvent(path));

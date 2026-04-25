@@ -234,7 +234,12 @@ pub fn project_action_system(
         if *interaction == Interaction::Pressed {
             match action {
                 super::super::ui_project::ProjectAction::Import => {
+                    let current_dir = std::env::current_dir().unwrap_or_default();
+                    let assets_dir = current_dir.join("assets");
+                    
                     if let Some(path) = FileDialog::new()
+                        .set_title("Import Model")
+                        .set_directory(assets_dir)
                         .add_filter("Models", &["gltf", "glb", "obj"])
                         .pick_file() {
                         import_events.send(ActorImportEvent(path));
@@ -250,8 +255,12 @@ pub fn project_action_system(
                     }
                 }
                 super::super::ui_project::ProjectAction::Open => {
+                    let current_dir = std::env::current_dir().unwrap_or_default();
+                    let actors_dir = current_dir.join("assets").join("actors");
+                    
                     if let Some(path) = FileDialog::new()
                         .set_title("Open Actor Project Folder")
+                        .set_directory(actors_dir)
                         .pick_folder() {
                         
                         let ron_path = path.join("actor.ron");
