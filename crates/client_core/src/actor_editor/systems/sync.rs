@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::super::{MainEditorCamera, GizmoCamera, SlicingSettings, ViewportSettings, SlicingContours, PreviewContours, ActorBounds, SlicingGizmoType, SlicingGizmo, EditorHelper};
+use super::super::{MainEditorCamera, GizmoCamera, SlicingSettings, ViewportSettings, SlicingContours, PreviewContours, ActorBounds, SlicingGizmoType, SlicingGizmo, EditorHelper, SlicingTopCutInput, SlicingBottomCutInput, SlicingRimThicknessSlider, SlicingAutoManualToggle, SlicingAutoModeContainer};
 
 pub fn gizmo_sync_system(
     main_camera: Query<&Transform, (With<MainEditorCamera>, Without<GizmoCamera>)>,
@@ -43,7 +43,12 @@ pub fn gizmo_viewport_system(
 pub fn slicing_ui_sync_system(
     mut slicing_settings: ResMut<SlicingSettings>,
     mut range_slider_query: Query<&mut super::super::widgets::RangeSlider>,
+    mut top_input_query: Query<&mut super::super::widgets::TextInput, (With<SlicingTopCutInput>, Without<SlicingBottomCutInput>)>,
+    mut bottom_input_query: Query<&mut super::super::widgets::TextInput, (With<SlicingBottomCutInput>, Without<SlicingTopCutInput>)>,
+    rim_slider_query: Query<&super::super::widgets::Slider, (With<SlicingRimThicknessSlider>, Changed<super::super::widgets::Slider>)>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
+    // 1. Sync with RangeSlider (Viewport)
     for mut slider in range_slider_query.iter_mut() {
         if (slicing_settings.bottom_cut - slider.min_value).abs() > 0.001 ||
            (slicing_settings.top_cut - slider.max_value).abs() > 0.001 {
@@ -62,6 +67,145 @@ pub fn slicing_ui_sync_system(
             super::super::widgets::RangeSliderThumb::Max => SlicingGizmoType::Top,
         });
         if slicing_settings.hovered_gizmo != hovered { slicing_settings.hovered_gizmo = hovered; }
+    }
+
+    // 2. Sync with Precision Text Inputs (Right Panel)
+    if let Ok(mut top_input) = top_input_query.get_single_mut() {
+        if top_input.is_focused {
+            // Nudge with Arrow Keys
+            let mut nudged = false;
+            if keyboard.just_pressed(KeyCode::ArrowUp) {
+                slicing_settings.top_cut = (slicing_settings.top_cut + 0.001).clamp(slicing_settings.bottom_cut + 0.01, 1.0);
+                nudged = true;
+            } else if keyboard.just_pressed(KeyCode::ArrowDown) {
+                slicing_settings.top_cut = (slicing_settings.top_cut - 0.001).clamp(slicing_settings.bottom_cut + 0.01, 1.0);
+                nudged = true;
+            }
+
+            if nudged {
+                top_input.value = format!("{:.3}", slicing_settings.top_cut);
+            } else {
+                if let Ok(val) = top_input.value.parse::<f32>() {
+                    let clamped = val.clamp(slicing_settings.bottom_cut + 0.01, 1.0);
+                    if (slicing_settings.top_cut - clamped).abs() > 0.0001 {
+                        slicing_settings.top_cut = clamped;
+                    }
+                }
+            }
+        } else {
+            let current_str = format!("{:.3}", slicing_settings.top_cut);
+            if top_input.value != current_str {
+                top_input.value = current_str;
+            }
+        }
+    }
+
+    if let Ok(mut bot_input) = bottom_input_query.get_single_mut() {
+        if bot_input.is_focused {
+            // Nudge with Arrow Keys
+            let mut nudged = false;
+            if keyboard.just_pressed(KeyCode::ArrowUp) {
+                slicing_settings.bottom_cut = (slicing_settings.bottom_cut + 0.001).clamp(0.0, slicing_settings.top_cut - 0.01);
+                nudged = true;
+            } else if keyboard.just_pressed(KeyCode::ArrowDown) {
+                slicing_settings.bottom_cut = (slicing_settings.bottom_cut - 0.001).clamp(0.0, slicing_settings.top_cut - 0.01);
+                nudged = true;
+            }
+
+            if nudged {
+                bot_input.value = format!("{:.3}", slicing_settings.bottom_cut);
+            } else {
+                if let Ok(val) = bot_input.value.parse::<f32>() {
+                    let clamped = val.clamp(0.0, slicing_settings.top_cut - 0.01);
+                    if (slicing_settings.bottom_cut - clamped).abs() > 0.0001 {
+                        slicing_settings.bottom_cut = clamped;
+                    }
+                }
+            }
+        } else {
+            let current_str = format!("{:.3}", slicing_settings.bottom_cut);
+            if bot_input.value != current_str {
+                bot_input.value = current_str;
+            }
+        }
+    }
+
+    // 3. Sync with Rim Thickness Slider
+    for slider in rim_slider_query.iter() {
+        let (new_rim, new_caps) = if slider.value < 0.01 {
+            (0.0, true) // Solid
+        } else if slider.value > 0.99 {
+            (0.0, false) // Hollow
+        } else {
+            let t = (1.0 - slider.value) * 0.15;
+            (t.max(0.001), true)
+        };
+
+        if (slicing_settings.rim_thickness - new_rim).abs() > 0.0001 || slicing_settings.show_caps != new_caps {
+            slicing_settings.rim_thickness = new_rim;
+            slicing_settings.show_caps = new_caps;
+            slicing_settings.trigger_slice = true;
+        }
+    }
+}
+
+pub fn slicing_manual_mode_system(
+    mut slicing_settings: ResMut<SlicingSettings>,
+    interaction_query: Query<(&Interaction, &Children), (With<SlicingAutoManualToggle>, Changed<Interaction>)>,
+    text_query: Query<&Text>,
+) {
+    for (interaction, children) in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            if let Ok(text) = text_query.get(children[0]) {
+                let label = text.sections[0].value.as_str();
+                let target_manual = label == "MANUAL";
+                if slicing_settings.manual_mode != target_manual {
+                    slicing_settings.manual_mode = target_manual;
+                    info!("Slicing Manual Mode: {}", target_manual);
+                }
+            }
+        }
+    }
+}
+
+pub fn slicing_manual_mode_visual_sync_system(
+    slicing_settings: Res<SlicingSettings>,
+    mut btn_query: Query<(&mut BackgroundColor, &Interaction, &Children), With<SlicingAutoManualToggle>>,
+    text_query: Query<&Text>,
+) {
+    for (mut bg, interaction, children) in btn_query.iter_mut() {
+        if let Ok(text) = text_query.get(children[0]) {
+            let label = text.sections[0].value.as_str();
+            let is_manual_btn = label == "MANUAL";
+            let is_active = slicing_settings.manual_mode == is_manual_btn;
+
+            let base_color = if is_active {
+                Color::srgba(0.3, 0.6, 1.0, 0.4) // Active Blue
+            } else {
+                Color::srgba(1.0, 1.0, 1.0, 0.05) // Inactive
+            };
+
+            let final_color = if *interaction == Interaction::Hovered {
+                match base_color {
+                    Color::Srgba(c) => Color::Srgba(bevy::color::Srgba { alpha: (c.alpha * 1.5).min(1.0), ..c }),
+                    _ => base_color,
+                }
+            } else {
+                base_color
+            };
+            *bg = final_color.into();
+        }
+    }
+}
+
+pub fn slicing_ui_visibility_sync_system(
+    slicing_settings: Res<SlicingSettings>,
+    mut container_query: Query<&mut Style, With<SlicingAutoModeContainer>>,
+) {
+    if !slicing_settings.is_changed() { return; }
+    for mut style in container_query.iter_mut() {
+        let display = if slicing_settings.manual_mode { Display::None } else { Display::Flex };
+        if style.display != display { style.display = display; }
     }
 }
 
@@ -236,10 +380,6 @@ pub fn slicing_gizmo_sync_system(
         }
     }
 }
-
-
-
-
 
 pub fn socket_visibility_system(
     viewport_settings: Res<ViewportSettings>,

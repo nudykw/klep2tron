@@ -78,8 +78,8 @@ pub fn setup_project_panel(
                     ..default()
                 },
                 ProjectModeContent(super::EditorMode::Slicing),
-            )).with_children(|_slicing| {
-                // Slicing specific project controls could go here
+            )).with_children(|slicing| {
+                spawn_slicing_precision_ui(slicing, font, icon_font);
             });
 
             // SOCKETS CONTENT
@@ -314,5 +314,202 @@ fn spawn_mode_tab(
             text,
             TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
         ));
+    });
+}
+
+fn spawn_slicing_precision_ui(
+    parent: &mut ChildBuilder,
+    font: &Handle<Font>,
+    _icon_font: &Handle<Font>,
+) {
+    // Mode Toggle: AUTO / MANUAL
+    parent.spawn(NodeBundle {
+        style: Style {
+            width: Val::Percent(100.0),
+            height: Val::Px(30.0),
+            margin: UiRect::vertical(Val::Px(10.0)),
+            flex_direction: FlexDirection::Row,
+            ..default()
+        },
+        ..default()
+    }).with_children(|row| {
+        for (label, is_manual) in [("AUTO", false), ("MANUAL", true)] {
+            row.spawn((
+                ButtonBundle {
+                    style: Style {
+                        flex_grow: 1.0,
+                        height: Val::Percent(100.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                    border_radius: if is_manual { BorderRadius::right(Val::Px(4.0)) } else { BorderRadius::left(Val::Px(4.0)) },
+                    ..default()
+                },
+                super::SlicingAutoManualToggle,
+                bevy_mod_picking::prelude::PickableBundle::default(),
+            )).insert(InteractionState { is_active: false }) // We'll use this for visual state
+            .with_children(|b| {
+                b.spawn(TextBundle::from_section(
+                    label,
+                    TextStyle { font: font.clone(), font_size: 11.0, color: Color::WHITE },
+                ));
+            });
+        }
+    });
+
+    // Auto Mode Container
+    parent.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(8.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                ..default()
+            },
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.2).into(),
+            border_radius: BorderRadius::all(Val::Px(6.0)),
+            ..default()
+        },
+        super::SlicingAutoModeContainer,
+    )).with_children(|container| {
+        // TOP CUT
+        container.spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ..default()
+        }).with_children(|row| {
+            row.spawn(TextBundle::from_section(
+                "Top Cut:",
+                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
+            ));
+            
+            row.spawn((
+                super::widgets::TextInputBundle {
+                    button: ButtonBundle {
+                        style: Style {
+                            width: Val::Px(60.0),
+                            height: Val::Px(28.0),
+                            padding: UiRect::horizontal(Val::Px(8.0)),
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
+                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                        ..default()
+                    },
+                    input: super::widgets::TextInput {
+                        value: "1.000".to_string(),
+                        placeholder: "1.000".to_string(),
+                        ..default()
+                    },
+                },
+                super::SlicingTopCutInput,
+                super::widgets::Tooltip("Top slicing plane position. Use UP/DOWN arrows to nudge by 0.001".to_string()),
+            )).with_children(|p| {
+                p.spawn((
+                    TextBundle::from_section(
+                        "1.000",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 13.0,
+                            color: Color::WHITE,
+                        },
+                    ),
+                    super::widgets::TextInputContent,
+                ));
+            });
+        });
+
+        // BOTTOM CUT
+        container.spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ..default()
+        }).with_children(|row| {
+            row.spawn(TextBundle::from_section(
+                "Bottom Cut:",
+                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
+            ));
+            
+            row.spawn((
+                super::widgets::TextInputBundle {
+                    button: ButtonBundle {
+                        style: Style {
+                            width: Val::Px(60.0),
+                            height: Val::Px(28.0),
+                            padding: UiRect::horizontal(Val::Px(8.0)),
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
+                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                        ..default()
+                    },
+                    input: super::widgets::TextInput {
+                        value: "0.000".to_string(),
+                        placeholder: "0.000".to_string(),
+                        ..default()
+                    },
+                },
+                super::SlicingBottomCutInput,
+                super::widgets::Tooltip("Bottom slicing plane position. Use UP/DOWN arrows to nudge by 0.001".to_string()),
+            )).with_children(|p| {
+                p.spawn((
+                    TextBundle::from_section(
+                        "0.000",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 13.0,
+                            color: Color::WHITE,
+                        },
+                    ),
+                    super::widgets::TextInputContent,
+                ));
+            });
+        });
+
+        // RIM THICKNESS
+        container.spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                margin: UiRect::top(Val::Px(5.0)),
+                ..default()
+            },
+            ..default()
+        }).with_children(|row| {
+            row.spawn(TextBundle::from_section(
+                "Rim:",
+                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
+            ));
+            
+            row.spawn(NodeBundle {
+                style: Style { width: Val::Px(100.0), ..default() },
+                ..default()
+            }).with_children(|slider_p| {
+                super::widgets::spawn_slider_ext(
+                    slider_p,
+                    0.0,
+                    1.0,
+                    0.0,
+                    (
+                        super::SlicingRimThicknessSlider,
+                        super::widgets::Tooltip("Left: Solid, Right: Hollow, Center: Rim Thickness".to_string()),
+                    ),
+                );
+            });
+        });
     });
 }

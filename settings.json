@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "is_loading": true,
+  "is_loading": false,
   "window_mode": "Windowed",
   "resolution_scale": 1.0,
   "vsync": true,
@@ -10,7 +10,7 @@
   "shadow_quality": "Medium",
   "fog_quality": "Medium",
   "upscaling": "None",
-  "selected_gpu": "Intel(R) Graphics (ADL GT2)",
+  "selected_gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
   "ssao": "Off",
   "bloom": true,
   "shadow_resolution": 1024

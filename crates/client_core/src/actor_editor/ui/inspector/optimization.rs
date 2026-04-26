@@ -163,42 +163,6 @@ pub fn spawn_optimization_section_v2(
                 });
 
             });
-
-            content.spawn(NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    margin: UiRect::top(Val::Px(10.0)),
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
-                    ..default()
-                },
-                ..default()
-            }).with_children(|row| {
-                row.spawn(TextBundle::from_section(
-                    "Fill/Rim:",
-                    TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.8, 0.8, 0.8) },
-                ));
-                
-                row.spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(120.0),
-                        ..default()
-                    },
-                    ..default()
-                }).with_children(|slider_p| {
-                    crate::actor_editor::widgets::spawn_slider_ext(
-                        slider_p,
-                        0.0,
-                        1.0,
-                        0.0,
-                        (
-                            OptimizationRimSlider,
-                            crate::actor_editor::widgets::Tooltip("Left: Solid, Right: Hollow, Center: Rim Thickness".to_string()),
-                        ),
-                    );
-                });
-            });
         },
         |_header| {}
     );
@@ -220,7 +184,6 @@ pub fn mesh_optimization_system(
     toggle_query: Query<&Interaction, (With<OptimizationOriginalToggle>, Changed<Interaction>)>,
     wire_query: Query<&Interaction, (With<OptimizationWireframeToggle>, Changed<Interaction>)>,
     caps_query: Query<&Interaction, (With<OptimizationCapsToggle>, Changed<Interaction>)>,
-    rim_slider_query: Query<&crate::actor_editor::widgets::Slider, (With<OptimizationRimSlider>, Changed<crate::actor_editor::widgets::Slider>)>,
     input_query: Query<&TextInput>,
     marker_query: Query<&Parent, With<OptimizationTargetInputMarker>>,
     mesh_query: Query<(Entity, &OriginalMeshComponent, Option<&OptimizedMeshComponent>)>,
@@ -336,26 +299,6 @@ pub fn mesh_optimization_system(
             slicing_settings.show_caps = !slicing_settings.show_caps;
             slicing_settings.trigger_slice = true;
             info!("Fill Caps toggled: {}", slicing_settings.show_caps);
-        }
-    }
-
-    // 7. Handle Unified Fill/Rim Slider
-    for slider in rim_slider_query.iter() {
-        let (new_rim, new_caps) = if slider.value < 0.01 {
-            (0.0, true) // Solid
-        } else if slider.value > 0.99 {
-            (0.0, false) // Hollow
-        } else {
-            // Map 0.01..0.99 to thick..thin rim
-            // We'll use 15cm as max rim thickness
-            let t = (1.0 - slider.value) * 0.15;
-            (t.max(0.001), true)
-        };
-
-        if (slicing_settings.rim_thickness - new_rim).abs() > 0.0001 || slicing_settings.show_caps != new_caps {
-            slicing_settings.rim_thickness = new_rim;
-            slicing_settings.show_caps = new_caps;
-            slicing_settings.trigger_slice = true;
         }
     }
 }

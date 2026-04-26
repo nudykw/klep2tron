@@ -92,9 +92,6 @@ pub struct PartsSectionMarker;
 pub struct OptimizationCapsToggle;
 
 #[derive(Component)]
-pub struct OptimizationRimSlider;
-
-#[derive(Component)]
 pub struct OptimizationSectionMarker;
 
 #[derive(Component)]
@@ -185,3 +182,11 @@ pub struct ScalingLinkToggle;
 
 #[derive(Component)]
 pub struct ScalingApplyButton;
+
+pub struct InteractionState {
+    pub is_active: bool,
+}
+
+impl Component for InteractionState {
+    const STORAGE_TYPE: bevy::ecs::component::StorageType = bevy::ecs::component::StorageType::Table;
+}

@@ -117,6 +117,9 @@ impl Plugin for ActorEditorPlugin {
                 systems::progress_bar_update_system,
                 systems::import_loading_overlay_system,
                 systems::normalization_system,
+                systems::slicing_manual_mode_system,
+                systems::slicing_manual_mode_visual_sync_system,
+                systems::slicing_ui_visibility_sync_system,
            ).run_if(in_state(GameState::ActorEditor)))
            .add_systems(Update, (
                     systems::slicing_ui_sync_system,
@@ -325,6 +328,7 @@ pub struct SlicingSettings {
     pub last_bottom: f32,
     pub show_caps: bool,
     pub rim_thickness: f32,
+    pub manual_mode: bool,
 }
 
 #[derive(Resource)]
@@ -363,6 +367,7 @@ impl Default for SlicingSettings {
             last_bottom: -1.0,
             show_caps: true,
             rim_thickness: 0.0, // 0.0 means Solid
+            manual_mode: false,
         }
     }
 }
@@ -410,6 +415,21 @@ pub enum SlicingGizmoType {
     Top,
     Bottom,
 }
+
+#[derive(Component)]
+pub struct SlicingTopCutInput;
+
+#[derive(Component)]
+pub struct SlicingBottomCutInput;
+
+#[derive(Component)]
+pub struct SlicingRimThicknessSlider;
+
+#[derive(Component)]
+pub struct SlicingAutoManualToggle;
+
+#[derive(Component)]
+pub struct SlicingAutoModeContainer;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]

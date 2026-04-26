@@ -168,8 +168,8 @@ pub fn mesh_slicing_system(
     let needs_initial_slice = child_query.is_empty() && !mesh_query.is_empty();
     
     // Check if values actually changed
-    let values_changed = (slicing_settings.top_cut - slicing_settings.last_top).abs() > 0.001 ||
-                         (slicing_settings.bottom_cut - slicing_settings.last_bottom).abs() > 0.001;
+    let values_changed = (slicing_settings.top_cut - slicing_settings.last_top).abs() > 0.0001 ||
+                         (slicing_settings.bottom_cut - slicing_settings.last_bottom).abs() > 0.0001;
 
     let mut should_slice = needs_initial_slice;
     
@@ -201,13 +201,7 @@ pub fn mesh_slicing_system(
     }
 
     if needs_initial_slice { info!("Slicing: Initial load trigger"); }
-    if slicing_settings.trigger_slice { info!("Slicing: Explicit UI trigger"); }
 
-
-
-
-    
-    // Update last values to prevent re-triggering (Moved after initial slice check)
 
     
     // Use LOCAL coordinates for slicing to avoid rotation issues
@@ -283,4 +277,3 @@ pub fn mesh_slicing_system(
     slicing_task.0 = Some(task);
     info!("Started async slicing task...");
 }
-
