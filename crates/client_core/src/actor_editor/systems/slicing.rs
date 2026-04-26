@@ -166,6 +166,12 @@ pub fn mesh_slicing_system(
     
     // Check if we need to apply initial slice (only after auto-setup)
     let needs_initial_slice = child_query.is_empty() && !mesh_query.is_empty();
+
+    // FREEZE: Skip procedural slicing if in manual mode
+    // We allow initial slice and explicit trigger (though sliders are hidden)
+    if slicing_settings.manual_mode && !needs_initial_slice && !slicing_settings.trigger_slice {
+        return;
+    }
     
     // Check if values actually changed
     let values_changed = (slicing_settings.top_cut - slicing_settings.last_top).abs() > 0.0001 ||

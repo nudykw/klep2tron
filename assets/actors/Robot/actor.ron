@@ -9,6 +9,7 @@
     body_mesh: Some("body.k2m"),
     legs_mesh: Some("legs.k2m"),
     scale: (0.5, 0.5, 0.5),
+    manual_mode: true,
     config: (
         sockets: [],
     ),

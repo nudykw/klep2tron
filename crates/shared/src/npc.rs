@@ -122,6 +122,8 @@ pub struct ActorProject {
     pub legs_mesh: Option<String>,
     #[serde(default = "default_scale")]
     pub scale: Vec3,
+    #[serde(default)]
+    pub manual_mode: bool,
     pub config: ActorConfig,
 }
 
@@ -135,6 +137,7 @@ impl Default for ActorProject {
             cut_top: 0.75,
             cut_bottom: 0.25,
             rim_thickness: 0.0,
+            manual_mode: false,
             optimization_budget: None,
             head_mesh: None,
             body_mesh: None,

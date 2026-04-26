@@ -69,6 +69,7 @@ pub fn actor_save_system(
             cut_top: slicing_settings.top_cut,
             cut_bottom: slicing_settings.bottom_cut,
             rim_thickness: slicing_settings.rim_thickness,
+            manual_mode: slicing_settings.manual_mode,
             optimization_budget: if opt_settings.is_optimized { Some(opt_settings.target_triangles) } else { None },
             head_mesh: None,
             body_mesh: None,

@@ -157,7 +157,7 @@ pub fn slicing_manual_mode_system(
     for (interaction, children) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
             if let Ok(text) = text_query.get(children[0]) {
-                let label = text.sections[0].value.as_str();
+                let label = text.sections[0].value.trim();
                 let target_manual = label == "MANUAL";
                 if slicing_settings.manual_mode != target_manual {
                     slicing_settings.manual_mode = target_manual;
@@ -175,7 +175,7 @@ pub fn slicing_manual_mode_visual_sync_system(
 ) {
     for (mut bg, interaction, children) in btn_query.iter_mut() {
         if let Ok(text) = text_query.get(children[0]) {
-            let label = text.sections[0].value.as_str();
+            let label = text.sections[0].value.trim();
             let is_manual_btn = label == "MANUAL";
             let is_active = slicing_settings.manual_mode == is_manual_btn;
 
@@ -202,7 +202,6 @@ pub fn slicing_ui_visibility_sync_system(
     slicing_settings: Res<SlicingSettings>,
     mut container_query: Query<&mut Style, With<SlicingAutoModeContainer>>,
 ) {
-    if !slicing_settings.is_changed() { return; }
     for mut style in container_query.iter_mut() {
         let display = if slicing_settings.manual_mode { Display::None } else { Display::Flex };
         if style.display != display { style.display = display; }
@@ -216,7 +215,7 @@ pub fn draw_slicing_contours_system(
     viewport_settings: Res<ViewportSettings>,
     mut gizmos: Gizmos,
 ) {
-    if !viewport_settings.slices { return; }
+    if !viewport_settings.slices || slicing_settings.manual_mode { return; }
     
     if slicing_settings.dragging_gizmo.is_some() {
         // Во время перетаскивания показываем ОБА контура:
@@ -282,9 +281,10 @@ pub fn slicing_ui_visibility_system(
     mut container_query: Query<&mut Visibility, With<super::super::widgets::SlicerContainer>>,
     mut gizmo_query: Query<&mut Visibility, (With<SlicingGizmo>, Without<super::super::widgets::SlicerContainer>)>,
     viewport_settings: Res<ViewportSettings>,
+    slicing_settings: Res<SlicingSettings>,
 ) {
     let has_model = actor_query.get_single().is_ok();
-    let show_slicer = has_model && viewport_settings.slices;
+    let show_slicer = has_model && viewport_settings.slices && !slicing_settings.manual_mode;
     let target_visibility = if show_slicer { Visibility::Visible } else { Visibility::Hidden };
     
     if let Ok(mut vis) = container_query.get_single_mut() {

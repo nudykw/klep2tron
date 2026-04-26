@@ -53,10 +53,16 @@ pub fn actor_load_system(
         slicing_settings.top_cut = project.cut_top;
         slicing_settings.bottom_cut = project.cut_bottom;
         slicing_settings.rim_thickness = project.rim_thickness;
+        slicing_settings.manual_mode = project.manual_mode;
         slicing_settings.last_top = project.cut_top;
         slicing_settings.last_bottom = project.cut_bottom;
         slicing_settings.trigger_slice = false; 
         slicing_settings.suppress_undo = true; // Don't record the load as an undoable action
+
+        toast_events.send(ToastEvent {
+            message: format!("Manual Mode Loaded: {}", project.manual_mode),
+            toast_type: ToastType::Info,
+        });
         
         // 3. Restore Optimization Settings
         if let Some(budget) = project.optimization_budget {
