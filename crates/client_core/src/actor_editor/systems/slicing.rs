@@ -85,6 +85,11 @@ pub fn mesh_slicing_system(
         }
     }
 
+    // НОВАЯ ПРОВЕРКА: Пропускаем разрезание во время перетаскивания
+    // Preview контуры обрабатываются отдельной системой
+    if slicing_settings.dragging_gizmo.is_some() && !slicing_settings.trigger_slice {
+        return;
+    }
 
     // 1. Check if a task is already running
     if let Some(ref mut task) = slicing_task.0 {

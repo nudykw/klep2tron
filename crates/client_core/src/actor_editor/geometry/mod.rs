@@ -1,6 +1,7 @@
 pub mod slicer;
 pub mod capper;
 pub mod raycast;
+pub mod contour_calculator;
 
 use bevy::prelude::*;
 

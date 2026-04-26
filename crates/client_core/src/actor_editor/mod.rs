@@ -167,6 +167,7 @@ impl Plugin for ActorEditorPlugin {
                     systems::scaling::mesh_scaling_ui_sync_system,
                     systems::scaling::mesh_scaling_interaction_system,
                     systems::scaling::mesh_scaling_apply_system,
+                    systems::preview_contours_system,
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     systems::socket_color_picker_system,
@@ -370,6 +371,18 @@ impl Default for SlicingSettings {
 #[derive(Component, Default)]
 pub struct SlicingContours {
     pub segments: Vec<[Vec3; 2]>,
+}
+
+#[derive(Component)]
+pub struct PreviewContours {
+    pub segments: Vec<[Vec3; 2]>,
+    pub is_preview: bool,
+}
+
+#[derive(Component)]
+pub struct CachedMeshPositions {
+    pub positions: Vec<Vec3>,
+    pub indices: Vec<usize>,
 }
 
 #[derive(Component)]

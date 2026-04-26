@@ -15,6 +15,7 @@ pub mod save;
 pub mod optimization;
 pub mod scaling;
 pub mod export;
+pub mod preview_contours;
 
 pub use input::*;
 pub use normalization::*;
@@ -31,3 +32,4 @@ pub use undo_redo::*;
 pub use save::*;
 pub use optimization::*;
 pub use scaling::*;
+pub use preview_contours::*;

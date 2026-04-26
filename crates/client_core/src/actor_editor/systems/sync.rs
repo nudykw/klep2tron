@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::super::{MainEditorCamera, GizmoCamera, SlicingSettings, ViewportSettings, SlicingContours, ActorBounds, SlicingGizmoType, SlicingGizmo, EditorHelper};
+use super::super::{MainEditorCamera, GizmoCamera, SlicingSettings, ViewportSettings, SlicingContours, PreviewContours, ActorBounds, SlicingGizmoType, SlicingGizmo, EditorHelper};
 
 pub fn gizmo_sync_system(
     main_camera: Query<&Transform, (With<MainEditorCamera>, Without<GizmoCamera>)>,
@@ -66,18 +66,44 @@ pub fn slicing_ui_sync_system(
 }
 
 pub fn draw_slicing_contours_system(
-    contour_query: Query<(&SlicingContours, &GlobalTransform)>,
+    preview_query: Query<(&PreviewContours, &GlobalTransform)>,
+    final_query: Query<(&SlicingContours, &GlobalTransform)>,
+    slicing_settings: Res<SlicingSettings>,
     viewport_settings: Res<ViewportSettings>,
     mut gizmos: Gizmos,
 ) {
     if !viewport_settings.slices { return; }
     
-    for (contours, transform) in contour_query.iter() {
-        let matrix = transform.compute_matrix();
-        for segment in &contours.segments {
-            let start = matrix.transform_point3(segment[0]);
-            let end = matrix.transform_point3(segment[1]);
-            gizmos.line(start, end, Color::srgb(1.0, 0.0, 0.0));
+    if slicing_settings.dragging_gizmo.is_some() {
+        // Во время перетаскивания показываем ОБА контура:
+        // 1. Черные - текущая (старая) позиция разреза
+        for (contours, transform) in final_query.iter() {
+            let matrix = transform.compute_matrix();
+            for segment in &contours.segments {
+                let start = matrix.transform_point3(segment[0]);
+                let end = matrix.transform_point3(segment[1]);
+                gizmos.line(start, end, Color::srgb(0.0, 0.0, 0.0)); // Черный
+            }
+        }
+        
+        // 2. Оранжевые - новая (preview) позиция разреза
+        for (preview, transform) in preview_query.iter() {
+            let matrix = transform.compute_matrix();
+            for segment in &preview.segments {
+                let start = matrix.transform_point3(segment[0]);
+                let end = matrix.transform_point3(segment[1]);
+                gizmos.line(start, end, Color::srgb(1.0, 0.5, 0.0)); // Оранжевый яркий
+            }
+        }
+    } else {
+        // Без перетаскивания - только финальные красные контуры
+        for (contours, transform) in final_query.iter() {
+            let matrix = transform.compute_matrix();
+            for segment in &contours.segments {
+                let start = matrix.transform_point3(segment[0]);
+                let end = matrix.transform_point3(segment[1]);
+                gizmos.line(start, end, Color::srgb(1.0, 0.0, 0.0)); // Красный яркий
+            }
         }
     }
 }
