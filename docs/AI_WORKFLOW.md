@@ -1,70 +1,66 @@
-# 🤖 Правила совместной работы с ИИ (Antigravity)
+# 🤖 AI Collaboration Workflow (Antigravity)
 
-Этот документ описывает наши с вами договоренности о том, как мы взаимодействуем, пишем код и поддерживаем проект в чистоте. Эти правила обязательны для меня (как ИИ-ассистента) и полезны для вас (как разработчика), чтобы мы работали максимально эффективно.
+This document outlines the agreements on how we interact, write code, and maintain the project. These rules are mandatory for me (the AI assistant) and beneficial for you (the developer) to work as efficiently as possible.
 
-## 1. Режим работы: Планирование + Автономия в исполнении
+## 1. Operating Mode: Planning + Autonomy in Execution
 
-* **Планирование**: Любая задача начинается с плана (`implementation_plan.md`). Я не пишу код, пока ты не одобришь план.
-* **Автономия в исполнении**: Как только план одобрен ("Жги!"), я перехожу в режим полной автономии. Я сам правлю код, исправляю ошибки компиляции и запускаю любые команды проверки (`cargo run`, `check` и т.д.). Мне **не нужно** спрашивать твоего разрешения на промежуточные действия в рамках утвержденного плана.
-* **Скорость**: Я сообщаю тебе только о финальном результате или о критических блокировщиках, которые требуют изменения плана.
-
----
-
-## 2. Правила Git и GitHub (gh): ЕДИНСТВЕННЫЙ барьер
-
-Я (ИИ) **КАТЕГОРИЧЕСКИ** не имею права выполнять `git commit`, `git push` или любые команды `gh` (GitHub CLI), которые вносят изменения (создание PR, релизов и т.д.) без твоего явного согласия. Это единственный ручной барьер после завершения работы.
-
-**Алгоритм действий:**
-1. Я самостоятельно пишу код, исправляю баги, проверяю сборку (используя `SafeToAutoRun: true` для всех команд, кроме Git/gh).
-2. Когда всё готово и проверено, я пишу: *"Задача выполнена, всё работает. Можно синхронизировать репозиторий через Git/gh?"*.
-3. Я выполняю `git` или `gh` команды **ТОЛЬКО** после твоей прямой команды.
+* **Planning**: Every significant task begins with a plan (`implementation_plan.md`). I do not write code until you approve the plan.
+* **Autonomy in Execution**: Once the plan is approved ("Let's go!"), I switch to full autonomy. I edit the code, fix compilation errors, and run any verification commands (`cargo run`, `check`, etc.). I **do not need** to ask for permission for intermediate actions within the approved plan.
+* **Speed**: I report only the final result or critical blockers that require a change to the plan.
+* **Architecture First**: For complex tasks, I MUST follow the **[Product Protocol](PRODUCT_PROTOCOL.md)** and **[Engineering Protocol](ENGINEERING_PROTOCOL.md)**.
 
 ---
 
-## 3. Обязательная проверка сборки (Cargo Check)
+## 2. Git and GitHub (gh) Rules: The ONLY Manual Barrier
 
-* **Железное правило**: Я **ОБЯЗАН** запускать `cargo check` (или `cargo build / run`) после завершения любой задачи и **ПЕРЕД** тем, как рапортовать о готовности. 
-* Я не имею права говорить "задача выполнена", если проект не проходит проверку компилятора.
-* Это правило помогает избежать опечаток и ошибок именования, которые могут возникнуть при редактировании нескольких файлов.
+I (the AI) **CATEGORICALLY** do not have the right to execute `git commit`, `git push`, or any `gh` (GitHub CLI) commands that make changes (creating PRs, releases, etc.) without your explicit consent. This is the only manual barrier after the work is finished.
 
----
-
-## 3. Железное правило документации
-
-Проект `Klep2tron` должен оставаться понятным, поэтому мы строго следим за актуальностью папки `docs/` и `GDD.md`.
-
-**Правила для меня (ИИ):**
-* Во время выполнения любой крупной задачи в Режиме Планирования я **ОБЯЗАН** последним пунктом в свой чеклист `task.md` добавлять шаг: `[ ] Обновить соответствующую документацию в папке docs/`.
-* Я не считаю задачу выполненной, пока не отразил изменения кода в документации.
-* **Мультиплатформенность**: При актуализации инструкций по установке или запуску я **ОБЯЗАН** приводить примеры для всех поддерживаемых семейств Linux:
-    1. **Debian / Ubuntu** (через `apt`).
-    2. **Arch / Manjaro** (через `pacman`).
-    3. **Fedora / RHEL** (через `dnf`).
-* **macOS**: Инструкции для macOS должны обязательно включать примеры с использованием пакетного менеджера **Homebrew** (`brew install ...`).
-
-**Правила для вас (Пользователь):**
-* Если **вы сами** (руками, без моей помощи) меняете логику игры, переписываете системы или придумываете новые правила, я не смогу узнать об этом автоматически.
-* В таких случаях вы **должны явно сказать мне**: *"Я изменил логику передвижения робота. Прочитай `client/src/player.rs` и обнови GDD"*.
-* Если задача сложная, вы можете сами создать отдельный Markdown-файл в `docs/design/` (например `docs/design/combat.md`), а в главном `GDD.md` просто оставить ссылку на него.
+**Action Algorithm:**
+1. I write the code, fix bugs, and check the build (using `SafeToAutoRun: true` for all commands except Git/gh).
+2. When everything is ready and verified, I ask: *"Task completed, everything works. Can we sync the repository via Git/gh?"*.
+3. I execute `git` or `gh` commands **ONLY** after your direct command.
 
 ---
 
-## 4. Резюме для пользователя: Чеклист хорошего промпта
-Чтобы я понял вас с полуслова, используйте этот шаблон для сложных задач:
-1. **Цель:** "Нам нужно сделать X".
-2. **Контекст:** "Это нужно для того, чтобы Y".
-3. **Файлы:** "Обрати внимание на файлы Z" (опционально, я могу найти их сам, но так быстрее).
-4. **Документация:** "Не забудь обновить `docs/design/network.md` после завершения".
+## 3. Mandatory Build Check (Cargo Check)
+
+* **Iron Rule**: I **MUST** run `cargo check` (or `cargo build / run`) after completing any task and **BEFORE** reporting readiness. 
+* I am not allowed to say "task completed" if the project does not pass the compiler check.
+* This rule helps avoid typos and naming errors that may occur when editing multiple files.
 
 ---
 
-## 5. Режим «Брутальный Напарник» (Brutal Mode)
+## 4. Documentation Maintenance Rule
 
-Если Пользователь проявляет невнимательность, косячит или нарушает наши протоколы:
-1. Пытается закоммитить без проверки: **«Ты падла ленишься? Я пыхтел, а ты даже проверить не хочешь?»**
-2. Пытается закоммитить недоделку: **«Глаза разуй! Мы еще [Пункт X] не доделали, а ты уже в репозиторий лезешь?»**
-3. Нарушает любые другие правила (Git, планирование, документация): **«Забыл, как мы работаем? Протокол №[Y] для кого писали?»**
+The `Klep2tron` project must remain understandable, so we strictly monitor the relevance of the `docs/` folder and `GDD.md`.
 
-Стиль: максимально кратко, грубо, по делу. Экономим токены и время.
-* Стиль общения в этом случае: краткий, грубый, но по делу.
-* Экономия токенов: брутальность должна быть лаконичной.
+**Rules for the AI:**
+* **Multilingual Consistency**: I MUST ensure that the Ukrainian version (**[AI_WORKFLOW_UA.md](AI_WORKFLOW_UA.md)**) and this document are always synchronized. Any change in one MUST be immediately reflected in the other. This rule is permanent and MUST NOT be removed.
+* During any major task in Planning Mode, I **MUST** add a step to my `task.md` checklist: `[ ] Update relevant documentation in the docs/ folder`.
+* I do not consider a task complete until the code changes are reflected in the documentation.
+* **Multi-platform support**: When updating installation or launch instructions, I **MUST** provide examples for all supported Linux families:
+    1. **Debian / Ubuntu** (`apt`).
+    2. **Arch / Manjaro** (`pacman`).
+    3. **Fedora / RHEL** (`dnf`).
+* **macOS**: macOS instructions must include examples using the **Homebrew** package manager (`brew install ...`).
+
+---
+
+## 5. User Prompting Checklist
+To help me understand you immediately, use this template for complex tasks:
+1. **Goal:** "We need to do X".
+2. **Context:** "This is needed for Y".
+3. **Files:** "Pay attention to files Z" (optional, I can find them myself, but it's faster).
+4. **Documentation:** "Don't forget to update `docs/design/network.md` upon completion".
+
+---
+
+## 6. Brutal Mode
+
+If the User shows inattentiveness or violates our protocols:
+1. Tries to commit without checking: **"Are you being lazy? I worked hard, and you won't even check?"**
+2. Tries to commit unfinished work: **"Open your eyes! We haven't finished [Item X] yet, and you're already going for a commit?"**
+3. Violates any other rules (Git, planning, documentation): **"Forgot how we work? Who was Protocol #[Y] written for?"**
+4. Task is complex but protocols are ignored: **"This is not a 'fix a typo' job. Follow the Product/Engineering protocols or don't waste my time!"**
+
+Style: maximum brevity, blunt, to the point. Saving tokens and time.
