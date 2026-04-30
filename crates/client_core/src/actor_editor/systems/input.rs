@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::ecs::system::SystemParam;
-use rfd::FileDialog;
+use bevy::tasks::IoTaskPool;
+use super::ui_logic::{FileDialogAction, FileDialogTask};
 use super::super::{ActorImportEvent, ActorLoadEvent, SlicingSettings, ToastEvent, ToastType, ActorEditorBackButton, ViewportSettings, ResetCameraEvent, ConfirmationRequestEvent, ActorSaveEvent, EditorAction, EditorMode, LastUsedDirectory};
 
 #[derive(SystemParam)]
@@ -25,7 +26,7 @@ pub fn actor_editor_input_system(
     asset_server: Res<AssetServer>,
     camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
     mut commands: Commands,
-    mut last_dir: ResMut<LastUsedDirectory>,
+    last_dir: Res<LastUsedDirectory>,
 ) {
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight) 
                || keyboard.pressed(KeyCode::SuperLeft) || keyboard.pressed(KeyCode::SuperRight);
@@ -38,25 +39,15 @@ pub fn actor_editor_input_system(
 
             let directory = last_dir.0.clone().unwrap_or(actors_dir);
             
-            if let Some(path) = FileDialog::new()
-                .set_title("Open Actor Project Folder")
-                .set_directory(directory)
-                .pick_folder() {
-                
-                if let Some(parent) = path.parent() {
-                    last_dir.0 = Some(parent.to_path_buf());
-                }
-
-                let ron_path = path.join("actor.ron");
-                if ron_path.exists() {
-                    events.load.send(super::super::ActorLoadEvent(ron_path));
-                } else {
-                    events.toast.send(ToastEvent {
-                        message: "Selected folder is not a valid project (actor.ron not found)".to_string(),
-                        toast_type: ToastType::Error,
-                    });
-                }
-            }
+            let task = IoTaskPool::get().spawn(async move {
+                let folder = rfd::AsyncFileDialog::new()
+                    .set_title("Open Actor Project Folder")
+                    .set_directory(&directory)
+                    .pick_folder()
+                    .await;
+                folder.map(|f| f.path().to_path_buf())
+            });
+            commands.spawn(FileDialogTask { task, action: FileDialogAction::Open });
         }
         if keyboard.just_pressed(KeyCode::KeyI) {
             let current_dir = std::env::current_dir().unwrap_or_default();
@@ -64,16 +55,16 @@ pub fn actor_editor_input_system(
 
             let directory = last_dir.0.clone().unwrap_or(assets_dir);
 
-            if let Some(path) = FileDialog::new()
-                .set_title("Import Model")
-                .set_directory(directory)
-                .add_filter("Models", &["gltf", "glb", "obj"])
-                .pick_file() {
-                if let Some(parent) = path.parent() {
-                    last_dir.0 = Some(parent.to_path_buf());
-                }
-                events.import.send(ActorImportEvent(path, true));
-            }
+            let task = IoTaskPool::get().spawn(async move {
+                let file = rfd::AsyncFileDialog::new()
+                    .set_title("Import Model")
+                    .set_directory(&directory)
+                    .add_filter("Models", &["gltf", "glb", "obj"])
+                    .pick_file()
+                    .await;
+                file.map(|f| f.path().to_path_buf())
+            });
+            commands.spawn(FileDialogTask { task, action: FileDialogAction::Import });
         }
         if keyboard.just_pressed(KeyCode::KeyS) {
             if !current_project.is_saved {

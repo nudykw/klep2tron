@@ -1,6 +1,20 @@
 use bevy::prelude::*;
 use bevy::render::mesh::VertexAttributeValues;
-use rfd::FileDialog;
+use bevy::tasks::{block_on, IoTaskPool, Task};
+use futures_lite::future;
+use std::path::PathBuf;
+
+pub enum FileDialogAction {
+    Import,
+    Open,
+}
+
+#[derive(Component)]
+pub struct FileDialogTask {
+    pub task: Task<Option<PathBuf>>,
+    pub action: FileDialogAction,
+}
+
 use super::super::{EditorStatus, ActorBounds, ActorEditorEntity, Actor3DRoot, EditorHelper, ToastEvent, ToastType, ActorImportEvent, ActorSaveEvent, ActorLoadEvent, PendingImport, ImportProgress, GameState, SlicingSettings, ConfirmationRequestEvent, EditorAction, EditorMaterialColor, EditorMode, ViewportSettings, CurrentProject, LastUsedDirectory, ActorPart};
 use super::super::ui_project::{ModeTab, ProjectModeContent};
 use super::super::ui::inspector::types::{SocketsSectionMarker, PartsSectionMarker, SelectedSocket};
@@ -248,15 +262,12 @@ pub fn material_sync_system(
 
 pub fn project_action_system(
     interaction_query: Query<(&Interaction, &super::super::ui_project::ProjectAction), Changed<Interaction>>,
-    mut import_events: EventWriter<ActorImportEvent>,
-    mut load_events: EventWriter<ActorLoadEvent>,
     mut save_events: EventWriter<ActorSaveEvent>,
-    mut toast_events: EventWriter<ToastEvent>,
     current_project: Res<CurrentProject>,
     asset_server: Res<AssetServer>,
     camera_query: Query<Entity, With<crate::actor_editor::MainEditorCamera>>,
     mut commands: Commands,
-    mut last_dir: ResMut<LastUsedDirectory>,
+    last_dir: Res<LastUsedDirectory>,
 ) {
     for (interaction, action) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
@@ -267,16 +278,17 @@ pub fn project_action_system(
                     
                     let directory = last_dir.0.clone().unwrap_or(assets_dir);
                     
-                    if let Some(path) = FileDialog::new()
-                        .set_title("Import Model")
-                        .set_directory(directory)
-                        .add_filter("Models", &["gltf", "glb", "obj"])
-                        .pick_file() {
-                        if let Some(parent) = path.parent() {
-                            last_dir.0 = Some(parent.to_path_buf());
-                        }
-                        import_events.send(ActorImportEvent(path, true));
-                    }
+                    let task = IoTaskPool::get().spawn(async move {
+                        let file = rfd::AsyncFileDialog::new()
+                            .set_title("Import Model")
+                            .set_directory(&directory)
+                            .add_filter("Models", &["gltf", "glb", "obj"])
+                            .pick_file()
+                            .await;
+                        file.map(|f| f.path().to_path_buf())
+                    });
+                    
+                    commands.spawn(FileDialogTask { task, action: FileDialogAction::Import });
                 }
                 super::super::ui_project::ProjectAction::Save => {
                     if !current_project.is_saved {
@@ -293,16 +305,44 @@ pub fn project_action_system(
                     
                     let directory = last_dir.0.clone().unwrap_or(actors_dir);
                     
-                    if let Some(path) = FileDialog::new()
-                        .set_title("Open Actor Project Folder")
-                        .set_directory(directory)
-                        .pick_folder() {
-                        
-                        // Remember this directory (the parent of the selected project folder)
-                        if let Some(parent) = path.parent() {
-                            last_dir.0 = Some(parent.to_path_buf());
-                        }
-                        
+                    let task = IoTaskPool::get().spawn(async move {
+                        let folder = rfd::AsyncFileDialog::new()
+                            .set_title("Open Actor Project Folder")
+                            .set_directory(&directory)
+                            .pick_folder()
+                            .await;
+                        folder.map(|f| f.path().to_path_buf())
+                    });
+                    
+                    commands.spawn(FileDialogTask { task, action: FileDialogAction::Open });
+                }
+            }
+        }
+    }
+}
+
+pub fn poll_file_dialog_tasks_system(
+    mut commands: Commands,
+    mut tasks: Query<(Entity, &mut FileDialogTask)>,
+    mut import_events: EventWriter<ActorImportEvent>,
+    mut load_events: EventWriter<ActorLoadEvent>,
+    mut toast_events: EventWriter<ToastEvent>,
+    mut last_dir: ResMut<LastUsedDirectory>,
+) {
+    for (entity, mut task_component) in tasks.iter_mut() {
+        if let Some(result) = block_on(future::poll_once(&mut task_component.task)) {
+            commands.entity(entity).despawn();
+            
+            if let Some(path) = result {
+                if let Some(parent) = path.parent() {
+                    last_dir.0 = Some(parent.to_path_buf());
+                }
+                
+                match task_component.action {
+                    FileDialogAction::Import => {
+                        import_events.send(ActorImportEvent(path, true));
+                    }
+                    FileDialogAction::Open => {
                         let ron_path = path.join("actor.ron");
                         if ron_path.exists() {
                             load_events.send(super::super::ActorLoadEvent(ron_path));

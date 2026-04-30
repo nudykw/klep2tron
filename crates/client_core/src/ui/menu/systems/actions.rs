@@ -164,19 +164,23 @@ pub fn handle_menu_action(
         },
         MenuAction::NextGpu => {
             if !gpu_list.names.is_empty() {
-                let current = settings.selected_gpu.clone().unwrap_or_else(|| gpu_list.names[0].clone());
+                let current = pending.selected_gpu.clone().or_else(|| settings.selected_gpu.clone()).unwrap_or_else(|| gpu_list.names[0].clone());
                 if let Some(idx) = gpu_list.names.iter().position(|n| n == &current) {
                     let next_idx = (idx + 1) % gpu_list.names.len();
                     pending.selected_gpu = Some(gpu_list.names[next_idx].clone());
+                } else {
+                    pending.selected_gpu = Some(gpu_list.names[0].clone());
                 }
             }
         },
         MenuAction::PrevGpu => {
             if !gpu_list.names.is_empty() {
-                let current = settings.selected_gpu.clone().unwrap_or_else(|| gpu_list.names[0].clone());
+                let current = pending.selected_gpu.clone().or_else(|| settings.selected_gpu.clone()).unwrap_or_else(|| gpu_list.names[0].clone());
                 if let Some(idx) = gpu_list.names.iter().position(|n| n == &current) {
                     let next_idx = (idx + gpu_list.names.len() - 1) % gpu_list.names.len();
                     pending.selected_gpu = Some(gpu_list.names[next_idx].clone());
+                } else {
+                    pending.selected_gpu = Some(gpu_list.names[0].clone());
                 }
             }
         },

@@ -274,7 +274,8 @@ pub fn menu_item_system(
                             let gpu_val = pending.selected_gpu.clone().unwrap_or_else(|| {
                                 if gpu_list.names.is_empty() { "Detecting...".to_string() } else { gpu_list.names[0].clone() }
                             });
-                            spawn_menu_button(scroll_p, &font, "GPU", Some(gpu_val), 2, MenuItemType::Toggle, MenuAction::NextGpu, Some("Select graphics hardware".to_string()), false);
+                            let is_gpu_disabled = gpu_list.names.len() <= 1;
+                            spawn_menu_button(scroll_p, &font, "GPU", Some(gpu_val), 2, MenuItemType::Toggle, MenuAction::NextGpu, Some("Select graphics hardware".to_string()), is_gpu_disabled);
                             spawn_menu_button(scroll_p, &font, "SHADOWS", Some(format!("{:?}", pending.shadow_quality)), 3, MenuItemType::Toggle, MenuAction::NextShadowQuality, None, false);
                             spawn_menu_button(scroll_p, &font, "FOG", Some(format!("{:?}", pending.fog_quality)), 4, MenuItemType::Toggle, MenuAction::NextFog, None, false);
                             spawn_menu_button(scroll_p, &font, "BLOOM", Some(if pending.bloom { "ON" } else { "OFF" }.to_string()), 5, MenuItemType::Toggle, MenuAction::ToggleBloom, None, false);

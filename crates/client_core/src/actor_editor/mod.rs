@@ -112,6 +112,7 @@ impl Plugin for ActorEditorPlugin {
                 systems::color_picker_system,
                 systems::material_sync_system,
                 systems::project_action_system,
+                systems::poll_file_dialog_tasks_system,
                 systems::actor_import_event_system,
                 systems::actor_import_processing_system,
                 systems::progress_bar_update_system,

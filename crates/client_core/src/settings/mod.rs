@@ -201,6 +201,14 @@ fn init_settings_system(
              populate_gpu_list(&mut gpu_list, Some(&adapter));
         }
 
+        if let Some(ref saved_gpu) = settings.selected_gpu {
+            if !gpu_list.names.is_empty() && !gpu_list.names.contains(saved_gpu) {
+                // The saved GPU is not available on this machine!
+                // Fall back to the actual adapter being used.
+                settings.selected_gpu = Some(adapter.name.clone());
+            }
+        }
+
         if let Some(needs_auto) = needs_auto_opt {
             if needs_auto.0 {
                 *settings = auto_detect_graphics(&adapter);

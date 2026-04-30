@@ -1,9 +1,5 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
-use rayon::prelude::*;
-
-
-
 fn quantize(v: Vec3) -> [i32; 3] {
     [(v.x * 10000.0) as i32, (v.y * 10000.0) as i32, (v.z * 10000.0) as i32]
 }
@@ -73,7 +69,7 @@ pub fn build_caps_from_segments(segments: &[[Vec3; 2]], facing_up: bool, rim_thi
     }
 
 
-    let all_tris: Vec<_> = loops.par_iter()
+    let all_tris: Vec<_> = loops.iter()
         .map(|l| {
             if rim_thickness > 0.0001 {
                 triangulate_rim(l, facing_up, rim_thickness)
