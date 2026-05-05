@@ -16,6 +16,8 @@ pub mod optimization;
 pub mod scaling;
 pub mod export;
 pub mod preview_contours;
+pub mod lasso_selection;
+pub mod selection_highlight;
 
 pub use input::*;
 pub use normalization::*;
@@ -33,3 +35,5 @@ pub use save::*;
 pub use optimization::*;
 pub use scaling::*;
 pub use preview_contours::*;
+pub use lasso_selection::*;
+pub use selection_highlight::*;

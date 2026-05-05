@@ -200,10 +200,15 @@ pub fn slicing_manual_mode_visual_sync_system(
 
 pub fn slicing_ui_visibility_sync_system(
     slicing_settings: Res<SlicingSettings>,
-    mut container_query: Query<&mut Style, With<SlicingAutoModeContainer>>,
+    mut auto_container_query: Query<&mut Style, (With<SlicingAutoModeContainer>, Without<super::super::SlicingManualModeContainer>)>,
+    mut manual_container_query: Query<&mut Style, (With<super::super::SlicingManualModeContainer>, Without<SlicingAutoModeContainer>)>,
 ) {
-    for mut style in container_query.iter_mut() {
+    for mut style in auto_container_query.iter_mut() {
         let display = if slicing_settings.manual_mode { Display::None } else { Display::Flex };
+        if style.display != display { style.display = display; }
+    }
+    for mut style in manual_container_query.iter_mut() {
+        let display = if slicing_settings.manual_mode { Display::Flex } else { Display::None };
         if style.display != display { style.display = display; }
     }
 }

@@ -64,6 +64,9 @@ pub fn camera_control_blocking_system(
     ui_query: Query<&Interaction, With<Node>>,
     input_query: Query<&super::widgets::TextInput>,
     gizmo_busy: Res<super::GizmoBusy>,
+    editor_mode: Res<super::EditorMode>,
+    slicing_settings: Res<super::SlicingSettings>,
+    lasso_state: Res<super::LassoState>,
 ) {
     let mut blocked = false;
 
@@ -93,6 +96,16 @@ pub fn camera_control_blocking_system(
     if let Ok(mut camera) = camera_query.get_single_mut() {
         if camera.enabled == blocked {
             camera.enabled = !blocked;
+        }
+        
+        let target_orbit_button = if *editor_mode == super::EditorMode::Slicing && slicing_settings.manual_mode {
+            MouseButton::Middle
+        } else {
+            MouseButton::Left
+        };
+        
+        if camera.button_orbit != target_orbit_button {
+            camera.button_orbit = target_orbit_button;
         }
     }
 }

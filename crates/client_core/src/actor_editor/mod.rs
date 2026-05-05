@@ -17,6 +17,24 @@ pub enum EditorMode {
     Sockets,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LassoSelectionMode {
+    #[default]
+    Add,
+    Subtract,
+}
+
+#[derive(Resource, Default)]
+#[derive(Component)]
+pub struct TriangleSelectionCounter;
+
+#[derive(Resource, Default)]
+pub struct LassoState {
+    pub points: Vec<Vec2>,
+    pub is_active: bool,
+    pub mode: LassoSelectionMode,
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 pub struct EditorFonts {
@@ -59,6 +77,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<PendingSockets>()
            .init_resource::<PendingSlices>()
             .init_resource::<LastUsedDirectory>()
+           .init_resource::<LassoState>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -168,10 +187,15 @@ impl Plugin for ActorEditorPlugin {
                     ui::inspector::vfx::socket_vfx_interaction_system,
                     ui::inspector::optimization::mesh_optimization_system,
                     ui::inspector::optimization::mesh_optimization_visuals_system,
+                    ui::inspector::selection_counter_sync_system,
                     systems::scaling::mesh_scaling_ui_sync_system,
                     systems::scaling::mesh_scaling_interaction_system,
                     systems::scaling::mesh_scaling_apply_system,
                     systems::preview_contours_system,
+                    systems::lasso_input_system,
+                    systems::lasso_render_system,
+                    systems::triangle_selection_system,
+                    systems::selection_highlight_system,
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     systems::socket_color_picker_system,
@@ -379,6 +403,11 @@ pub struct SlicingContours {
     pub segments: Vec<[Vec3; 2]>,
 }
 
+#[derive(Component, Default, Clone)]
+pub struct SelectedTriangles {
+    pub indices: std::collections::HashSet<usize>,
+}
+
 #[derive(Component)]
 pub struct PreviewContours {
     pub segments: Vec<[Vec3; 2]>,
@@ -431,6 +460,9 @@ pub struct SlicingAutoManualToggle;
 
 #[derive(Component)]
 pub struct SlicingAutoModeContainer;
+
+#[derive(Component)]
+pub struct SlicingManualModeContainer;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]

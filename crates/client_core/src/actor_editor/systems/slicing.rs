@@ -55,6 +55,7 @@ pub fn mesh_slicing_system(
                                 is_hoverable: true,
                             },
                             Name::new(name.to_string()),
+                            crate::actor_editor::SelectedTriangles::default(),
                         )).set_parent(root_entity);
                     };
 
@@ -130,6 +131,7 @@ pub fn mesh_slicing_system(
                                 is_hoverable: true,
                             },
                             Name::new(name.to_string()),
+                            crate::actor_editor::SelectedTriangles::default(),
                         )).set_parent(parent_entity);
                     }
                 };

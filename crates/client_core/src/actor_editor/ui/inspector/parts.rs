@@ -18,6 +18,7 @@ pub fn spawn_parts_section(
         false,
         PartsSectionMarker,
         |content| {
+
             for (part, label) in [
                 (ActorPart::Head, "Head"),
                 (ActorPart::Body, "Body"),

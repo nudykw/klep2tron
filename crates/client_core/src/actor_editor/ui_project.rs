@@ -512,4 +512,51 @@ fn spawn_slicing_precision_ui(
             });
         });
     });
+
+    // Manual Mode Container
+    parent.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(8.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                display: Display::None, // Hidden by default
+                ..default()
+            },
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.2).into(),
+            border_radius: BorderRadius::all(Val::Px(6.0)),
+            ..default()
+        },
+        super::SlicingManualModeContainer,
+    )).with_children(|container| {
+        // Selection Counter
+        container.spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Px(25.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            background_color: Color::srgba(0.0, 1.0, 1.0, 0.1).into(),
+            border_radius: BorderRadius::all(Val::Px(4.0)),
+            ..default()
+        }).with_children(|row| {
+            row.spawn((
+                TextBundle::from_section(
+                    "Selected: 0 triangles",
+                    TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.0, 1.0, 1.0) },
+                ),
+                crate::actor_editor::TriangleSelectionCounter,
+            ));
+        });
+        
+        container.spawn(TextBundle::from_section(
+            "Use Left Mouse Button to lasso triangles.\nHold Alt to subtract from selection.",
+            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
+        ));
+    });
+
 }

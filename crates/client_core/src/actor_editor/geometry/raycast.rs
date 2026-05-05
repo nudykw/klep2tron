@@ -4,6 +4,7 @@ pub struct RayHit {
     pub point: Vec3,
     pub normal: Vec3,
     pub distance: f32,
+    pub triangle_index: usize,
 }
 
 pub fn ray_mesh_intersection(
@@ -22,37 +23,43 @@ pub fn ray_mesh_intersection(
     let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
     let indices = mesh.indices()?;
     
-    let mut best_hit: Option<RayHit> = None;
-    
+    let mut best_t: Option<f32> = None;
+    let mut best_normal: Option<Vec3> = None;
+    let mut best_index: Option<usize> = None;
+
     let triangles = match indices {
         bevy::render::mesh::Indices::U16(vec) => vec.chunks(3).map(|c| [c[0] as usize, c[1] as usize, c[2] as usize]).collect::<Vec<_>>(),
         bevy::render::mesh::Indices::U32(vec) => vec.chunks(3).map(|c| [c[0] as usize, c[1] as usize, c[2] as usize]).collect::<Vec<_>>(),
     };
 
-    for triangle in triangles {
+    for (tri_idx, triangle) in triangles.iter().enumerate() {
         let v0 = Vec3::from(positions[triangle[0]]);
         let v1 = Vec3::from(positions[triangle[1]]);
         let v2 = Vec3::from(positions[triangle[2]]);
         
         if let Some(t) = ray_triangle_intersection(local_origin, local_dir, v0, v1, v2) {
-            if best_hit.is_none() || t < best_hit.as_ref().unwrap().distance {
-                // Calculate normal (flat for now, or interpolate if we have normals)
-                let normal = (v1 - v0).cross(v2 - v0).normalize();
-                
-                // Convert back to world space
-                let world_point = matrix.transform_point3(local_origin + local_dir * t);
-                let world_normal = transform.to_scale_rotation_translation().1 * normal;
-                
-                best_hit = Some(RayHit {
-                    point: world_point,
-                    normal: world_normal,
-                    distance: t,
-                });
+            if best_t.is_none() || t < best_t.unwrap() {
+                best_t = Some(t);
+                best_normal = Some((v1 - v0).cross(v2 - v0).normalize());
+                best_index = Some(tri_idx);
             }
         }
     }
     
-    best_hit
+    if let (Some(t), Some(normal), Some(index)) = (best_t, best_normal, best_index) {
+        let world_point = matrix.transform_point3(local_origin + local_dir * t);
+        let world_normal = transform.to_scale_rotation_translation().1 * normal;
+        let world_distance = ray_origin.distance(world_point);
+        
+        Some(RayHit {
+            point: world_point,
+            normal: world_normal,
+            distance: world_distance,
+            triangle_index: index,
+        })
+    } else {
+        None
+    }
 }
 
 fn ray_triangle_intersection(

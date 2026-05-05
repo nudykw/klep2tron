@@ -268,3 +268,19 @@ pub fn socket_filter_ui_system(
         }
     }
 }
+pub fn selection_counter_sync_system(
+    part_query: Query<&crate::actor_editor::SelectedTriangles>,
+    mut counter_query: Query<&mut Text, With<crate::actor_editor::TriangleSelectionCounter>>,
+) {
+    let mut total = 0;
+    for selected in part_query.iter() {
+        total += selected.indices.len();
+    }
+    
+    for mut text in counter_query.iter_mut() {
+        let new_val = format!("Selected: {} triangles", total);
+        if text.sections[0].value != new_val {
+            text.sections[0].value = new_val;
+        }
+    }
+}
