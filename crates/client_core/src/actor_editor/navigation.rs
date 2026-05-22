@@ -66,7 +66,7 @@ pub fn camera_control_blocking_system(
     gizmo_busy: Res<super::GizmoBusy>,
     editor_mode: Res<super::EditorMode>,
     slicing_settings: Res<super::SlicingSettings>,
-    lasso_state: Res<super::LassoState>,
+    _lasso_state: Res<super::LassoState>,
 ) {
     let mut blocked = false;
 

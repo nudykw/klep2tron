@@ -78,6 +78,7 @@ impl Plugin for ActorEditorPlugin {
            .init_resource::<PendingSlices>()
             .init_resource::<LastUsedDirectory>()
            .init_resource::<LassoState>()
+           .init_resource::<TargetPart>()
            .add_event::<ResetCameraEvent>()
            .add_event::<ActorSaveEvent>()
            .add_event::<ActorImportEvent>()
@@ -205,9 +206,12 @@ impl Plugin for ActorEditorPlugin {
                     systems::socket_vfx_preview_system,
                     systems::vfx_spawner::socket_vfx_spawner_system,
                     systems::vfx_spawner::socket_vfx_sync_system,
-                    systems::undo_redo::undo_redo_shortcuts_system,
+                     systems::undo_redo::undo_redo_shortcuts_system,
                     systems::undo_redo::undo_redo_ui_system,
                     systems::undo_redo::undo_redo_button_visual_system,
+                    systems::geometry_reassign_system,
+                    systems::caps_cleanup_system,
+                    systems::target_part_button_visual_system,
                 ).run_if(in_state(GameState::ActorEditor)))
             .add_systems(Update, (
                     systems::undo_redo::handle_undo_redo,
@@ -354,6 +358,8 @@ pub struct SlicingSettings {
     pub show_caps: bool,
     pub rim_thickness: f32,
     pub manual_mode: bool,
+    /// Сигнал для caps_cleanup_system: удалить процедурные крышки из частей
+    pub trigger_caps_cleanup: bool,
 }
 
 #[derive(Resource)]
@@ -393,6 +399,7 @@ impl Default for SlicingSettings {
             show_caps: true,
             rim_thickness: 0.0, // 0.0 means Solid
             manual_mode: false,
+            trigger_caps_cleanup: false,
         }
     }
 }
@@ -463,6 +470,26 @@ pub struct SlicingAutoModeContainer;
 
 #[derive(Component)]
 pub struct SlicingManualModeContainer;
+
+/// Хранит индекс первого треугольника-крышки в меше части.
+/// [0..cap_start_tri) — оригинальные треугольники; [cap_start_tri..) — процедурные крышки.
+#[derive(Component, Default, Clone, Copy)]
+pub struct CapTriangleRange {
+    pub cap_start_tri: usize,
+}
+
+/// Маркер кнопки выбора целевой части (HEAD / BODY / LEGS)
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TargetPartButton(pub ActorPart);
+
+/// Resource: текущая выбранная целевая часть в Target Part Selector
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TargetPart {
+    #[default]
+    Head,
+    Body,
+    Engine,
+}
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]

@@ -161,6 +161,10 @@ pub fn slicing_manual_mode_system(
                 let target_manual = label == "MANUAL";
                 if slicing_settings.manual_mode != target_manual {
                     slicing_settings.manual_mode = target_manual;
+                    // При переходе Auto → Manual с Keep Caps = OFF — удалить крышки
+                    if target_manual && !slicing_settings.show_caps {
+                        slicing_settings.trigger_caps_cleanup = true;
+                    }
                     info!("Slicing Manual Mode: {}", target_manual);
                 }
             }

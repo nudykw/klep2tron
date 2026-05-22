@@ -557,6 +557,65 @@ fn spawn_slicing_precision_ui(
             "Use Left Mouse Button to lasso triangles.\nHold Alt to subtract from selection.",
             TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
         ));
+
+        // ── Target Part Selector ───────────────────────────────────────────
+        container.spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                margin: UiRect::top(Val::Px(10.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(4.0),
+                ..default()
+            },
+            ..default()
+        }).with_children(|col| {
+            col.spawn(TextBundle::from_section(
+                "Move to Part:",
+                TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
+            ));
+
+            col.spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(28.0),
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(3.0),
+                    ..default()
+                },
+                ..default()
+            }).with_children(|row| {
+                for (part, label, tooltip) in [
+                    (ActorPart::Head,   "HEAD", "Move selected triangles to Head part"),
+                    (ActorPart::Body,   "BODY", "Move selected triangles to Body part"),
+                    (ActorPart::Engine, "LEGS", "Move selected triangles to Legs part"),
+                ] {
+                    row.spawn((
+                        ButtonBundle {
+                            style: Style {
+                                flex_grow: 1.0,
+                                height: Val::Percent(100.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
+                            border_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
+                            border_radius: BorderRadius::all(Val::Px(3.0)),
+                            ..default()
+                        },
+                        super::TargetPartButton(part),
+                        super::widgets::Tooltip(tooltip.to_string()),
+                        bevy_mod_picking::prelude::PickableBundle::default(),
+                    )).with_children(|b| {
+                        b.spawn(TextBundle::from_section(
+                            label,
+                            TextStyle { font: font.clone(), font_size: 10.0, color: Color::WHITE },
+                        ));
+                    });
+                }
+            });
+        });
     });
 
 }

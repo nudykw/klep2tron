@@ -202,6 +202,47 @@ impl Command for ScaleModelCommand {
     }
 }
 
+pub struct GeometryReassignCommand {
+    pub src_entity: Entity,
+    pub dst_entity: Entity,
+    pub old_src_mesh: bevy::render::mesh::Mesh,
+    pub old_dst_mesh: bevy::render::mesh::Mesh,
+    pub new_src_mesh: bevy::render::mesh::Mesh,
+    pub new_dst_mesh: bevy::render::mesh::Mesh,
+}
+
+impl Command for GeometryReassignCommand {
+    fn name(&self) -> String { "Move Triangles".to_string() }
+
+    fn execute(&self, world: &mut World) {
+        apply_mesh_to_entity(world, self.src_entity, self.new_src_mesh.clone());
+        apply_mesh_to_entity(world, self.dst_entity, self.new_dst_mesh.clone());
+        clear_selected_triangles(world, self.src_entity);
+    }
+
+    fn undo(&self, world: &mut World) {
+        apply_mesh_to_entity(world, self.src_entity, self.old_src_mesh.clone());
+        apply_mesh_to_entity(world, self.dst_entity, self.old_dst_mesh.clone());
+    }
+}
+
+fn apply_mesh_to_entity(world: &mut World, entity: Entity, new_mesh: bevy::render::mesh::Mesh) {
+    let handle = world.get::<Handle<bevy::render::mesh::Mesh>>(entity).cloned();
+    if let Some(handle) = handle {
+        if let Some(mut meshes) = world.get_resource_mut::<Assets<bevy::render::mesh::Mesh>>() {
+            if let Some(m) = meshes.get_mut(&handle) {
+                *m = new_mesh;
+            }
+        }
+    }
+}
+
+fn clear_selected_triangles(world: &mut World, entity: Entity) {
+    if let Some(mut sel) = world.get_mut::<crate::actor_editor::SelectedTriangles>(entity) {
+        sel.indices.clear();
+    }
+}
+
 // --- Systems ---
 
 pub fn undo_redo_shortcuts_system(

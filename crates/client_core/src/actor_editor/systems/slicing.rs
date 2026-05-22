@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::super::{SlicingSettings, ActorBounds, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper, systems::optimization::OptimizedMeshComponent};
+use super::super::{SlicingSettings, ActorBounds, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper, systems::optimization::OptimizedMeshComponent, CapTriangleRange};
 
 #[derive(Resource, Default)]
 pub struct SlicingTask(pub Option<bevy::tasks::Task<SlicingResult>>);
@@ -36,7 +36,7 @@ pub fn mesh_slicing_system(
                 }
 
                 commands.entity(root_entity).with_children(|p| {
-                    let mut spawn_part = |cmds: &mut ChildBuilder, mesh_handle: Handle<Mesh>, name: &str, part_type: ActorPart, color: Color| {
+                    let mut spawn_part = |cmds: &mut ChildBuilder, mesh_handle: Handle<Mesh>, name: &str, part_type: ActorPart, color: Color, cap_start: usize| {
                         cmds.spawn((
                             PbrBundle {
                                 mesh: mesh_handle,
@@ -56,17 +56,18 @@ pub fn mesh_slicing_system(
                             },
                             Name::new(name.to_string()),
                             crate::actor_editor::SelectedTriangles::default(),
+                            CapTriangleRange { cap_start_tri: cap_start },
                         )).set_parent(root_entity);
                     };
 
                     if let Some(h) = pending_slices.0.get(&ActorPart::Head) {
-                        spawn_part(p, h.clone(), "Top", ActorPart::Head, Color::srgb(0.3, 0.6, 1.0));
+                        spawn_part(p, h.clone(), "Top", ActorPart::Head, Color::srgb(0.3, 0.6, 1.0), 0);
                     }
                     if let Some(h) = pending_slices.0.get(&ActorPart::Body) {
-                        spawn_part(p, h.clone(), "Mid", ActorPart::Body, Color::srgb(0.8, 0.8, 0.8));
+                        spawn_part(p, h.clone(), "Mid", ActorPart::Body, Color::srgb(0.8, 0.8, 0.8), 0);
                     }
                     if let Some(h) = pending_slices.0.get(&ActorPart::Engine) {
-                        spawn_part(p, h.clone(), "Bottom", ActorPart::Engine, Color::srgb(1.0, 0.6, 0.2));
+                        spawn_part(p, h.clone(), "Bottom", ActorPart::Engine, Color::srgb(1.0, 0.6, 0.2), 0);
                     }
                 });
 
@@ -108,7 +109,7 @@ pub fn mesh_slicing_system(
 
             // 3. Apply result
             for (parent_entity, parts) in result.mesh_parts {
-                let mut spawn_part = |cmds: &mut ChildBuilder, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart, color: Color| {
+                let mut spawn_part = |cmds: &mut ChildBuilder, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart, color: Color, cap_start: usize| {
                     if let Some(m) = mesh_opt {
                         let visibility = part_visibility.get(&part_type).cloned().unwrap_or(Visibility::Visible);
                         
@@ -132,14 +133,15 @@ pub fn mesh_slicing_system(
                             },
                             Name::new(name.to_string()),
                             crate::actor_editor::SelectedTriangles::default(),
+                            CapTriangleRange { cap_start_tri: cap_start },
                         )).set_parent(parent_entity);
                     }
                 };
 
                 commands.entity(parent_entity).with_children(|p| {
-                    spawn_part(p, parts.head, "Top", ActorPart::Head, Color::srgb(0.3, 0.6, 1.0));
-                    spawn_part(p, parts.body, "Mid", ActorPart::Body, Color::srgb(0.8, 0.8, 0.8));
-                    spawn_part(p, parts.legs, "Bottom", ActorPart::Engine, Color::srgb(1.0, 0.6, 0.2));
+                    spawn_part(p, parts.head, "Top",    ActorPart::Head,   Color::srgb(0.3, 0.6, 1.0), parts.head_orig_tris);
+                    spawn_part(p, parts.body, "Mid",    ActorPart::Body,   Color::srgb(0.8, 0.8, 0.8), parts.body_orig_tris);
+                    spawn_part(p, parts.legs, "Bottom", ActorPart::Engine, Color::srgb(1.0, 0.6, 0.2), parts.legs_orig_tris);
                 });
 
                 if parts.contours.is_empty() {

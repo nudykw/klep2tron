@@ -60,7 +60,7 @@ pub fn split_mesh_by_planes(
     let positions = if let Some(VertexAttributeValues::Float32x3(p)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
         p
     } else {
-        return super::SlicedParts { head: None, body: None, legs: None, contours: Vec::new() };
+        return super::SlicedParts { head: None, body: None, legs: None, contours: Vec::new(), head_orig_tris: 0, body_orig_tris: 0, legs_orig_tris: 0 };
     };
     let normals_storage;
     let normals = if let Some(VertexAttributeValues::Float32x3(n)) = mesh.attribute(Mesh::ATTRIBUTE_NORMAL) {
@@ -148,16 +148,26 @@ pub fn split_mesh_by_planes(
 
     let cap_time = if show_caps {
         let cap_start = std::time::Instant::now();
+        // Запомнить кол-во оригинальных треугольников до добавления крышек
+        let head_orig = head_tris.len();
+        let body_orig = body_tris.len();
+        let legs_orig = legs_tris.len();
         // Capping: Add cap triangles to parts
         head_tris.extend(super::capper::build_caps_from_segments(&top_segments, false, rim_thickness));
         body_tris.extend(super::capper::build_caps_from_segments(&top_segments, true, rim_thickness));
         body_tris.extend(super::capper::build_caps_from_segments(&bot_segments, false, rim_thickness));
         legs_tris.extend(super::capper::build_caps_from_segments(&bot_segments, true, rim_thickness));
-        cap_start.elapsed()
+        let elapsed = cap_start.elapsed();
+        info!("Slicing Speed: Split={:?}, Cap={:?} (Total={:?})", split_time, elapsed, start_time.elapsed());
+        (elapsed, head_orig, body_orig, legs_orig)
     } else {
-        std::time::Duration::ZERO
+        let head_orig = head_tris.len();
+        let body_orig = body_tris.len();
+        let legs_orig = legs_tris.len();
+        info!("Slicing Speed: Split={:?}, Cap=0ns (Total={:?})", split_time, start_time.elapsed());
+        (std::time::Duration::ZERO, head_orig, body_orig, legs_orig)
     };
-    info!("Slicing Speed: Split={:?}, Cap={:?} (Total={:?})", split_time, cap_time, start_time.elapsed());
+    let (_, head_orig_tris, body_orig_tris, legs_orig_tris) = cap_time;
 
 
     super::SlicedParts {
@@ -165,6 +175,9 @@ pub fn split_mesh_by_planes(
         body: Some(build_mesh_from_tris(&body_tris)),
         legs: Some(build_mesh_from_tris(&legs_tris)),
         contours: [top_segments, bot_segments].concat(),
+        head_orig_tris,
+        body_orig_tris,
+        legs_orig_tris,
     }
 }
 
