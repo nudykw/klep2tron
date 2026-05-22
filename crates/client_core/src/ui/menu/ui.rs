@@ -14,7 +14,7 @@ pub fn spawn_menu_button(
     is_disabled: bool,
 ) {
     parent.spawn((
-        NodeBundle {
+        ButtonBundle {
             style: Style {
                 width: Val::Px(460.0),
                 height: Val::Px(50.0),

@@ -30,6 +30,7 @@ pub struct MenuInputParams<'w, 's> {
     pub gpu_list: ResMut<'w, crate::settings::GpuList>,
     pub instance_adapter: Option<Res<'w, bevy::render::renderer::RenderAdapterInfo>>,
     pub parent_query: Query<'w, 's, &'static Parent>,
+    pub interaction_query: Query<'w, 's, (Entity, &'static Interaction, &'static MenuItem)>,
 }
 
 pub fn device_detection_system(
@@ -211,6 +212,52 @@ pub fn menu_input_system(
                     }
                 }
             }
+        }
+    }
+
+    // Mouse hover and click logic
+    for (entity, interaction, item) in params.interaction_query.iter() {
+        if item.is_disabled { continue; }
+        
+        let is_in_overlay = is_child_of_any(entity, &params.overlay_query, &params.parent_query);
+        if has_overlay && !is_in_overlay { continue; }
+
+        match *interaction {
+            Interaction::Hovered => {
+                if has_overlay {
+                    for (c_entity, mut container) in params.query.iter_mut() {
+                        if params.overlay_query.get(c_entity).is_ok() {
+                            if container.current_selection != item.index {
+                                container.current_selection = item.index;
+                            }
+                        }
+                    }
+                } else if !is_confirmation {
+                    for (_c_entity, mut container) in params.query.iter_mut() {
+                        if container.current_selection != item.index {
+                            container.current_selection = item.index;
+                            params.selection_memory.selections.insert(*params.menu_state.get(), item.index);
+                        }
+                    }
+                }
+            }
+            Interaction::Pressed => {
+                handle_menu_action(
+                    item.action.clone(), 
+                    &mut params.next_state, 
+                    &mut params.editor_mode, 
+                    &mut params.next_menu_state, 
+                    &mut params.settings, 
+                    &mut params.pending, 
+                    &mut params.confirmation, 
+                    &params.game_state,
+                    &mut params.exit_confirm,
+                    &mut params.gpu_list,
+                    &params.instance_adapter,
+                    &params.menu_state,
+                );
+            }
+            Interaction::None => {}
         }
     }
 }
