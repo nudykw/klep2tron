@@ -79,15 +79,15 @@ impl Plugin for ActorEditorPlugin {
             .init_resource::<LastUsedDirectory>()
            .init_resource::<LassoState>()
            .init_resource::<TargetPart>()
-           .add_event::<ResetCameraEvent>()
-           .add_event::<ActorSaveEvent>()
-           .add_event::<ActorImportEvent>()
-           .add_event::<ActorLoadEvent>()
-           .add_event::<ToastEvent>()
-           .add_event::<ConfirmationRequestEvent>()
-           .add_event::<InspectionFocusEvent>()
-           .add_event::<systems::undo_redo::UndoEvent>()
-           .add_event::<systems::undo_redo::RedoEvent>()
+           .add_message::<ResetCameraEvent>()
+           .add_message::<ActorSaveEvent>()
+           .add_message::<ActorImportEvent>()
+           .add_message::<ActorLoadEvent>()
+           .add_message::<ToastEvent>()
+           .add_message::<ConfirmationRequestEvent>()
+           .add_message::<InspectionFocusEvent>()
+           .add_message::<systems::undo_redo::UndoEvent>()
+           .add_message::<systems::undo_redo::RedoEvent>()
            .add_systems(OnEnter(GameState::ActorEditor), (
                vfx_assets::load_vfx_presets,
                vfx_assets::register_kenney_textures,
@@ -230,18 +230,18 @@ impl Plugin for ActorEditorPlugin {
 }
 
 // Events for decoupling (SOLID)
-#[derive(Event)]
+#[derive(Message)]
 pub struct ActorSaveEvent {
     pub name: Option<String>,
     pub force: bool,
 }
-#[derive(Event)]
+#[derive(Message)]
 pub struct ActorImportEvent(pub std::path::PathBuf, pub bool);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct ActorLoadEvent(pub std::path::PathBuf);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct ResetCameraEvent;
 
 #[derive(Resource, Default)]
@@ -280,7 +280,7 @@ pub enum ToastType {
     Error,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct ToastEvent {
     pub message: String,
     pub toast_type: ToastType,
@@ -293,7 +293,7 @@ pub enum EditorAction {
     OverwriteProject(String),
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct ConfirmationRequestEvent {
     pub title: String,
     pub message: String,
@@ -553,10 +553,10 @@ pub struct InspectionSettings {
     pub hovered_part: Option<ActorPart>,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct InspectionFocusEvent(pub ActorPart);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct MaterialUpdateEvent {
     pub color: Color,
     pub metallic: f32,

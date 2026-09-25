@@ -5,14 +5,14 @@ use shared::npc::ActorProject;
 use super::super::{ActorLoadEvent, ActorImportEvent, CurrentProject, SlicingSettings, PendingSockets, ToastEvent, ToastType, EditorStatus};
 
 pub fn actor_load_system(
-    mut load_events: EventReader<ActorLoadEvent>,
-    mut import_events: EventWriter<ActorImportEvent>,
+    mut load_events: MessageReader<ActorLoadEvent>,
+    mut import_events: MessageWriter<ActorImportEvent>,
     mut current_project: ResMut<CurrentProject>,
     mut slicing_settings: ResMut<SlicingSettings>,
     mut pending_sockets: ResMut<PendingSockets>,
     mut pending_import: ResMut<super::super::PendingImport>,
     mut status: ResMut<EditorStatus>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
     mut opt_settings: ResMut<crate::systems::optimization::OptimizationSettings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut pending_slices: ResMut<super::super::PendingSlices>,

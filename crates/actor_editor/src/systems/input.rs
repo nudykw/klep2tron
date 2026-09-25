@@ -6,12 +6,12 @@ use super::super::{ActorImportEvent, ActorLoadEvent, SlicingSettings, ToastEvent
 
 #[derive(SystemParam)]
 pub struct EditorEvents<'w> {
-    pub reset: EventWriter<'w, ResetCameraEvent>,
-    pub modal: EventWriter<'w, ConfirmationRequestEvent>,
-    pub load: EventWriter<'w, ActorLoadEvent>,
-    pub import: EventWriter<'w, ActorImportEvent>,
-    pub save: EventWriter<'w, ActorSaveEvent>,
-    pub toast: EventWriter<'w, ToastEvent>,
+    pub reset: MessageWriter<'w, ResetCameraEvent>,
+    pub modal: MessageWriter<'w, ConfirmationRequestEvent>,
+    pub load: MessageWriter<'w, ActorLoadEvent>,
+    pub import: MessageWriter<'w, ActorImportEvent>,
+    pub save: MessageWriter<'w, ActorSaveEvent>,
+    pub toast: MessageWriter<'w, ToastEvent>,
 }
 
 pub fn actor_editor_input_system(

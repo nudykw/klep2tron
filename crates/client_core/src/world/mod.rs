@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
-use bevy::core_pipeline::experimental::taa::TemporalAntiAliasBundle;
+use bevy::anti_alias::taa::TemporalAntiAliasing;
+use bevy::light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
+use bevy::post_process::bloom::Bloom;
 use crate::{Project, Room, TileMap, GraphicsSettings, QualityLevel, UpscalingMode};
-use bevy::pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings, ScreenSpaceAmbientOcclusionQualityLevel};
+use bevy::pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
 use bevy::render::view::Msaa;
-use bevy::core_pipeline::bloom::BloomSettings;
 
 pub mod sky;
 pub use sky::*;
@@ -17,29 +18,22 @@ pub fn setup_game_world(
 ) {
     if light_query.is_empty() {
         commands.spawn((
-            DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadows_enabled: true,
-                    illuminance: 12000.0,
-                    ..default()
-                },
-                transform: Transform::from_xyz(15.0, 30.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
-                cascade_shadow_config: bevy::pbr::CascadeShadowConfigBuilder {
-                    first_cascade_far_bound: 20.0,
-                    maximum_distance: 200.0,
-                    num_cascades: 1, 
-                    ..default()
-                }.build(),
+            DirectionalLight {
+                shadow_maps_enabled: true,
+                illuminance: 12000.0,
                 ..default()
             },
+            Transform::from_xyz(15.0, 30.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
+            CascadeShadowConfigBuilder {
+                first_cascade_far_bound: 20.0,
+                maximum_distance: 200.0,
+                num_cascades: 1,
+                ..default()
+            }
+            .build(),
             MapEntity,
         ));
     }
-
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 200.0,
-    });
 
     let center = Vec3::new(7.5, 0.0, 7.5);
     let radius: f32 = 17.5;
@@ -49,20 +43,23 @@ pub fn setup_game_world(
     let cam_z = center.z + radius * angle.sin();
 
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                order: 1,
-                ..default()
-            },
-            transform: Transform::from_xyz(cam_x, height, cam_z).looking_at(center, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            order: 1,
             ..default()
         },
-        MapEntity,
-        FogSettings {
+        Transform::from_xyz(cam_x, height, cam_z).looking_at(center, Vec3::Y),
+        AmbientLight {
+            color: Color::WHITE,
+            brightness: 200.0,
+            affects_lightmapped_meshes: false,
+        },
+        DistanceFog {
             color: Color::srgb(0.05, 0.05, 0.1),
             falloff: FogFalloff::Linear { start: 5.0, end: 25.0 },
             ..default()
-        }
+        },
+        MapEntity,
     ));
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -83,7 +80,7 @@ pub fn cleanup_map(
     tile_query: Query<Entity, Or<(With<TileEntity>, With<MapEntity>)>>,
 ) {
     for entity in tile_query.iter() {
-        if let Some(ec) = commands.get_entity(entity) {
+        if let Ok(mut ec) = commands.get_entity(entity) {
             ec.despawn();
         }
     }
@@ -99,13 +96,12 @@ pub struct MapEntity;
 pub fn apply_graphics_quality_system(
     settings: Res<GraphicsSettings>,
     mut light_query: Query<&mut DirectionalLight>,
-    mut fog_query: Query<&mut FogSettings>,
-    camera_query: Query<Entity, With<Camera3d>>,
-    ssao_query: Query<Entity, With<bevy::pbr::ScreenSpaceAmbientOcclusionSettings>>,
+    mut camera_query: Query<(Entity, Option<&Msaa>), With<Camera3d>>,
+    fog_query: Query<Entity, With<DistanceFog>>,
+    ssao_query: Query<Entity, With<ScreenSpaceAmbientOcclusion>>,
     mut commands: Commands,
     mut initialized: Local<bool>,
-    mut msaa: ResMut<Msaa>,
-    mut shadow_map: ResMut<bevy::pbr::DirectionalLightShadowMap>,
+    mut shadow_map: ResMut<DirectionalLightShadowMap>,
     adapter: Option<Res<RenderAdapterInfo>>,
 ) {
     let has_cameras = !camera_query.is_empty();
@@ -117,27 +113,31 @@ pub fn apply_graphics_quality_system(
         info!("Applying graphics settings: {:?} (Current GPU: {})", *settings, gpu_name);
     }
 
-    // Auto-disable MSAA if SSAO or TAA is used
-    if settings.ssao != QualityLevel::Off || settings.upscaling == UpscalingMode::TAA {
-        if *msaa != Msaa::Off {
-            *msaa = Msaa::Off;
-            info!("MSAA disabled for advanced effects");
-        }
+    // Auto-disable MSAA if SSAO or TAA is used. MSAA is a per-camera component in 0.19.
+    let want_msaa = if settings.ssao != QualityLevel::Off || settings.upscaling == UpscalingMode::TAA {
+        Msaa::Off
     } else {
-        if *msaa == Msaa::Off {
-            *msaa = Msaa::Sample4;
-            info!("MSAA re-enabled");
+        Msaa::Sample4
+    };
+    for (entity, current) in camera_query.iter() {
+        if current != Some(&want_msaa) {
+            commands.entity(entity).insert(want_msaa);
+            if want_msaa == Msaa::Off {
+                info!("MSAA disabled for advanced effects");
+            } else {
+                info!("MSAA re-enabled");
+            }
         }
     }
-    
+
     // Shadows
     for mut light in light_query.iter_mut() {
         let enabled = match settings.shadow_quality {
             QualityLevel::Off => false,
             _ => true,
         };
-        if light.shadows_enabled != enabled {
-            light.shadows_enabled = enabled;
+        if light.shadow_maps_enabled != enabled {
+            light.shadow_maps_enabled = enabled;
             info!("Directional light shadows set to: {}", enabled);
         }
     }
@@ -146,13 +146,13 @@ pub fn apply_graphics_quality_system(
         info!("Shadow map resolution changed to {}", shadow_map.size);
     }
 
-    // Fog
-    for entity in camera_query.iter() {
-        let fog_opt = fog_query.get_mut(entity).ok();
+    // Fog (per-camera component)
+    for (entity, _) in camera_query.iter() {
+        let has_fog = fog_query.contains(entity);
         match settings.fog_quality {
             QualityLevel::Off => {
-                if fog_opt.is_some() {
-                    commands.entity(entity).remove::<FogSettings>();
+                if has_fog {
+                    commands.entity(entity).remove::<DistanceFog>();
                 }
             },
             level => {
@@ -162,12 +162,16 @@ pub fn apply_graphics_quality_system(
                     _ => FogFalloff::Exponential { density: 0.05 },
                 };
 
-                if let Some(mut fog) = fog_opt {
-                    fog.falloff = falloff;
-                    fog.color = Color::srgb(0.1, 0.1, 0.2);
+                if has_fog {
+                    // Fog already exists on this camera; overwrite the values.
+                    commands.entity(entity).insert(DistanceFog {
+                        color: Color::srgb(0.1, 0.1, 0.2),
+                        falloff,
+                        ..default()
+                    });
                 } else {
-                    info!("Inserting FogSettings into camera");
-                    commands.entity(entity).insert(FogSettings {
+                    info!("Inserting DistanceFog into camera");
+                    commands.entity(entity).insert(DistanceFog {
                         color: Color::srgb(0.1, 0.1, 0.2),
                         falloff,
                         ..default()
@@ -176,32 +180,32 @@ pub fn apply_graphics_quality_system(
             }
         }
     }
-    
+
     // Post-processing and Upscaling
-    for entity in camera_query.iter() {
+    for (entity, _) in camera_query.iter() {
         // Upscaling & TAA
         match settings.upscaling {
             UpscalingMode::None | UpscalingMode::FSR => {
-                commands.entity(entity).remove::<TemporalAntiAliasBundle>();
+                commands.entity(entity).remove::<TemporalAntiAliasing>();
             },
             UpscalingMode::TAA => {
-                commands.entity(entity).insert(TemporalAntiAliasBundle::default());
+                commands.entity(entity).insert(TemporalAntiAliasing::default());
             },
         }
 
         // Bloom
         if settings.bloom {
-            commands.entity(entity).insert(BloomSettings::default());
+            commands.entity(entity).insert(Bloom::default());
         } else {
-            commands.entity(entity).remove::<BloomSettings>();
+            commands.entity(entity).remove::<Bloom>();
         }
 
         // SSAO
-        let has_ssao = ssao_query.get(entity).is_ok();
+        let has_ssao = ssao_query.contains(entity);
         match settings.ssao {
             QualityLevel::Off => {
                 if has_ssao {
-                    commands.entity(entity).remove::<bevy::pbr::ScreenSpaceAmbientOcclusionBundle>();
+                    commands.entity(entity).remove::<ScreenSpaceAmbientOcclusion>();
                 }
             },
             level => {
@@ -212,10 +216,8 @@ pub fn apply_graphics_quality_system(
                     _ => ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
                 };
 
-                commands.entity(entity).insert(ScreenSpaceAmbientOcclusionBundle {
-                    settings: ScreenSpaceAmbientOcclusionSettings {
-                        quality_level: quality,
-                    },
+                commands.entity(entity).insert(ScreenSpaceAmbientOcclusion {
+                    quality_level: quality,
                     ..default()
                 });
             }

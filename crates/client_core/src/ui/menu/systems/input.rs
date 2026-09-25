@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::input::gamepad::GamepadEvent;
+use bevy::input::gamepad::{Gamepad, GamepadConnectionEvent};
 use crate::{GameState, EditorMode};
 use super::super::types::*;
 use super::actions::handle_menu_action;
@@ -7,8 +7,7 @@ use super::actions::handle_menu_action;
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct MenuInputParams<'w, 's> {
     pub keyboard: Res<'w, ButtonInput<KeyCode>>,
-    pub gamepads: Res<'w, Gamepads>,
-    pub gamepad_buttons: Res<'w, ButtonInput<GamepadButton>>,
+    pub gamepads: Query<'w, 's, &'static Gamepad>,
     pub query: Query<'w, 's, (Entity, &'static mut MenuContainer)>,
     pub overlay_query: Query<'w, 's, Entity, With<ConfirmationOverlay>>,
     pub focused_query_with_entity: Query<'w, 's, (Entity, &'static MenuItem), With<MenuFocus>>,
@@ -29,16 +28,16 @@ pub struct MenuInputParams<'w, 's> {
     pub item_query: Query<'w, 's, &'static MenuItem>,
     pub gpu_list: ResMut<'w, crate::settings::GpuList>,
     pub instance_adapter: Option<Res<'w, bevy::render::renderer::RenderAdapterInfo>>,
-    pub parent_query: Query<'w, 's, &'static Parent>,
+    pub parent_query: Query<'w, 's, &'static ChildOf>,
 }
 
 pub fn device_detection_system(
     mut input_device: ResMut<InputDevice>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
-    mut mouse_motion: EventReader<bevy::input::mouse::MouseMotion>,
+    mut mouse_motion: MessageReader<bevy::input::mouse::MouseMotion>,
     gamepad_buttons: Res<ButtonInput<GamepadButton>>,
-    mut gamepad_events: EventReader<GamepadEvent>,
+    mut gamepad_events: MessageReader<GamepadConnectionEvent>,
     touches: Res<Touches>,
 ) {
     if keyboard.get_just_pressed().next().is_some() {
@@ -76,12 +75,12 @@ pub fn menu_input_system(
     let mut back_pressed = params.keyboard.just_pressed(KeyCode::Escape);
 
     for gamepad in params.gamepads.iter() {
-        if params.gamepad_buttons.pressed(GamepadButton { gamepad, button_type: GamepadButtonType::DPadUp }) { up_pressed = true; }
-        if params.gamepad_buttons.pressed(GamepadButton { gamepad, button_type: GamepadButtonType::DPadDown }) { down_pressed = true; }
-        if params.gamepad_buttons.just_pressed(GamepadButton { gamepad, button_type: GamepadButtonType::DPadUp }) { up_just = true; }
-        if params.gamepad_buttons.just_pressed(GamepadButton { gamepad, button_type: GamepadButtonType::DPadDown }) { down_just = true; }
-        if params.gamepad_buttons.just_pressed(GamepadButton { gamepad, button_type: GamepadButtonType::South }) { select_pressed = true; }
-        if params.gamepad_buttons.just_pressed(GamepadButton { gamepad, button_type: GamepadButtonType::East }) { back_pressed = true; }
+        if gamepad.pressed(GamepadButton::DPadUp) { up_pressed = true; }
+        if gamepad.pressed(GamepadButton::DPadDown) { down_pressed = true; }
+        if gamepad.just_pressed(GamepadButton::DPadUp) { up_just = true; }
+        if gamepad.just_pressed(GamepadButton::DPadDown) { down_just = true; }
+        if gamepad.just_pressed(GamepadButton::South) { select_pressed = true; }
+        if gamepad.just_pressed(GamepadButton::East) { back_pressed = true; }
     }
 
     if up_just || down_just {
@@ -167,8 +166,8 @@ pub fn menu_input_system(
     let mut right_just = params.keyboard.just_pressed(KeyCode::ArrowRight);
     
     for gamepad in params.gamepads.iter() {
-        if params.gamepad_buttons.just_pressed(GamepadButton { gamepad, button_type: GamepadButtonType::DPadLeft }) { left_just = true; }
-        if params.gamepad_buttons.just_pressed(GamepadButton { gamepad, button_type: GamepadButtonType::DPadRight }) { right_just = true; }
+        if gamepad.just_pressed(GamepadButton::DPadLeft) { left_just = true; }
+        if gamepad.just_pressed(GamepadButton::DPadRight) { right_just = true; }
     }
 
     if left_just { horizontal_dir = -1; }
@@ -218,7 +217,7 @@ pub fn menu_input_system(
 fn is_child_of_any(
     entity: Entity,
     targets: &Query<Entity, With<ConfirmationOverlay>>,
-    parent_query: &Query<&Parent>,
+    parent_query: &Query<&ChildOf>,
 ) -> bool {
     let mut current = entity;
     loop {
@@ -226,7 +225,7 @@ fn is_child_of_any(
             return true;
         }
         if let Ok(parent) = parent_query.get(current) {
-            current = parent.get();
+            current = parent.0;
         } else {
             break;
         }

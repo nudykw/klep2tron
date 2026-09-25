@@ -8,7 +8,7 @@ pub fn normalization_system(
     query: Query<Entity, With<AwaitingNormalization>>,
     mut state_query: Query<(Entity, &mut NormalizationState)>,
     children_query: Query<&Children>,
-    parent_query: Query<&Parent>,
+    parent_query: Query<&ChildOf>,
     transform_query: Query<&Transform>,
     mesh_query: Query<(Entity, &Aabb, &GlobalTransform, &Handle<Mesh>, Option<&Name>)>,
     meshes: Res<Assets<Mesh>>,

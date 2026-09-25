@@ -26,7 +26,7 @@ impl Plugin for MenuPlugin {
         app.add_systems(Update, (
                 device_detection_system,
                 menu_item_system,
-                apply_deferred,
+                bevy::ecs::schedule::ApplyDeferred,
                 menu_input_system,
                 menu_navigation_system,
                 menu_scrolling_system,

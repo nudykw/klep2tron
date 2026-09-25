@@ -150,7 +150,7 @@ pub struct ClientCorePlugin {
 impl Plugin for ClientCorePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.options.clone())
-           .add_plugins(FrameTimeDiagnosticsPlugin)
+           .add_plugins(FrameTimeDiagnosticsPlugin::default())
            .init_state::<GameState>()
            .init_resource::<Project>()
            .init_resource::<ClientAssets>()
@@ -264,11 +264,15 @@ pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<Loading
     for entity in query.iter() { commands.entity(entity).despawn(); }
 }
 
-pub fn reset_ambient_light(mut commands: Commands) {
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 100.0,
-    });
+pub fn reset_ambient_light(mut commands: Commands, cameras: Query<Entity, With<Camera3d>>) {
+    // `AmbientLight` is a per-camera component in Bevy 0.19.
+    for entity in cameras.iter() {
+        commands.entity(entity).insert(AmbientLight {
+            color: Color::WHITE,
+            brightness: 100.0,
+            affects_lightmapped_meshes: false,
+        });
+    }
 }
 
 pub fn cleanup_game(
@@ -277,7 +281,7 @@ pub fn cleanup_game(
     mut tile_map: ResMut<TileMap>,
 ) {
     for entity in query.iter() { 
-        if let Some(e) = commands.get_entity(entity) {
+        if let Ok(mut e) = commands.get_entity(entity) {
             e.despawn(); 
         }
     }

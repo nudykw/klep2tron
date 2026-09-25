@@ -1,8 +1,9 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use crate::widgets::{spawn_collapsible_section, spawn_slider};
 
 pub fn spawn_materials_section(
-    p: &mut ChildBuilder,
+    p: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
 ) {
@@ -14,22 +15,13 @@ pub fn spawn_materials_section(
         true,
         (),
         |content| {
-            content.spawn(TextBundle::from_section(
-                "Color",
-                TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
-            ));
+            content.spawn(ui_text("Color", &font.clone(), 14.0, Color::WHITE));
             crate::widgets::spawn_color_picker(content, font, Color::srgb(0.7, 0.7, 0.7), false);
 
-            content.spawn(TextBundle::from_section(
-                "Metallic",
-                TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
-            ));
+            content.spawn(ui_text("Metallic", &font.clone(), 14.0, Color::WHITE));
             spawn_slider(content, 0.5);
 
-            content.spawn(TextBundle::from_section(
-                "Roughness",
-                TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
-            ));
+            content.spawn(ui_text("Roughness", &font.clone(), 14.0, Color::WHITE));
             spawn_slider(content, 0.8);
         }
     );

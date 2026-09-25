@@ -35,10 +35,10 @@ impl ActionStack {
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct UndoEvent;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct RedoEvent;
 
 // --- Commands ---
@@ -247,8 +247,8 @@ fn clear_selected_triangles(world: &mut World, entity: Entity) {
 
 pub fn undo_redo_shortcuts_system(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut undo_events: EventWriter<UndoEvent>,
-    mut redo_events: EventWriter<RedoEvent>,
+    mut undo_events: MessageWriter<UndoEvent>,
+    mut redo_events: MessageWriter<RedoEvent>,
 ) {
     let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
     let shift = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
@@ -303,8 +303,8 @@ pub fn undo_redo_ui_system(
     action_stack: Res<ActionStack>,
     undo_btn_query: Query<&Interaction, (With<super::super::UndoButton>, Changed<Interaction>)>,
     redo_btn_query: Query<&Interaction, (With<super::super::RedoButton>, Changed<Interaction>)>,
-    mut undo_events: EventWriter<UndoEvent>,
-    mut redo_events: EventWriter<RedoEvent>,
+    mut undo_events: MessageWriter<UndoEvent>,
+    mut redo_events: MessageWriter<RedoEvent>,
 ) {
     for interaction in undo_btn_query.iter() {
         if *interaction == Interaction::Pressed && !action_stack.undo.is_empty() {

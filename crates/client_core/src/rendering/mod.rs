@@ -29,7 +29,7 @@ pub fn map_rendering_system(
             dirty.tiles.clear();
             
             for entity in _tile_query.iter() {
-                if let Some(ec) = commands.get_entity(entity) {
+                if let Ok(mut ec) = commands.get_entity(entity) {
                     ec.despawn();
                 }
             }
@@ -49,7 +49,7 @@ pub fn map_rendering_system(
     for (x, z) in tiles_to_process {
         if let Some(entities) = tile_map.entities.remove(&(x, z)) {
             for entity in entities { 
-                if let Some(ec) = commands.get_entity(entity) {
+                if let Ok(mut ec) = commands.get_entity(entity) {
                     ec.despawn();
                 }
             }
@@ -104,13 +104,8 @@ pub fn map_rendering_system(
         let total_height = h_val * 0.5;
         let mut entities = Vec::new();
         
-        let top_id = commands.spawn((PbrBundle {
-            mesh: mesh.clone(), 
-            material: mat_top,
-            transform: Transform::from_translation(Vec3::new(x as f32, total_height - 0.25, z as f32))
-                .with_scale(Vec3::new(1.0, 0.5, 1.0)).with_rotation(Quat::from_rotation_y(rot)),
-            ..default()
-        }, TileEntity)).id();
+        let top_id = commands.spawn(((Mesh3d(mesh.clone()), MeshMaterial3d(mat_top), Transform::from_translation(Vec3::new(x as f32, total_height - 0.25, z as f32))
+                .with_scale(Vec3::new(1.0, 0.5, 1.0)).with_rotation(Quat::from_rotation_y(rot))), TileEntity)).id();
         entities.push(top_id);
 
         let foundation_bottom = -0.5;
@@ -118,13 +113,8 @@ pub fn map_rendering_system(
         let column_h = column_top - foundation_bottom;
         
         if column_h > 0.01 {
-            let col_id = commands.spawn((PbrBundle {
-                mesh: assets.cube_mesh.clone(), 
-                material: mat_side.clone(),
-                transform: Transform::from_translation(Vec3::new(x as f32, foundation_bottom + column_h * 0.5, z as f32))
-                    .with_scale(Vec3::new(1.0, column_h, 1.0)),
-                ..default()
-            }, TileEntity)).id();
+            let col_id = commands.spawn(((Mesh3d(assets.cube_mesh.clone()), MeshMaterial3d(mat_side.clone()), Transform::from_translation(Vec3::new(x as f32, foundation_bottom + column_h * 0.5, z as f32))
+                    .with_scale(Vec3::new(1.0, column_h, 1.0))), TileEntity)).id();
             entities.push(col_id);
         }
         

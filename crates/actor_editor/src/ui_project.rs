@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use super::widgets::{Tooltip, ScrollingList};
 use super::ActorPart;
 use super::ui::inspector::types::*;
@@ -20,21 +21,18 @@ pub struct ModeTab(pub super::EditorMode);
 pub struct ProjectModeContent(pub super::EditorMode);
 
 pub fn setup_project_panel(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
 ) {
     parent.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 margin: UiRect::top(Val::Px(20.0)),
                 flex_shrink: 0.0,
                 ..default()
-            },
-            ..default()
-        },
+            }, ..default() },
         ProjectPanel,
     )).with_children(|p| {
         spawn_button(p, font, icon_font, "IMPORT", "\u{f093}", "[Ctrl+I]", "Import external model", ProjectAction::Import);
@@ -42,41 +40,32 @@ pub fn setup_project_panel(
         spawn_button(p, font, icon_font, "SAVE", "\u{f0c7}", "[Ctrl+S]", "Save current actor", ProjectAction::Save);
 
         // Mode Switch
-        p.spawn(NodeBundle {
-            style: Node {
+        p.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(40.0),
                 margin: UiRect::top(Val::Px(30.0)),
                 flex_direction: FlexDirection::Row,
                 ..default()
-            },
-            ..default()
-        }).with_children(|row| {
+            }, ..default() }).with_children(|row| {
             spawn_mode_tab(row, font, "SLICING", super::EditorMode::Slicing);
             spawn_mode_tab(row, font, "SOCKETS", super::EditorMode::Sockets);
         });
 
         // Content Area
-        p.spawn(NodeBundle {
-            style: Node {
+        p.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 margin: UiRect::top(Val::Px(15.0)),
                 flex_direction: FlexDirection::Column,
                 ..default()
-            },
-            ..default()
-        }).with_children(|content| {
+            }, ..default() }).with_children(|content| {
             // SLICING CONTENT
             content.spawn((
-                NodeBundle {
-                    style: Node {
+                UiNode { node: Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         display: Display::Flex, // Default
                         ..default()
-                    },
-                    ..default()
-                },
+                    }, ..default() },
                 ProjectModeContent(super::EditorMode::Slicing),
             )).with_children(|slicing| {
                 spawn_slicing_precision_ui(slicing, font, icon_font);
@@ -84,28 +73,22 @@ pub fn setup_project_panel(
 
             // SOCKETS CONTENT
             content.spawn((
-                NodeBundle {
-                    style: Node {
+                UiNode { node: Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         display: Display::None, // Hidden by default
                         ..default()
-                    },
-                    ..default()
-                },
+                    }, ..default() },
                 ProjectModeContent(super::EditorMode::Sockets),
             )).with_children(|sockets_content| {
                 // --- SEARCH & ADD ---
-                sockets_content.spawn(NodeBundle {
-                    style: Node {
+                sockets_content.spawn(UiNode { node: Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Row,
                         column_gap: Val::Px(5.0),
                         margin: UiRect::bottom(Val::Px(10.0)),
                         ..default()
-                    },
-                    ..default()
-                }).with_children(|row| {
+                    }, ..default() }).with_children(|row| {
                     row.spawn((
                         ButtonBundle {
                             style: Node {
@@ -122,10 +105,7 @@ pub fn setup_project_panel(
                         SocketAddModeButton,
                         Tooltip("Toggle Socket Placement Mode".to_string()),
                     )).with_children(|b| {
-                        b.spawn(TextBundle::from_section(
-                            "\u{f067}", // plus icon
-                            TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
-                        ));
+                        b.spawn(ui_text("\u{f067}", &icon_font.clone(), 14.0, Color::WHITE));
                     });
 
                     row.spawn((
@@ -176,16 +156,13 @@ pub fn setup_project_panel(
                 });
 
                 // --- FILTERS ---
-                sockets_content.spawn(NodeBundle {
-                    style: Node {
+                sockets_content.spawn(UiNode { node: Node {
                         width: Val::Percent(100.0),
                         margin: UiRect::vertical(Val::Px(5.0)),
                         flex_direction: FlexDirection::Row,
                         column_gap: Val::Px(4.0),
                         ..default()
-                    },
-                    ..default()
-                }).with_children(|btns| {
+                    }, ..default() }).with_children(|btns| {
                     for (part, label) in [
                         (None, "ALL"),
                         (Some(ActorPart::Head), "HEAD"),
@@ -207,25 +184,19 @@ pub fn setup_project_panel(
                             },
                             SocketPartFilterButton(part),
                         )).with_children(|b| {
-                            b.spawn(TextBundle::from_section(
-                                label,
-                                TextStyle { font: font.clone(), font_size: 9.0, color: Color::srgb(0.7, 0.7, 0.7) },
-                            ));
+                            b.spawn(ui_text(label, &font.clone(), 9.0, Color::srgb(0.7, 0.7, 0.7)));
                         });
                     }
                 });
 
                 // --- LIST ---
                 sockets_content.spawn((
-                    NodeBundle {
-                        style: Node {
+                    UiNode { node: Node {
                             width: Val::Percent(100.0),
                             flex_direction: FlexDirection::Column,
                             max_height: Val::Px(500.0), // Increased for hierarchy panel
                             ..default()
-                        },
-                        ..default()
-                    },
+                        }, ..default() },
                     SocketListContainer,
                     ScrollingList::default(),
                 ));
@@ -235,7 +206,7 @@ pub fn setup_project_panel(
 }
 
 fn spawn_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
     text: &str,
@@ -262,36 +233,21 @@ fn spawn_button(
         action,
         Tooltip(tooltip.to_string()),
     )).with_children(|p| {
-        p.spawn(NodeBundle {
-            style: Node {
+        p.spawn(UiNode { node: Node {
                 align_items: AlignItems::Center,
                 ..default()
-            },
-            ..default()
-        }).with_children(|left| {
-            left.spawn(TextBundle::from_section(
-                icon,
-                TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::srgb(0.3, 0.6, 1.0) },
-            ));
-            left.spawn(NodeBundle {
-                style: Node { width: Val::Px(10.0), ..default() },
-                ..default()
-            });
-            left.spawn(TextBundle::from_section(
-                text,
-                TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
-            ));
+            }, ..default() }).with_children(|left| {
+            left.spawn(ui_text(icon, &icon_font.clone(), 18.0, Color::srgb(0.3, 0.6, 1.0)));
+            left.spawn(UiNode { node: Node { width: Val::Px(10.0), ..default() }, ..default() });
+            left.spawn(ui_text(text, &font.clone(), 16.0, Color::WHITE));
         });
         
-        p.spawn(TextBundle::from_section(
-            hint,
-            TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) },
-        ));
+        p.spawn(ui_text(hint, &font.clone(), 12.0, Color::srgb(0.5, 0.5, 0.5)));
     });
 }
 
 fn spawn_mode_tab(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     text: &str,
     mode: super::EditorMode,
@@ -310,29 +266,23 @@ fn spawn_mode_tab(
         },
         ModeTab(mode),
     )).with_children(|p| {
-        p.spawn(TextBundle::from_section(
-            text,
-            TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
-        ));
+        p.spawn(ui_text(text, &font.clone(), 14.0, Color::WHITE));
     });
 }
 
 fn spawn_slicing_precision_ui(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     _icon_font: &Handle<Font>,
 ) {
     // Mode Toggle: AUTO / MANUAL
-    parent.spawn(NodeBundle {
-        style: Node {
+    parent.spawn(UiNode { node: Node {
             width: Val::Percent(100.0),
             height: Val::Px(30.0),
             margin: UiRect::vertical(Val::Px(10.0)),
             flex_direction: FlexDirection::Row,
             ..default()
-        },
-        ..default()
-    }).with_children(|row| {
+        }, ..default() }).with_children(|row| {
         for (label, is_manual) in [("AUTO", false), ("MANUAL", true)] {
             row.spawn((
                 ButtonBundle {
@@ -351,44 +301,30 @@ fn spawn_slicing_precision_ui(
                 bevy_mod_picking::prelude::PickableBundle::default(),
             )).insert(InteractionState { is_active: false }) // We'll use this for visual state
             .with_children(|b| {
-                b.spawn(TextBundle::from_section(
-                    label,
-                    TextStyle { font: font.clone(), font_size: 11.0, color: Color::WHITE },
-                ));
+                b.spawn(ui_text(label, &font.clone(), 11.0, Color::WHITE));
             });
         }
     });
 
     // Auto Mode Container
     parent.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(8.0),
                 padding: UiRect::all(Val::Px(10.0)),
                 ..default()
-            },
-            background_color: Color::srgba(0.0, 0.0, 0.0, 0.2).into(),
-            border_radius: BorderRadius::all(Val::Px(6.0)),
-            ..default()
-        },
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.2)), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() },
         super::SlicingAutoModeContainer,
     )).with_children(|container| {
         // TOP CUT
-        container.spawn(NodeBundle {
-            style: Node {
+        container.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
                 ..default()
-            },
-            ..default()
-        }).with_children(|row| {
-            row.spawn(TextBundle::from_section(
-                "Top Cut:",
-                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
-            ));
+            }, ..default() }).with_children(|row| {
+            row.spawn(ui_text("Top Cut:", &font.clone(), 13.0, Color::srgb(0.7, 0.7, 0.7)));
             
             row.spawn((
                 super::widgets::TextInputBundle {
@@ -414,33 +350,20 @@ fn spawn_slicing_precision_ui(
                 super::widgets::Tooltip("Top slicing plane position. Use UP/DOWN arrows to nudge by 0.001".to_string()),
             )).with_children(|p| {
                 p.spawn((
-                    TextBundle::from_section(
-                        "1.000",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 13.0,
-                            color: Color::WHITE,
-                        },
-                    ),
+                    ui_text("1.000", &font.clone(), 13.0, Color::WHITE),
                     super::widgets::TextInputContent,
                 ));
             });
         });
 
         // BOTTOM CUT
-        container.spawn(NodeBundle {
-            style: Node {
+        container.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
                 ..default()
-            },
-            ..default()
-        }).with_children(|row| {
-            row.spawn(TextBundle::from_section(
-                "Bottom Cut:",
-                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
-            ));
+            }, ..default() }).with_children(|row| {
+            row.spawn(ui_text("Bottom Cut:", &font.clone(), 13.0, Color::srgb(0.7, 0.7, 0.7)));
             
             row.spawn((
                 super::widgets::TextInputBundle {
@@ -466,39 +389,23 @@ fn spawn_slicing_precision_ui(
                 super::widgets::Tooltip("Bottom slicing plane position. Use UP/DOWN arrows to nudge by 0.001".to_string()),
             )).with_children(|p| {
                 p.spawn((
-                    TextBundle::from_section(
-                        "0.000",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 13.0,
-                            color: Color::WHITE,
-                        },
-                    ),
+                    ui_text("0.000", &font.clone(), 13.0, Color::WHITE),
                     super::widgets::TextInputContent,
                 ));
             });
         });
 
         // RIM THICKNESS
-        container.spawn(NodeBundle {
-            style: Node {
+        container.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
                 margin: UiRect::top(Val::Px(5.0)),
                 ..default()
-            },
-            ..default()
-        }).with_children(|row| {
-            row.spawn(TextBundle::from_section(
-                "Rim:",
-                TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
-            ));
+            }, ..default() }).with_children(|row| {
+            row.spawn(ui_text("Rim:", &font.clone(), 13.0, Color::srgb(0.7, 0.7, 0.7)));
             
-            row.spawn(NodeBundle {
-                style: Node { width: Val::Px(100.0), ..default() },
-                ..default()
-            }).with_children(|slider_p| {
+            row.spawn(UiNode { node: Node { width: Val::Px(100.0), ..default() }, ..default() }).with_children(|slider_p| {
                 super::widgets::spawn_slider_ext(
                     slider_p,
                     0.0,
@@ -515,75 +422,50 @@ fn spawn_slicing_precision_ui(
 
     // Manual Mode Container
     parent.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(8.0),
                 padding: UiRect::all(Val::Px(10.0)),
                 display: Display::None, // Hidden by default
                 ..default()
-            },
-            background_color: Color::srgba(0.0, 0.0, 0.0, 0.2).into(),
-            border_radius: BorderRadius::all(Val::Px(6.0)),
-            ..default()
-        },
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.2)), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() },
         super::SlicingManualModeContainer,
     )).with_children(|container| {
         // Selection Counter
-        container.spawn(NodeBundle {
-            style: Node {
+        container.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(25.0),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
-            },
-            background_color: Color::srgba(0.0, 1.0, 1.0, 0.1).into(),
-            border_radius: BorderRadius::all(Val::Px(4.0)),
-            ..default()
-        }).with_children(|row| {
+            }, background_color: BackgroundColor(Color::srgba(0.0, 1.0, 1.0, 0.1)), border_radius: BorderRadius::all(Val::Px(4.0)), ..default() }).with_children(|row| {
             row.spawn((
-                TextBundle::from_section(
-                    "Selected: 0 triangles",
-                    TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.0, 1.0, 1.0) },
-                ),
+                ui_text("Selected: 0 triangles", &font.clone(), 12.0, Color::srgb(0.0, 1.0, 1.0)),
                 crate::TriangleSelectionCounter,
             ));
         });
         
-        container.spawn(TextBundle::from_section(
-            "Use Left Mouse Button to lasso triangles.\nHold Alt to subtract from selection.",
-            TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
-        ));
+        container.spawn(ui_text("Use Left Mouse Button to lasso triangles.\nHold Alt to subtract from selection.", &font.clone(), 11.0, Color::srgb(0.6, 0.6, 0.6)));
 
         // ── Target Part Selector ───────────────────────────────────────────
-        container.spawn(NodeBundle {
-            style: Node {
+        container.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 margin: UiRect::top(Val::Px(10.0)),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(4.0),
                 ..default()
-            },
-            ..default()
-        }).with_children(|col| {
-            col.spawn(TextBundle::from_section(
-                "Move to Part:",
-                TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6) },
-            ));
+            }, ..default() }).with_children(|col| {
+            col.spawn(ui_text("Move to Part:", &font.clone(), 11.0, Color::srgb(0.6, 0.6, 0.6)));
 
-            col.spawn(NodeBundle {
-                style: Node {
+            col.spawn(UiNode { node: Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(28.0),
                     flex_direction: FlexDirection::Row,
                     column_gap: Val::Px(3.0),
                     ..default()
-                },
-                ..default()
-            }).with_children(|row| {
+                }, ..default() }).with_children(|row| {
                 for (part, label, tooltip) in [
                     (ActorPart::Head,   "HEAD", "Move selected triangles to Head part"),
                     (ActorPart::Body,   "BODY", "Move selected triangles to Body part"),
@@ -608,10 +490,7 @@ fn spawn_slicing_precision_ui(
                         super::widgets::Tooltip(tooltip.to_string()),
                         bevy_mod_picking::prelude::PickableBundle::default(),
                     )).with_children(|b| {
-                        b.spawn(TextBundle::from_section(
-                            label,
-                            TextStyle { font: font.clone(), font_size: 10.0, color: Color::WHITE },
-                        ));
+                        b.spawn(ui_text(label, &font.clone(), 10.0, Color::WHITE));
                     });
                 }
             });

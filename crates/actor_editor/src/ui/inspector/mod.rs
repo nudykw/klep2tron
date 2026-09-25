@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 
 pub mod types;
 pub mod materials;
@@ -13,23 +14,19 @@ pub use types::*;
 pub use systems::*;
 
 pub fn setup_inspector(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
     vfx_presets: &crate::vfx_assets::VfxPresets,
     vfx_registry: &crate::vfx_assets::VfxRegistry,
 ) {
     parent.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 flex_shrink: 0.0,
                 ..default()
-            },
-            focus_policy: bevy::ui::FocusPolicy::Block,
-            ..default()
-        },
+            }, ..default() },
         InspectorPanel,
         Interaction::default(),
     )).with_children(|p| {

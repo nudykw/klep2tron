@@ -7,7 +7,7 @@ use bevy_panorbit_camera::PanOrbitCamera;
 pub fn inspection_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut settings: ResMut<InspectionSettings>,
-    mut focus_events: EventWriter<InspectionFocusEvent>,
+    mut focus_events: MessageWriter<InspectionFocusEvent>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyI) && !keyboard.pressed(KeyCode::ControlLeft) && !keyboard.pressed(KeyCode::ControlRight) {
         settings.is_active = true;
@@ -74,7 +74,7 @@ pub fn inspection_visibility_system(
 }
 
 pub fn inspection_camera_focus_system(
-    mut focus_events: EventReader<InspectionFocusEvent>,
+    mut focus_events: MessageReader<InspectionFocusEvent>,
     mut camera_query: Query<&mut PanOrbitCamera>,
     actor_query: Query<(&ActorPart, &GlobalTransform, &Handle<Mesh>)>,
     meshes: Res<Assets<Mesh>>,
@@ -179,7 +179,7 @@ pub fn inspection_debug_draw_system(
 
 pub fn inspection_ui_logic_system(
     mut settings: ResMut<InspectionSettings>,
-    mut focus_events: EventWriter<InspectionFocusEvent>,
+    mut focus_events: MessageWriter<InspectionFocusEvent>,
     focus_query: Query<(&Interaction, &PartFocusButton), (Changed<Interaction>, With<PartFocusButton>)>,
     solo_query: Query<(&Interaction, &PartSoloButton), (Changed<Interaction>, With<PartSoloButton>)>,
     toggle_query: Query<(&Interaction, &InspectionToggle), (Changed<Interaction>, With<InspectionToggle>)>,
@@ -274,7 +274,7 @@ pub fn inspection_ui_sync_system(
     mut settings: ResMut<InspectionSettings>,
     mut viewport_settings: ResMut<super::super::ViewportSettings>,
     mut last_is_active: Local<bool>,
-    marker_query: Query<&Parent, With<PartsSectionMarker>>,
+    marker_query: Query<&ChildOf, With<PartsSectionMarker>>,
     mut section_query: Query<&mut CollapsibleSection>,
 ) {
     let Ok(parent) = marker_query.single() else { return; };
@@ -323,7 +323,7 @@ pub fn wireframe_sync_system(
         
         let should_have = show && is_isolated;
         
-        if let Some(mut e) = commands.get_entity(entity) {
+        if let Ok(mut e) = commands.get_entity(entity) {
             if should_have {
                 e.insert(bevy::pbr::wireframe::Wireframe);
             } else {

@@ -21,7 +21,7 @@ pub fn start_loading(
     assets.font = asset_server.load("fonts/Roboto-Regular.ttf");
     
     if *state.get() == GameState::Loading {
-        commands.spawn((Camera2dBundle::default(), LoadingEntity));
+        commands.spawn((Camera2d, LoadingEntity));
 
         commands.spawn((UiNode { node: Node { width: Val::Percent(100.0), height: Val::Percent(100.0), flex_direction: FlexDirection::Column, justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() }, background_color: BackgroundColor(Color::srgb(0.0, 0.0, 0.0)), ..default() }, LoadingEntity)).with_children(|p| {
         p.spawn(ui_text("Loading...", &assets.font.clone(), 30.0, Color::WHITE));
@@ -38,13 +38,12 @@ pub fn check_loading_system(
     assets: Res<ClientAssets>,
     mut bar_query: Query<&mut Node, With<ProgressBar>>,
 ) {
-    use bevy::asset::RecursiveDependencyLoadState;
     let cube_state = asset_server.get_recursive_dependency_load_state(&assets.cube_mesh);
     let wedge_state = asset_server.get_recursive_dependency_load_state(&assets.wedge_mesh);
 
     let mut loaded_count = 0;
-    if cube_state == Some(RecursiveDependencyLoadState::Loaded) { loaded_count += 1; }
-    if wedge_state == Some(RecursiveDependencyLoadState::Loaded) { loaded_count += 1; }
+    if cube_state.is_some_and(|s| s.is_loaded()) { loaded_count += 1; }
+    if wedge_state.is_some_and(|s| s.is_loaded()) { loaded_count += 1; }
 
     let progress = (loaded_count as f32 / 2.0) * 100.0;
 

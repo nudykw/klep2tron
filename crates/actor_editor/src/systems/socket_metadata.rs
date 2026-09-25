@@ -11,7 +11,7 @@ pub fn socket_metadata_sync_system(
     mut container_query: Query<&mut Node, With<SocketDetailsContainer>>,
     mut meta_section_query: Query<&mut Node, (With<SocketMetadataSection>, Without<SocketDetailsContainer>)>,
     mut last_selected: Local<Option<Entity>>,
-    _toast_events: EventWriter<ToastEvent>,
+    _toast_events: MessageWriter<ToastEvent>,
     mut color_state: ResMut<SocketColorPickerState>,
 ) {
     // Handle container visibility
@@ -103,7 +103,7 @@ pub fn socket_metadata_sync_system(
 
 pub fn socket_validation_feedback_system(
     name_input_query: Query<&TextInput, (With<SocketNameInput>, Changed<TextInput>)>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
 ) {
     for input in name_input_query.iter() {
         if !input.is_focused && !input.is_valid && !input.value.is_empty() {

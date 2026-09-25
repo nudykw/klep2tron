@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use crate::{ActorEditorEntity, ActorEditorBackButton, PanelResizer};
 use crate::widgets::{ScrollingList, ScrollbarTrack, ScrollbarHandle, ResizablePanel, PanelToggle, PanelSettings, Tooltip, spawn_tooltip_root, ViewportToggleType, ViewportToggleButton, spawn_viewport_slicer};
 
@@ -34,64 +35,47 @@ pub fn setup_actor_editor(
 
     // Root UI Node (Vertical Column)
     commands.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 ..default()
-            },
-            focus_policy: bevy::ui::FocusPolicy::Pass,
-            ..default()
-        },
+            }, ..default() },
         ActorEditorEntity,
         bevy::ui::TargetCamera(main_camera_entity),
     )).with_children(|root| {
         // --- MAIN AREA ---
-        root.spawn(NodeBundle {
-            style: Node {
+        root.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 flex_grow: 1.0,
                 flex_direction: FlexDirection::Row,
                 ..default()
-            },
-            focus_policy: bevy::ui::FocusPolicy::Pass,
-            ..default()
-        }).with_children(|parent| {
+            }, ..default() }).with_children(|parent| {
             // --- LEFT SIDEBAR ---
             parent.spawn((
-                NodeBundle {
-                    style: Node {
+                UiNode { node: Node {
                         width: Val::Px(panel_settings.left_width),
                         height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         border: UiRect::right(Val::Px(1.5)),
                         overflow: Overflow::clip(),
                         ..default()
-                    },
-                    background_color: Color::srgba(0.1, 0.1, 0.1, 0.75).into(),
-                    border_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
-                    ..default()
-                },
+                    }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.75)), border_color: BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.1)), ..default() },
                 ResizablePanel(PanelResizer::Left),
                 Interaction::default(),
             )).with_children(|p| {
                 // --- WRAPPER ---
                 let mut scroll_id = None;
-                p.spawn(NodeBundle {
-                    style: Node {
+                p.spawn(UiNode { node: Node {
                         width: Val::Percent(100.0),
                         flex_grow: 1.0,
                         overflow: Overflow::clip(),
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::FlexStart,
                         ..default()
-                    },
-                    ..default()
-                }).with_children(|wrapper| {
+                    }, ..default() }).with_children(|wrapper| {
                     scroll_id = Some(wrapper.spawn((
-                        NodeBundle {
-                            style: Node {
+                        UiNode { node: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
@@ -99,59 +83,42 @@ pub fn setup_actor_editor(
                                 height: Val::Auto,
                                 flex_shrink: 0.0,
                                 ..default()
-                            },
-                            ..default()
-                        },
+                            }, ..default() },
                         ScrollingList { position: 0.0 },
                         Interaction::default(),
                     )).with_children(|scroll_p| {
-                        scroll_p.spawn(TextBundle::from_section(
-                            "PROJECT",
-                            TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
-                        ));
+                        scroll_p.spawn(ui_text("PROJECT", &font.clone(), 20.0, Color::srgb(0.7, 0.7, 0.7)));
                         crate::ui_project::setup_project_panel(scroll_p, &font, &icon_font);
                         
                         // Spacer at the bottom
-                        scroll_p.spawn(NodeBundle {
-                            style: Node {
+                        scroll_p.spawn(UiNode { node: Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(60.0),
                                 ..default()
-                            },
-                            ..default()
-                        });
+                            }, ..default() });
                     }).id());
                 });
                 let scroll_id = scroll_id.unwrap();
 
                 // --- SCROLLBAR ---
                 p.spawn((
-                    NodeBundle {
-                        style: Node {
+                    UiNode { node: Node {
                             position_type: PositionType::Absolute,
                             right: Val::Px(2.0),
                             top: Val::Px(2.0),
                             bottom: Val::Px(2.0),
                             width: Val::Px(4.0),
                             ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                        ..default()
-                    },
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() },
                     ScrollbarTrack { target: scroll_id },
                 )).with_children(|track| {
                     track.spawn((
-                        NodeBundle {
-                            style: Node {
+                        UiNode { node: Node {
                                 position_type: PositionType::Absolute,
                                 width: Val::Percent(100.0),
                                 height: Val::Percent(20.0),
                                 ..default()
-                            },
-                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
-                            border_radius: BorderRadius::all(Val::Px(2.0)),
-                            ..default()
-                        },
+                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(2.0)), ..default() },
                         ScrollbarHandle { target: scroll_id },
                         Interaction::default(),
                     ));
@@ -174,67 +141,42 @@ pub fn setup_actor_editor(
             ));
 
             // --- CENTER VIEWPORT SPACE ---
-            parent.spawn(NodeBundle {
-                style: Node {
+            parent.spawn(UiNode { node: Node {
                     flex_grow: 1.0,
                     ..default()
-                },
-                focus_policy: bevy::ui::FocusPolicy::Pass,
-                ..default()
-            }).with_children(|p| {
+                }, ..default() }).with_children(|p| {
                 // Header
-                p.spawn(NodeBundle {
-                    style: Node {
+                p.spawn(UiNode { node: Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(20.0),
                         width: Val::Percent(100.0),
                         justify_content: JustifyContent::Center,
                         ..default()
-                    },
-                    focus_policy: bevy::ui::FocusPolicy::Pass,
-                    ..default()
-                }).with_children(|header| {
-                    header.spawn(TextBundle::from_section(
-                        "ACTOR EDITOR",
-                        TextStyle { font: font.clone(), font_size: 28.0, color: Color::WHITE },
-                    ));
+                    }, ..default() }).with_children(|header| {
+                    header.spawn(ui_text("ACTOR EDITOR", &font.clone(), 28.0, Color::WHITE));
                 });
 
                 // --- TOP TOOLBAR ---
-                p.spawn(NodeBundle {
-                    style: Node {
+                p.spawn(UiNode { node: Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(70.0),
                         width: Val::Percent(100.0),
                         justify_content: JustifyContent::Center,
                         ..default()
-                    },
-                    focus_policy: bevy::ui::FocusPolicy::Pass,
-                    ..default()
-                }).with_children(|toolbar| {
-                    toolbar.spawn(NodeBundle {
-                        style: Node {
+                    }, ..default() }).with_children(|toolbar| {
+                    toolbar.spawn(UiNode { node: Node {
                             padding: UiRect::all(Val::Px(4.0)),
                             flex_direction: FlexDirection::Row,
                             align_items: AlignItems::Center,
                             ..default()
-                        },
-                        background_color: Color::srgba(0.1, 0.1, 0.1, 0.8).into(),
-                        border_radius: BorderRadius::all(Val::Px(8.0)),
-                        focus_policy: bevy::ui::FocusPolicy::Pass,
-                        ..default()
-                    }).with_children(|btns| {
+                        }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)), border_radius: BorderRadius::all(Val::Px(8.0)), ..default() }).with_children(|btns| {
                         spawn_viewport_button(btns, ViewportToggleType::Grid, "\u{f00a}", "Toggle Grid (G)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Slices, "\u{f121}", "Toggle Slices (S)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Sockets, "\u{f1e0}", "Toggle Sockets (K)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Gizmos, "\u{f047}", "Toggle Gizmos (Z)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Xray, "\u{f06e}", "Toggle X-Ray (X)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Reset, "\u{f021}", "Reset Camera (R)", &icon_font);
-                        btns.spawn(NodeBundle {
-                            style: Node { width: Val::Px(2.0), height: Val::Px(20.0), margin: UiRect::horizontal(Val::Px(8.0)), ..default() },
-                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
-                            ..default()
-                        });
+                        btns.spawn(UiNode { node: Node { width: Val::Px(2.0), height: Val::Px(20.0), margin: UiRect::horizontal(Val::Px(8.0)), ..default() }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.1)), ..default() });
                         spawn_undo_redo_button(btns, true, &icon_font);
                         spawn_undo_redo_button(btns, false, &icon_font);
                     });
@@ -263,10 +205,7 @@ pub fn setup_actor_editor(
                     PanelToggle(PanelResizer::Left),
                     Tooltip("Toggle Project Panel".to_string()),
                 )).with_children(|btn| {
-                    btn.spawn(TextBundle::from_section(
-                        "\u{f0c9}",
-                        TextStyle { font: icon_font.clone(), font_size: 20.0, color: Color::WHITE },
-                    ));
+                    btn.spawn(ui_text("\u{f0c9}", &icon_font.clone(), 20.0, Color::WHITE));
                 });
 
                 p.spawn((
@@ -288,10 +227,7 @@ pub fn setup_actor_editor(
                     PanelToggle(PanelResizer::Right),
                     Tooltip("Toggle Inspector Panel".to_string()),
                 )).with_children(|btn| {
-                    btn.spawn(TextBundle::from_section(
-                        "\u{f0c9}",
-                        TextStyle { font: icon_font.clone(), font_size: 20.0, color: Color::WHITE },
-                    ));
+                    btn.spawn(ui_text("\u{f0c9}", &icon_font.clone(), 20.0, Color::WHITE));
                 });
             });
 
@@ -312,38 +248,29 @@ pub fn setup_actor_editor(
 
             // --- RIGHT SIDEBAR ---
             parent.spawn((
-                NodeBundle {
-                    style: Node {
+                UiNode { node: Node {
                         width: Val::Px(panel_settings.right_width),
                         height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         border: UiRect::left(Val::Px(1.5)),
                         overflow: Overflow::clip(),
                         ..default()
-                    },
-                    background_color: Color::srgba(0.1, 0.1, 0.1, 0.75).into(),
-                    border_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
-                    ..default()
-                },
+                    }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.75)), border_color: BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.1)), ..default() },
                 ResizablePanel(PanelResizer::Right),
                 Interaction::default(),
             )).with_children(|p| {
                 // --- WRAPPER ---
                 let mut scroll_id = None;
-                p.spawn(NodeBundle {
-                    style: Node {
+                p.spawn(UiNode { node: Node {
                         width: Val::Percent(100.0),
                         flex_grow: 1.0,
                         overflow: Overflow::clip(),
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::FlexStart,
                         ..default()
-                    },
-                    ..default()
-                }).with_children(|wrapper| {
+                    }, ..default() }).with_children(|wrapper| {
                     scroll_id = Some(wrapper.spawn((
-                        NodeBundle {
-                            style: Node {
+                        UiNode { node: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
@@ -351,59 +278,42 @@ pub fn setup_actor_editor(
                                 height: Val::Auto,
                                 flex_shrink: 0.0,
                                 ..default()
-                            },
-                            ..default()
-                        },
+                            }, ..default() },
                         ScrollingList { position: 0.0 },
                         Interaction::default(),
                     )).with_children(|scroll_p| {
-                        scroll_p.spawn(TextBundle::from_section(
-                            "INSPECTOR",
-                            TextStyle { font: font.clone(), font_size: 20.0, color: Color::srgb(0.7, 0.7, 0.7) },
-                        ));
+                        scroll_p.spawn(ui_text("INSPECTOR", &font.clone(), 20.0, Color::srgb(0.7, 0.7, 0.7)));
                         crate::ui::inspector::setup_inspector(scroll_p, &font, &icon_font, &vfx_presets, &vfx_registry);
                         
                         // Spacer at the bottom
-                        scroll_p.spawn(NodeBundle {
-                            style: Node {
+                        scroll_p.spawn(UiNode { node: Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(60.0),
                                 ..default()
-                            },
-                            ..default()
-                        });
+                            }, ..default() });
                     }).id());
                 });
                 let scroll_id = scroll_id.unwrap();
 
                 // --- SCROLLBAR ---
                 p.spawn((
-                    NodeBundle {
-                        style: Node {
+                    UiNode { node: Node {
                             position_type: PositionType::Absolute,
                             right: Val::Px(2.0),
                             top: Val::Px(2.0),
                             bottom: Val::Px(2.0),
                             width: Val::Px(4.0),
                             ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                        ..default()
-                    },
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() },
                     ScrollbarTrack { target: scroll_id },
                 )).with_children(|track| {
                     track.spawn((
-                        NodeBundle {
-                            style: Node {
+                        UiNode { node: Node {
                                 position_type: PositionType::Absolute,
                                 width: Val::Percent(100.0),
                                 height: Val::Percent(20.0),
                                 ..default()
-                            },
-                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
-                            border_radius: BorderRadius::all(Val::Px(2.0)),
-                            ..default()
-                        },
+                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(2.0)), ..default() },
                         ScrollbarHandle { target: scroll_id },
                         Interaction::default(),
                     ));
@@ -429,10 +339,7 @@ pub fn setup_actor_editor(
                 ActorEditorBackButton,
                 Tooltip("Back to Main Menu".to_string()),
             )).with_children(|p| {
-                p.spawn(TextBundle::from_section(
-                    "BACK",
-                    TextStyle { font: font.clone(), font_size: 18.0, color: Color::WHITE },
-                ));
+                p.spawn(ui_text("BACK", &font.clone(), 18.0, Color::WHITE));
             });
         });
 
@@ -453,7 +360,7 @@ pub fn cleanup_actor_editor(
 }
 
 fn spawn_viewport_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     toggle_type: ViewportToggleType,
     icon: &str,
     tooltip: &str,
@@ -476,15 +383,12 @@ fn spawn_viewport_button(
         ViewportToggleButton(toggle_type),
         Tooltip(tooltip.to_string()),
     )).with_children(|btn| {
-        btn.spawn(TextBundle::from_section(
-            icon,
-            TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::WHITE },
-        ));
+        btn.spawn(ui_text(icon, &icon_font.clone(), 18.0, Color::WHITE));
     });
 }
 
 fn spawn_undo_redo_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     is_undo: bool,
     icon_font: &Handle<Font>,
 ) {
@@ -507,18 +411,12 @@ fn spawn_undo_redo_button(
     if is_undo {
         builder.insert((crate::UndoButton, Tooltip("Undo (Ctrl+Z)".to_string())));
         builder.with_children(|btn| {
-            btn.spawn(TextBundle::from_section(
-                "\u{f0e2}",
-                TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::WHITE },
-            ));
+            btn.spawn(ui_text("\u{f0e2}", &icon_font.clone(), 18.0, Color::WHITE));
         });
     } else {
         builder.insert((crate::RedoButton, Tooltip("Redo (Ctrl+Y / Ctrl+Shift+Z)".to_string())));
         builder.with_children(|btn| {
-            btn.spawn(TextBundle::from_section(
-                "\u{f01e}",
-                TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::WHITE },
-            ));
+            btn.spawn(ui_text("\u{f01e}", &icon_font.clone(), 18.0, Color::WHITE));
         });
     }
 }

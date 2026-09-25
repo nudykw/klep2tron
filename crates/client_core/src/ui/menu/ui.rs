@@ -4,7 +4,7 @@ use crate::{GameState, GraphicsSettings};
 use super::types::*;
 
 pub fn spawn_menu_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     text: &str,
     value: Option<String>,
@@ -52,23 +52,16 @@ pub fn setup_menu(
     
     if camera_query.is_empty() {
         commands.spawn((
-            Camera3dBundle {
-                camera: Camera { order: -1, ..default() },
-                transform: Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(1.0, 0.0, 0.0), Vec3::Y),
-                ..default()
-            },
+            (Camera3d::default(), Camera { order: -1, ..default() }, Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(1.0, 0.0, 0.0), Vec3::Y)),
             MenuEntity,
         ));
 
         commands.spawn((
-            Camera2dBundle {
-                camera: Camera {
+            (Camera2d, Camera {
                     order: 10,
                     clear_color: ClearColorConfig::None,
                     ..default()
-                },
-                ..default()
-            },
+                }),
             MenuEntity,
         ));
     }
@@ -163,12 +156,12 @@ pub fn menu_item_system(
     
     if !is_confirmation {
         for entity in overlay_query.iter() {
-            if commands.get_entity(entity).is_some() {
+            if commands.get_entity(entity).is_ok() {
                 commands.entity(entity).despawn();
             }
         }
     } else {
-        if commands.get_entity(root).is_some() {
+        if commands.get_entity(root).is_ok() {
             commands.entity(root).remove::<MenuContainer>();
         }
         for focus_entity in focus_query.iter() {
@@ -181,8 +174,8 @@ pub fn menu_item_system(
     
     if let Some(v) = viewport_entity {
         if !is_confirmation {
-            if commands.get_entity(v).is_some() {
-                commands.entity(v).despawn_descendants();
+            if commands.get_entity(v).is_ok() {
+                commands.entity(v).despawn_related::<Children>();
             }
             
             commands.entity(v).with_children(|parent| {

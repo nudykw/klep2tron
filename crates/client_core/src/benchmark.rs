@@ -79,41 +79,33 @@ fn setup_benchmark(
 
     // Spawn Camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
+        (Camera3d::default(), Camera {
                 order: 5, // Ensure it renders over the menu skybox
                 ..default()
-            },
-            transform: Transform::from_xyz(15.0, 10.0, 15.0).looking_at(Vec3::new(7.5, 0.0, 7.5), Vec3::Y),
-            ..default()
-        },
+            }, Transform::from_xyz(15.0, 10.0, 15.0).looking_at(Vec3::new(7.5, 0.0, 7.5), Vec3::Y)),
         BenchmarkEntity,
         BenchmarkCamera,
-        FogSettings {
+        DistanceFog {
             color: Color::srgb(0.05, 0.05, 0.1),
             falloff: FogFalloff::Linear { start: 10.0, end: 30.0 },
             ..default()
-        }
+        },
+        AmbientLight {
+            color: Color::WHITE,
+            brightness: 200.0,
+            affects_lightmapped_meshes: false,
+        },
     ));
 
     // Spawn Lighting
     commands.spawn((
-        DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
+        (DirectionalLight {
+                shadow_maps_enabled: true,
                 illuminance: 12000.0,
                 ..default()
-            },
-            transform: Transform::from_xyz(15.0, 30.0, 30.0).looking_at(Vec3::new(7.5, 0.0, 7.5), Vec3::Y),
-            ..default()
-        },
+            }, Transform::from_xyz(15.0, 30.0, 30.0).looking_at(Vec3::new(7.5, 0.0, 7.5), Vec3::Y)),
         BenchmarkEntity,
     ));
-
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 200.0,
-    });
 
     // We no longer spawn blocks manually here.
     // map_rendering_system will handle this because it now runs in Benchmark state.
@@ -269,7 +261,6 @@ fn benchmark_ui_system(
         
         if let Ok(mut text) = text_query.get_mut(children[1]) {
             text.0 = results_text;
-            text.sections[0].style.color = Color::WHITE;
         }
         
         if let Ok(mut text) = text_query.get_mut(children[2]) {

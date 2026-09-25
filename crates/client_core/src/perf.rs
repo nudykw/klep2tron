@@ -23,8 +23,8 @@ pub fn collect_perf_system(
     let current_time = time.elapsed_secs_f64();
     if history.entries.last().map_or(true, |e| (current_time - e.timestamp) >= 1.0) {
         let fps = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
-        let cpu = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::CPU_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
-        let mem = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::MEM_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
+        let cpu = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::SYSTEM_CPU_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
+        let mem = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::SYSTEM_MEM_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
         
         history.entries.push(PerfEntry {
             timestamp: current_time,
@@ -35,7 +35,7 @@ pub fn collect_perf_system(
 
 pub fn save_perf_history(
     _history: Res<PerfHistory>,
-    mut exit_events: EventReader<bevy::app::AppExit>,
+    mut exit_events: MessageReader<bevy::app::AppExit>,
 ) {
     for _ in exit_events.read() {
         #[cfg(not(target_arch = "wasm32"))]

@@ -46,7 +46,7 @@ pub fn grid_system(
 }
 
 pub fn camera_reset_handler(
-    mut reset_events: EventReader<ResetCameraEvent>,
+    mut reset_events: MessageReader<ResetCameraEvent>,
     mut camera_query: Query<&mut PanOrbitCamera, With<MainEditorCamera>>,
 ) {
     for _ in reset_events.read() {

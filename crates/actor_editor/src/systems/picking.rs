@@ -84,20 +84,14 @@ pub fn socket_spawn_system(
             let name = find_next_socket_name(data.part_type, &socket_query);
 
             let socket_entity = commands.spawn((
-                PbrBundle {
-                    // Base: Torus
-                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Torus::new(0.01, 0.04))),
-                    material: materials.add(StandardMaterial {
+                (MeshMaterial3d(materials.add(StandardMaterial {
                         base_color: Color::srgb(0.2, 0.8, 0.2),
                         metallic: 0.8,
                         perceptual_roughness: 0.2,
                         depth_bias: 500.0,
                         alpha_mode: AlphaMode::Blend,
                         ..default()
-                    }),
-                    transform: Transform::from_translation(local_point).with_rotation(local_rotation),
-                    ..default()
-                },
+                    })), Transform::from_translation(local_point).with_rotation(local_rotation)),
                 ActorSocket {
                     definition: SocketDefinition {
                         name: name.clone(),
@@ -115,28 +109,18 @@ pub fn socket_spawn_system(
                 crate::ActorEditorEntity, // Mark as editor entity so it's not cleaned up accidentally
             )).with_children(|parent| {
                 // ... (children same as before)
-                parent.spawn(PbrBundle {
-                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.15))),
-                    material: materials.add(StandardMaterial {
+                parent.spawn((Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.15)))), MeshMaterial3d(materials.add(StandardMaterial {
                         base_color: Color::srgb(1.0, 1.0, 0.0),
                         unlit: true,
                         depth_bias: 500.0,
                         ..default()
-                    }),
-                    transform: Transform::from_xyz(0.0, 0.075, 0.0),
-                    ..default()
-                });
-                parent.spawn(PbrBundle {
-                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Cone { radius: 0.015, height: 0.05 })),
-                    material: materials.add(StandardMaterial {
+                    })), Transform::from_xyz(0.0, 0.075, 0.0)));
+                parent.spawn((Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Cone { radius: 0.015, height: 0.05 }))), MeshMaterial3d(materials.add(StandardMaterial {
                         base_color: Color::srgb(1.0, 1.0, 0.0),
                         unlit: true,
                         depth_bias: 500.0,
                         ..default()
-                    }),
-                    transform: Transform::from_xyz(0.0, 0.15, 0.0),
-                    ..default()
-                });
+                    })), Transform::from_xyz(0.0, 0.15, 0.0)));
             }).id();
             
             commands.entity(actor_root).add_child(socket_entity);
@@ -217,7 +201,7 @@ pub fn socket_3d_selection_system(
     mut selected: ResMut<SelectedSocket>,
     mut multi_state: ResMut<MultiSelectionState>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut events: EventReader<bevy_mod_picking::prelude::Pointer<bevy_mod_picking::prelude::Click>>,
+    mut events: MessageReader<bevy_mod_picking::prelude::Pointer<bevy_mod_picking::prelude::Click>>,
     socket_query: Query<Entity, With<super::super::ActorSocket>>,
 ) {
     for event in events.read() {
@@ -307,47 +291,32 @@ pub fn socket_restoration_system(
     
     for def in pending.0.drain(..) {
         let socket_entity = commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(bevy::math::primitives::Torus::new(0.01, 0.04))),
-                material: materials.add(StandardMaterial {
+            (Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Torus::new(0.01, 0.04)))), MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: def.color,
                     metallic: 0.8,
                     perceptual_roughness: 0.2,
                     depth_bias: 500.0,
                     alpha_mode: AlphaMode::Blend,
                     ..default()
-                }),
-                transform: Transform::from_translation(def.position).with_rotation(def.rotation),
-                ..default()
-            },
+                })), Transform::from_translation(def.position).with_rotation(def.rotation)),
             super::super::ActorSocket { definition: def.clone() },
             bevy_mod_picking::PickableBundle::default(),
             Name::new("ActorSocket"),
             crate::ActorEditorEntity,
         )).with_children(|parent| {
             // Forward indicator
-            parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.15))),
-                material: materials.add(StandardMaterial {
+            parent.spawn((Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Cylinder::new(0.005, 0.15)))), MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::srgb(1.0, 1.0, 0.0),
                     unlit: true,
                     depth_bias: 500.0,
                     ..default()
-                }),
-                transform: Transform::from_xyz(0.0, 0.075, 0.0),
-                ..default()
-            });
-            parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(bevy::math::primitives::Cone { radius: 0.015, height: 0.05 })),
-                material: materials.add(StandardMaterial {
+                })), Transform::from_xyz(0.0, 0.075, 0.0)));
+            parent.spawn((Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Cone { radius: 0.015, height: 0.05 }))), MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::srgb(1.0, 1.0, 0.0),
                     unlit: true,
                     depth_bias: 500.0,
                     ..default()
-                }),
-                transform: Transform::from_xyz(0.0, 0.15, 0.0),
-                ..default()
-            });
+                })), Transform::from_xyz(0.0, 0.15, 0.0)));
         }).id();
         
         commands.entity(actor_root).add_child(socket_entity);

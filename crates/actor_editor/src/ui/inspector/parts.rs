@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use crate::{
     widgets::spawn_collapsible_section_ext,
     ActorPart,
@@ -6,7 +7,7 @@ use crate::{
 use super::types::*;
 
 pub fn spawn_parts_section(
-    p: &mut ChildBuilder,
+    p: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
 ) {
@@ -24,8 +25,7 @@ pub fn spawn_parts_section(
                 (ActorPart::Body, "Body"),
                 (ActorPart::Engine, "Legs"),
             ] {
-                content.spawn(NodeBundle {
-                    style: Node {
+                content.spawn(UiNode { node: Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(30.0),
                         flex_direction: FlexDirection::Row,
@@ -33,22 +33,14 @@ pub fn spawn_parts_section(
                         justify_content: JustifyContent::SpaceBetween,
                         padding: UiRect::horizontal(Val::Px(5.0)),
                         ..default()
-                    },
-                    ..default()
-                }).with_children(|row| {
-                    row.spawn(TextBundle::from_section(
-                        label,
-                        TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE },
-                    ));
+                    }, ..default() }).with_children(|row| {
+                    row.spawn(ui_text(label, &font.clone(), 14.0, Color::WHITE));
 
-                    row.spawn(NodeBundle {
-                        style: Node {
+                    row.spawn(UiNode { node: Node {
                             flex_direction: FlexDirection::Row,
                             column_gap: Val::Px(5.0),
                             ..default()
-                        },
-                        ..default()
-                    }).with_children(|btns| {
+                        }, ..default() }).with_children(|btns| {
                         // Focus Button
                         btns.spawn((
                             ButtonBundle {
@@ -66,10 +58,7 @@ pub fn spawn_parts_section(
                             PartFocusButton(part),
                             crate::widgets::Tooltip("Focus camera on part".to_string()),
                         )).with_children(|b| {
-                            b.spawn(TextBundle::from_section(
-                                "\u{f140}", // bullseye
-                                TextStyle { font: icon_font.clone(), font_size: 12.0, color: Color::srgb(0.8, 0.8, 0.8) },
-                            ));
+                            b.spawn(ui_text("\u{f140}", &icon_font.clone(), 12.0, Color::srgb(0.8, 0.8, 0.8)));
                         });
 
                         // Solo Button
@@ -89,26 +78,20 @@ pub fn spawn_parts_section(
                             PartSoloButton(part),
                             crate::widgets::Tooltip("Isolate part (Solo mode)".to_string()),
                         )).with_children(|b| {
-                            b.spawn(TextBundle::from_section(
-                                "\u{f06e}", // eye
-                                TextStyle { font: icon_font.clone(), font_size: 12.0, color: Color::srgb(0.8, 0.8, 0.8) },
-                            ));
+                            b.spawn(ui_text("\u{f06e}", &icon_font.clone(), 12.0, Color::srgb(0.8, 0.8, 0.8)));
                         });
                     });
                 });
             }
 
             // Inspection Toggles (Ghost, Wireframe, Normals)
-            content.spawn(NodeBundle {
-                style: Node {
+            content.spawn(UiNode { node: Node {
                     width: Val::Percent(100.0),
                     margin: UiRect::top(Val::Px(10.0)),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     ..default()
-                },
-                ..default()
-            }).with_children(|row| {
+                }, ..default() }).with_children(|row| {
                 for (toggle, icon, label, tooltip) in [
                     (InspectionToggleType::Ghost, "\u{f070}", "Ghost", "Toggle Ghosting mode (alpha 0.1)"),
                     (InspectionToggleType::Wireframe, "\u{f1b2}", "Wire", "Toggle Wireframe view"),
@@ -131,14 +114,8 @@ pub fn spawn_parts_section(
                         InspectionToggle(toggle),
                         crate::widgets::Tooltip(tooltip.to_string()),
                     )).with_children(|b| {
-                        b.spawn(TextBundle::from_section(
-                            icon,
-                            TextStyle { font: icon_font.clone(), font_size: 10.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                        ));
-                        b.spawn(TextBundle::from_section(
-                            label,
-                            TextStyle { font: font.clone(), font_size: 8.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                        ));
+                        b.spawn(ui_text(icon, &icon_font.clone(), 10.0, Color::srgb(0.6, 0.6, 0.6)));
+                        b.spawn(ui_text(label, &font.clone(), 8.0, Color::srgb(0.6, 0.6, 0.6)));
                     });
                 }
             });
@@ -160,10 +137,7 @@ pub fn spawn_parts_section(
                 InspectionMasterToggle,
                 crate::widgets::Tooltip("Toggle Inspection Mode (Master Switch)".to_string()),
             )).with_children(|b| {
-                b.spawn(TextBundle::from_section(
-                    "\u{f011}", // power icon
-                    TextStyle { font: icon_font.clone(), font_size: 12.0, color: Color::srgb(0.6, 0.6, 0.6) },
-                ));
+                b.spawn(ui_text("\u{f011}", &icon_font.clone(), 12.0, Color::srgb(0.6, 0.6, 0.6)));
             });
         }
     );

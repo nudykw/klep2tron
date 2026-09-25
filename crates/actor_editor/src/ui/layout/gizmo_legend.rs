@@ -15,13 +15,8 @@ pub fn spawn_gizmo_legend(
     
     // X - Red (Point Right)
     commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle.clone(),
-            material: materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.2, 0.2), unlit: true, ..default() }),
-            transform: Transform::from_rotation(LEGEND_ROTATION_X)
-                        .with_translation(Vec3::X * 0.4),
-            ..default()
-        },
+        (Mesh3d(mesh_handle.clone()), MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.2, 0.2), unlit: true, ..default() })), Transform::from_rotation(LEGEND_ROTATION_X)
+                        .with_translation(Vec3::X * 0.4)),
         ActorEditorEntity,
         GizmoEntity,
         EditorHelper,
@@ -30,13 +25,8 @@ pub fn spawn_gizmo_legend(
 
     // Y - Green (Point Up)
     commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle.clone(),
-            material: materials.add(StandardMaterial { base_color: Color::srgb(0.2, 1.0, 0.2), unlit: true, ..default() }),
-            transform: Transform::from_rotation(LEGEND_ROTATION_Y)
-                        .with_translation(Vec3::Y * 0.4),
-            ..default()
-        },
+        (Mesh3d(mesh_handle.clone()), MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::srgb(0.2, 1.0, 0.2), unlit: true, ..default() })), Transform::from_rotation(LEGEND_ROTATION_Y)
+                        .with_translation(Vec3::Y * 0.4)),
         ActorEditorEntity,
         GizmoEntity,
         EditorHelper,
@@ -44,13 +34,8 @@ pub fn spawn_gizmo_legend(
     ));
     // Z - Blue (Point Forward)
     commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle.clone(),
-            material: materials.add(StandardMaterial { base_color: Color::srgb(0.2, 0.2, 1.0), unlit: true, ..default() }),
-            transform: Transform::from_rotation(LEGEND_ROTATION_Z)
-                        .with_translation(Vec3::Z * 0.4),
-            ..default()
-        },
+        (Mesh3d(mesh_handle.clone()), MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::srgb(0.2, 0.2, 1.0), unlit: true, ..default() })), Transform::from_rotation(LEGEND_ROTATION_Z)
+                        .with_translation(Vec3::Z * 0.4)),
         ActorEditorEntity,
         GizmoEntity,
         EditorHelper,

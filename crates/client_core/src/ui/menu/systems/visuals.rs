@@ -5,7 +5,7 @@ use super::super::types::*;
 pub fn menu_navigation_system(
     mut commands: Commands,
     container_query: Query<(Entity, &MenuContainer), Changed<MenuContainer>>,
-    item_query: Query<(Entity, &MenuItem, &Parent)>,
+    item_query: Query<(Entity, &MenuItem, &ChildOf)>,
     children_query: Query<&Children>,
 ) {
     for (container_entity, container) in container_query.iter() {
@@ -14,8 +14,8 @@ pub fn menu_navigation_system(
         while let Some(current) = stack.pop() {
             if let Ok(children) = children_query.get(current) {
                 for child in children.iter() {
-                    descendants.push(*child);
-                    stack.push(*child);
+                    descendants.push(child);
+                    stack.push(child);
                 }
             }
         }
@@ -23,7 +23,7 @@ pub fn menu_navigation_system(
         for (entity, item, _parent) in item_query.iter() {
             if !descendants.contains(&entity) { continue; }
 
-            if let Some(mut e) = commands.get_entity(entity) {
+            if let Ok(mut e) = commands.get_entity(entity) {
                 if item.index == container.current_selection {
                     e.insert(MenuFocus);
                 } else {
@@ -41,7 +41,7 @@ pub fn menu_scrolling_system(
 ) {
     let Ok(container) = container_query.single() else { return; };
     for (entity, mut style) in scroll_query.iter_mut() {
-        if commands.get_entity(entity).is_none() { continue; }
+        if commands.get_entity(entity).is_err() { continue; }
         
         let item_height = 60.0; 
         let viewport_height = 420.0;
@@ -108,7 +108,7 @@ pub fn menu_visual_system(
     let t = (time.elapsed_secs() * 3.0).sin() * 0.5 + 0.5;
 
     for (entity, item, mut bg, mut border, mut transform, focus) in query.iter_mut() {
-        if commands.get_entity(entity).is_none() { continue; }
+        if commands.get_entity(entity).is_err() { continue; }
 
         let is_apply = item.action == MenuAction::ApplySettings;
         let is_dimmed = item.is_disabled || (is_apply && !has_changes);

@@ -65,7 +65,7 @@ pub fn update_socket_gizmos_system(
 }
 
 pub fn spawn_axis(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     axis: GizmoAxisType,
@@ -82,9 +82,7 @@ pub fn spawn_axis(
             };
 
             parent.spawn((
-                PbrBundle {
-                    mesh: meshes.add(Cylinder::new(0.015, 1.0)),
-                    material: materials.add(StandardMaterial {
+                (Mesh3d(meshes.add(Cylinder::new(0.015, 1.0))), MeshMaterial3d(materials.add(StandardMaterial {
                         base_color: {
                             let mut c = color.to_srgba();
                             c.alpha = 0.4;
@@ -93,10 +91,7 @@ pub fn spawn_axis(
                         alpha_mode: AlphaMode::Blend,
                         unlit: true, // Make them look consistent with the rings
                         ..default()
-                    }),
-                    transform: Transform::from_rotation(rotation).with_translation(rotation * Vec3::Y * 0.5),
-                    ..default()
-                },
+                    })), Transform::from_rotation(rotation).with_translation(rotation * Vec3::Y * 0.5)),
                 GizmoAxis { axis, action },
                 ManualGizmoInteraction::default(),
                 SocketLink(target),
@@ -104,16 +99,11 @@ pub fn spawn_axis(
             )).with_children(|axis_p| {
                 // Cone tip
                 axis_p.spawn((
-                    PbrBundle {
-                        mesh: meshes.add(Cone { radius: 0.05, height: 0.15 }),
-                        material: materials.add(StandardMaterial { 
+                    (Mesh3d(meshes.add(Cone { radius: 0.05, height: 0.15 })), MeshMaterial3d(materials.add(StandardMaterial { 
                             base_color: color,
                             unlit: true,
                             ..default() 
-                        }),
-                        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-                        ..default()
-                    },
+                        })), Transform::from_xyz(0.0, 0.5, 0.0)),
                     GizmoAxis { axis, action },
                     ManualGizmoInteraction::default(),
                     SocketLink(target),
@@ -129,16 +119,11 @@ pub fn spawn_axis(
             };
 
             parent.spawn((
-                PbrBundle {
-                    mesh: meshes.add(Torus { minor_radius: 0.01, major_radius: 0.75 }),
-                    material: materials.add(StandardMaterial {
+                (Mesh3d(meshes.add(Torus { minor_radius: 0.01, major_radius: 0.75 })), MeshMaterial3d(materials.add(StandardMaterial {
                         base_color: color,
                         unlit: true,
                         ..default()
-                    }),
-                    transform: Transform::from_rotation(rotation),
-                    ..default()
-                },
+                    })), Transform::from_rotation(rotation)),
                 GizmoAxis { axis, action },
                 ManualGizmoInteraction::default(),
                 SocketLink(target),

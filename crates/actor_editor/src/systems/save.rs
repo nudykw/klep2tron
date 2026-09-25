@@ -6,14 +6,14 @@ use shared::npc::{ActorProject, ActorConfig};
 use super::super::{ActorSaveEvent, CurrentProject, SlicingSettings, ActorSocket, ToastEvent, ToastType, EditorStatus, ConfirmationRequestEvent, EditorAction};
 
 pub fn actor_save_system(
-    mut save_events: EventReader<ActorSaveEvent>,
+    mut save_events: MessageReader<ActorSaveEvent>,
     mut current_project: ResMut<CurrentProject>,
     slicing_settings: Res<SlicingSettings>,
     socket_query: Query<&ActorSocket>,
     transform_query: Query<&Transform, With<super::super::Actor3DRoot>>,
     mut status: ResMut<EditorStatus>,
-    mut toast_events: EventWriter<ToastEvent>,
-    mut modal_events: EventWriter<ConfirmationRequestEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
+    mut modal_events: MessageWriter<ConfirmationRequestEvent>,
     opt_settings: Res<crate::systems::optimization::OptimizationSettings>,
     meshes: Res<Assets<Mesh>>,
     part_query: Query<(&shared::npc::ActorPart, &Handle<Mesh>)>,

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use crate::{
     widgets::{spawn_collapsible_section_ext, spawn_text_input, TextInput},
     EditorStatus, ToastEvent, ToastType, SlicingSettings, OriginalMeshComponent,
@@ -8,7 +9,7 @@ use crate::systems::optimization::{OptimizationSettings, OptimizedMeshComponent,
 use crate::systems::undo_redo::ActionStack;
 
 pub fn spawn_optimization_section(
-    p: &mut ChildBuilder,
+    p: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
 ) {
@@ -21,8 +22,7 @@ pub fn spawn_optimization_section(
         OptimizationSectionMarker,
         |content| {
             // Target Triangles Input
-            content.spawn(NodeBundle {
-                style: Node {
+            content.spawn(UiNode { node: Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(30.0),
                     flex_direction: FlexDirection::Row,
@@ -30,13 +30,8 @@ pub fn spawn_optimization_section(
                     justify_content: JustifyContent::SpaceBetween,
                     padding: UiRect::horizontal(Val::Px(5.0)),
                     ..default()
-                },
-                ..default()
-            }).with_children(|row| {
-                row.spawn(TextBundle::from_section(
-                    "Target Tris:",
-                    TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.7, 0.7, 0.7) },
-                ));
+                }, ..default() }).with_children(|row| {
+                row.spawn(ui_text("Target Tris:", &font.clone(), 13.0, Color::srgb(0.7, 0.7, 0.7)));
                 
                 spawn_text_input(row, font, "15000", "15000", Val::Px(80.0));
             });
@@ -49,7 +44,7 @@ pub fn spawn_optimization_section(
 
 // I'll rewrite spawn_optimization_section to be more robust with markers
 pub fn spawn_optimization_section_v2(
-    p: &mut ChildBuilder,
+    p: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
 ) {
@@ -62,37 +57,28 @@ pub fn spawn_optimization_section_v2(
         OptimizationSectionMarker,
         |content| {
             // Target Tris
-            content.spawn(NodeBundle {
-                style: Node {
+            content.spawn(UiNode { node: Node {
                     width: Val::Percent(100.0),
                     margin: UiRect::bottom(Val::Px(10.0)),
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
                     ..default()
-                },
-                ..default()
-            }).with_children(|row| {
-                row.spawn(TextBundle::from_section(
-                    "Target Budget:",
-                    TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.8, 0.8, 0.8) },
-                ));
+                }, ..default() }).with_children(|row| {
+                row.spawn(ui_text("Target Budget:", &font.clone(), 13.0, Color::srgb(0.8, 0.8, 0.8)));
                 
                 let input_id = spawn_text_input(row, font, "15000", "15000", Val::Px(80.0));
                 row.spawn(OptimizationTargetInputMarker).set_parent(input_id);
             });
 
             // Buttons Row
-            content.spawn(NodeBundle {
-                style: Node {
+            content.spawn(UiNode { node: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     column_gap: Val::Px(5.0),
                     ..default()
-                },
-                ..default()
-            }).with_children(|row| {
+                }, ..default() }).with_children(|row| {
                 // Optimize Button
                 row.spawn((
                     ButtonBundle {
@@ -110,10 +96,7 @@ pub fn spawn_optimization_section_v2(
                     OptimizeMeshButton,
                     crate::widgets::Tooltip("Perform mesh simplification".to_string()),
                 )).with_children(|b| {
-                    b.spawn(TextBundle::from_section(
-                        "OPTIMIZE MESH",
-                        TextStyle { font: font.clone(), font_size: 11.0, color: Color::WHITE, ..default() },
-                    ));
+                    b.spawn(ui_text("OPTIMIZE MESH", &font.clone(), 11.0, Color::WHITE));
                 });
 
                 // Original Toggle (A/B)
@@ -133,10 +116,7 @@ pub fn spawn_optimization_section_v2(
                     OptimizationOriginalToggle,
                     crate::widgets::Tooltip("Show Original (Un-optimized) Mesh".to_string()),
                 )).with_children(|b| {
-                    b.spawn(TextBundle::from_section(
-                        "\u{f01e}", // refresh/swap icon
-                        TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
-                    ));
+                    b.spawn(ui_text("\u{f01e}", &icon_font.clone(), 14.0, Color::WHITE));
                 });
 
                 // Wireframe Toggle
@@ -156,10 +136,7 @@ pub fn spawn_optimization_section_v2(
                     OptimizationWireframeToggle,
                     crate::widgets::Tooltip("Toggle Wireframe Overlay (W)".to_string()),
                 )).with_children(|b| {
-                    b.spawn(TextBundle::from_section(
-                        "\u{f00a}", // grid icon
-                        TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
-                    ));
+                    b.spawn(ui_text("\u{f00a}", &icon_font.clone(), 14.0, Color::WHITE));
                 });
 
             });
@@ -178,14 +155,14 @@ pub fn mesh_optimization_system(
     mut status: ResMut<EditorStatus>,
     mut action_stack: ResMut<ActionStack>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
     
     btn_query: Query<&Interaction, (With<OptimizeMeshButton>, Changed<Interaction>)>,
     toggle_query: Query<&Interaction, (With<OptimizationOriginalToggle>, Changed<Interaction>)>,
     wire_query: Query<&Interaction, (With<OptimizationWireframeToggle>, Changed<Interaction>)>,
     caps_query: Query<&Interaction, (With<OptimizationCapsToggle>, Changed<Interaction>)>,
     input_query: Query<&TextInput>,
-    marker_query: Query<&Parent, With<OptimizationTargetInputMarker>>,
+    marker_query: Query<&ChildOf, With<OptimizationTargetInputMarker>>,
     mesh_query: Query<(Entity, &OriginalMeshComponent, Option<&OptimizedMeshComponent>)>,
 ) {
     // 1. Check if a task is already running

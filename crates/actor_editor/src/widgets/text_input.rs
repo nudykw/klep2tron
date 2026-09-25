@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use bevy::input::keyboard::{KeyboardInput, Key};
 
 #[derive(Component)]
@@ -32,7 +33,7 @@ pub struct TextInputBundle {
 }
 
 pub fn spawn_text_input(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     placeholder: &str,
     initial_value: &str,
@@ -58,21 +59,14 @@ pub fn spawn_text_input(
         },
     }).with_children(|p| {
         p.spawn((
-            TextBundle::from_section(
-                if initial_value.is_empty() { placeholder } else { initial_value },
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 13.0,
-                    color: if initial_value.is_empty() { Color::srgb(0.5, 0.5, 0.5) } else { Color::WHITE },
-                },
-            ),
+            ui_text(if initial_value.is_empty() { placeholder } else { initial_value }, &font.clone(), 13.0, if initial_value.is_empty() { Color::srgb(0.5, 0.5, 0.5) } else { Color::WHITE }),
             TextInputContent,
         ));
     }).id()
 }
 
 pub fn text_input_system(
-    mut char_events: EventReader<KeyboardInput>,
+    mut char_events: MessageReader<KeyboardInput>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut query: Query<(Entity, &Interaction, &mut TextInput, &mut BackgroundColor, &Children)>,
     mut text_query: Query<&mut Text, With<TextInputContent>>,

@@ -1,11 +1,12 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use crate::{
     widgets::spawn_collapsible_section_ext,
 };
 use super::types::*;
 
 pub fn spawn_scaling_section(
-    p: &mut ChildBuilder,
+    p: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
 ) {
@@ -18,16 +19,13 @@ pub fn spawn_scaling_section(
         ScalingSectionMarker,
         |content| {
             // Dimensions Inputs
-            content.spawn(NodeBundle {
-                style: Node {
+            content.spawn(UiNode { node: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(8.0),
                     margin: UiRect::bottom(Val::Px(10.0)),
                     ..default()
-                },
-                ..default()
-            }).with_children(|list| {
+                }, ..default() }).with_children(|list| {
                 // Width (X)
                 spawn_dimension_input(list, font, "Width (X), m:", ScalingInputX, "Width in meters");
                 // Height (Y)
@@ -37,17 +35,14 @@ pub fn spawn_scaling_section(
             });
 
             // Action Row
-            content.spawn(NodeBundle {
-                style: Node {
+            content.spawn(UiNode { node: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
                     column_gap: Val::Px(5.0),
                     ..default()
-                },
-                ..default()
-            }).with_children(|row| {
+                }, ..default() }).with_children(|row| {
                 // Link Proportions Toggle
                 row.spawn((
                     ButtonBundle {
@@ -65,10 +60,7 @@ pub fn spawn_scaling_section(
                     ScalingLinkToggle,
                     crate::widgets::Tooltip("Uniform Scaling (All dimensions equal)".to_string()),
                 )).with_children(|b| {
-                    b.spawn(TextBundle::from_section(
-                        "\u{f076}", // magnet icon
-                        TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::WHITE },
-                    ));
+                    b.spawn(ui_text("\u{f076}", &icon_font.clone(), 14.0, Color::WHITE));
                 });
 
                 // Apply Button
@@ -88,10 +80,7 @@ pub fn spawn_scaling_section(
                     ScalingApplyButton,
                     crate::widgets::Tooltip("Apply new dimensions to the model".to_string()),
                 )).with_children(|b| {
-                    b.spawn(TextBundle::from_section(
-                        "APPLY",
-                        TextStyle { font: font.clone(), font_size: 11.0, color: Color::WHITE, ..default() },
-                    ));
+                    b.spawn(ui_text("APPLY", &font.clone(), 11.0, Color::WHITE));
                 });
             });
         },
@@ -100,31 +89,25 @@ pub fn spawn_scaling_section(
 }
 
 fn spawn_dimension_input(
-    p: &mut ChildBuilder,
+    p: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     label: &str,
     marker: impl Component,
     tooltip: &str,
 ) {
     p.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(24.0),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
-            },
-            ..default()
-        },
+            }, ..default() },
         Interaction::default(),
         crate::widgets::Tooltip(tooltip.to_string()),
     )).with_children(|row| {
-        row.spawn(TextBundle::from_section(
-            label,
-            TextStyle { font: font.clone(), font_size: 13.0, color: Color::srgb(0.8, 0.8, 0.8) },
-        ));
+        row.spawn(ui_text(label, &font.clone(), 13.0, Color::srgb(0.8, 0.8, 0.8)));
         
         row.spawn((
             crate::widgets::TextInputBundle {
@@ -149,14 +132,7 @@ fn spawn_dimension_input(
             marker,
         )).with_children(|p| {
             p.spawn((
-                TextBundle::from_section(
-                    "1.00",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 13.0,
-                        color: Color::WHITE,
-                    },
-                ),
+                ui_text("1.00", &font.clone(), 13.0, Color::WHITE),
                 crate::widgets::TextInputContent,
             ));
         });

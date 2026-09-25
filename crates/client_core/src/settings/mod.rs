@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
+use bevy::window::{MonitorSelection, VideoModeSelection};
 use serde::{Deserialize, Serialize};
 
 pub mod auto_detect;
@@ -109,7 +110,7 @@ impl Plugin for SettingsPlugin {
         let (settings, needs_auto) = load_settings_or_default();
         app.insert_resource(settings)
            .insert_resource(NeedsAutoDetect(needs_auto))
-           .insert_resource(bevy::pbr::DirectionalLightShadowMap { size: 1024 })
+           .insert_resource(bevy::light::DirectionalLightShadowMap { size: 1024 })
            .init_resource::<GpuList>()
            .add_plugins(bevy_framepace::FramepacePlugin)
            .add_systems(Update, (
@@ -175,9 +176,13 @@ pub fn populate_gpu_list(
         // Use PRIMARY backends only (Vulkan/Metal/DX12) to avoid crashes with some drivers/OpenGL
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
+            flags: wgpu::InstanceFlags::default(),
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+            backend_options: wgpu::BackendOptions::default(),
+            display: None,
         });
-        for adapter in instance.enumerate_adapters(wgpu::Backends::PRIMARY) {
+        let adapters = futures_lite::future::block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY));
+        for adapter in adapters {
             let name = adapter.get_info().name;
             if !gpu_list.names.contains(&name) {
                 gpu_list.names.push(name);
@@ -297,8 +302,8 @@ fn apply_settings_system(
         // Apply Window Mode
         window.mode = match settings.window_mode {
             MyWindowMode::Windowed => bevy::window::WindowMode::Windowed,
-            MyWindowMode::BorderlessFullscreen => bevy::window::WindowMode::BorderlessFullscreen,
-            MyWindowMode::Fullscreen => bevy::window::WindowMode::SizedFullscreen,
+            MyWindowMode::BorderlessFullscreen => bevy::window::WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+            MyWindowMode::Fullscreen => bevy::window::WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current),
         };
         
         // Apply VSync

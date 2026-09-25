@@ -9,7 +9,7 @@ pub fn fullscreen_toggle_system(
         if let Ok(mut window) = windows.single_mut() {
             use bevy::window::WindowMode;
             window.mode = match window.mode {
-                WindowMode::Windowed => WindowMode::SizedFullscreen,
+                WindowMode::Windowed => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
                 _ => WindowMode::Windowed,
             };
         }

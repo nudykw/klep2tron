@@ -36,18 +36,14 @@ pub fn mesh_slicing_system(
                 }
 
                 commands.entity(root_entity).with_children(|p| {
-                    let mut spawn_part = |cmds: &mut ChildBuilder, mesh_handle: Handle<Mesh>, name: &str, part_type: ActorPart, color: Color, cap_start: usize| {
+                    let mut spawn_part = |cmds: &mut ChildSpawnerCommands, mesh_handle: Handle<Mesh>, name: &str, part_type: ActorPart, color: Color, cap_start: usize| {
                         cmds.spawn((
-                            PbrBundle {
-                                mesh: mesh_handle,
-                                material: materials.add(StandardMaterial {
+                            (Mesh3d(mesh_handle), MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: color,
                                     perceptual_roughness: 0.5,
                                     alpha_mode: AlphaMode::Opaque,
                                     ..default()
-                                }),
-                                ..default()
-                            },
+                                }))),
                             EditorHelper,
                             part_type,
                             bevy_mod_picking::prelude::Pickable {
@@ -109,22 +105,17 @@ pub fn mesh_slicing_system(
 
             // 3. Apply result
             for (parent_entity, parts) in result.mesh_parts {
-                let mut spawn_part = |cmds: &mut ChildBuilder, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart, color: Color, cap_start: usize| {
+                let mut spawn_part = |cmds: &mut ChildSpawnerCommands, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart, color: Color, cap_start: usize| {
                     if let Some(m) = mesh_opt {
                         let visibility = part_visibility.get(&part_type).cloned().unwrap_or(Visibility::Visible);
                         
                         cmds.spawn((
-                            PbrBundle {
-                                mesh: meshes.add(m),
-                                material: materials.add(StandardMaterial {
+                            (Mesh3d(meshes.add(m)), MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: color,
                                     perceptual_roughness: 0.5,
                                     alpha_mode: AlphaMode::Opaque,
                                     ..default()
-                                }),
-                                visibility,
-                                ..default()
-                            },
+                                }))),
                             EditorHelper,
                             part_type,
                             bevy_mod_picking::prelude::Pickable {

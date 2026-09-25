@@ -105,7 +105,7 @@ pub fn polycount_update_system(
 
 pub fn toast_manager_system(
     mut commands: Commands,
-    mut toast_events: EventReader<ToastEvent>,
+    mut toast_events: MessageReader<ToastEvent>,
     asset_server: Res<AssetServer>,
     container_query: Query<Entity, With<super::super::widgets::ToastContainer>>,
     mut timer_query: Query<(Entity, &mut super::super::widgets::ToastTimer, &mut BackgroundColor)>,
@@ -137,7 +137,7 @@ pub fn toast_manager_system(
 
 pub fn modal_manager_system(
     mut commands: Commands,
-    mut modal_events: EventReader<ConfirmationRequestEvent>,
+    mut modal_events: MessageReader<ConfirmationRequestEvent>,
     asset_server: Res<AssetServer>,
     cancel_query: Query<&Interaction, (Changed<Interaction>, With<super::super::widgets::CancelModalButton>)>,
     confirm_query: Query<(&Interaction, &super::super::widgets::ConfirmModalButton), (Changed<Interaction>, With<super::super::widgets::ConfirmModalButton>)>,
@@ -145,7 +145,7 @@ pub fn modal_manager_system(
     camera_query: Query<Entity, With<crate::MainEditorCamera>>,
     mut next_state: ResMut<NextState<GameState>>,
     input_query: Query<&super::super::widgets::text_input::TextInput, With<super::super::SaveModalInput>>,
-    mut save_events: EventWriter<ActorSaveEvent>,
+    mut save_events: MessageWriter<ActorSaveEvent>,
 ) {
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
@@ -262,7 +262,7 @@ pub fn material_sync_system(
 
 pub fn project_action_system(
     interaction_query: Query<(&Interaction, &super::super::ui_project::ProjectAction), Changed<Interaction>>,
-    mut save_events: EventWriter<ActorSaveEvent>,
+    mut save_events: MessageWriter<ActorSaveEvent>,
     current_project: Res<CurrentProject>,
     asset_server: Res<AssetServer>,
     camera_query: Query<Entity, With<crate::MainEditorCamera>>,
@@ -324,9 +324,9 @@ pub fn project_action_system(
 pub fn poll_file_dialog_tasks_system(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut FileDialogTask)>,
-    mut import_events: EventWriter<ActorImportEvent>,
-    mut load_events: EventWriter<ActorLoadEvent>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut import_events: MessageWriter<ActorImportEvent>,
+    mut load_events: MessageWriter<ActorLoadEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
     mut last_dir: ResMut<LastUsedDirectory>,
 ) {
     for (entity, mut task_component) in tasks.iter_mut() {
@@ -360,14 +360,14 @@ pub fn poll_file_dialog_tasks_system(
 }
 
 pub fn actor_import_event_system(
-    mut events: EventReader<ActorImportEvent>,
+    mut events: MessageReader<ActorImportEvent>,
     asset_server: Res<AssetServer>,
     mut status: ResMut<EditorStatus>,
     mut pending: ResMut<PendingImport>,
     mut current_project: ResMut<CurrentProject>,
     mut slicing_settings: ResMut<SlicingSettings>,
     mut opt_settings: ResMut<crate::systems::optimization::OptimizationSettings>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
 ) {
     for event in events.read() {
         let path = &event.0;
@@ -435,7 +435,7 @@ pub fn actor_import_processing_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut progress: ResMut<ImportProgress>,
     time: Res<Time>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
     actor_entities: Query<Entity, (With<ActorEditorEntity>, Without<Camera>, Without<Node>, Without<EditorHelper>)>,
 ) {
     if *status != EditorStatus::Loading { return; }
@@ -476,7 +476,7 @@ pub fn actor_import_processing_system(
 
     if finished {
         for entity in actor_entities.iter() { 
-            if let Some(e) = commands.get_entity(entity) {
+            if let Ok(mut e) = commands.get_entity(entity) {
                 e.despawn();
             }
         }
@@ -494,11 +494,7 @@ pub fn actor_import_processing_system(
                 Actor3DRoot,
                 crate::AwaitingNormalization,
             )).with_children(|p| {
-                p.spawn(PbrBundle { 
-                    mesh: mesh_handle.clone(), 
-                    material: materials.add(StandardMaterial { base_color: Color::WHITE, ..default() }), 
-                    ..default() 
-                });
+                p.spawn((Mesh3d(mesh_handle.clone()), MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::WHITE, ..default() }))));
             });
         } else if pending.handle.is_some() {
              commands.spawn(( 
@@ -559,7 +555,7 @@ pub fn slicer_lock_system(
 pub fn mode_tab_interaction_system(
     mut editor_mode: ResMut<EditorMode>,
     interaction_query: Query<(&Interaction, &ModeTab), (Changed<Interaction>, With<ModeTab>)>,
-    mut toast_events: EventWriter<ToastEvent>,
+    mut toast_events: MessageWriter<ToastEvent>,
 ) {
     for (interaction, tab) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
@@ -599,8 +595,8 @@ pub fn inspector_section_sync_system(
     mut editor_mode: ResMut<EditorMode>,
     mut viewport_settings: ResMut<ViewportSettings>,
     mut selected_socket: ResMut<SelectedSocket>,
-    sockets_marker: Query<&Parent, With<SocketsSectionMarker>>,
-    parts_marker: Query<&Parent, With<PartsSectionMarker>>,
+    sockets_marker: Query<&ChildOf, With<SocketsSectionMarker>>,
+    parts_marker: Query<&ChildOf, With<PartsSectionMarker>>,
     mut section_set: ParamSet<(
         Query<Ref<CollapsibleSection>>,
         Query<&mut CollapsibleSection>,

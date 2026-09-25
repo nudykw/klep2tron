@@ -322,20 +322,14 @@ pub fn slicing_gizmo_manager_system(
             
             // Spawn Main Slicing Plane Gizmo
             commands.spawn((
-                PbrBundle {
-                    mesh: meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.0))),
-                    material: materials.add(StandardMaterial {
+                (Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.0)))), MeshMaterial3d(materials.add(StandardMaterial {
                         base_color: color,
                         alpha_mode: AlphaMode::Blend,
                         unlit: false, // Make it respect lighting and depth better
                         double_sided: true,
                         cull_mode: None,
                         ..default()
-                    }),
-                    transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-                    visibility: Visibility::Hidden,
-                    ..default()
-                },
+                    })), Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))),
                 gizmo_type, 
                 SlicingGizmo, 
                 EditorHelper,

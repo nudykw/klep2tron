@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use super::common::Tooltip;
 
 #[derive(Component, Default)]
@@ -19,12 +20,12 @@ impl From<Color> for ColorPreset {
 #[derive(Component, Default)]
 pub struct ColorPickerContainer;
 
-pub fn spawn_color_picker(parent: &mut ChildBuilder, _font: &Handle<Font>, initial_color: Color, is_open: bool) {
+pub fn spawn_color_picker(parent: &mut ChildSpawnerCommands, _font: &Handle<Font>, initial_color: Color, is_open: bool) {
     spawn_color_picker_ext::<ColorPickerButton, ColorPickerContainer, ColorHueSlider, ColorPreset>(parent, initial_color, is_open);
 }
 
 pub fn spawn_color_picker_ext<B, C, H, P>(
-    parent: &mut ChildBuilder, 
+    parent: &mut ChildSpawnerCommands, 
     initial_color: Color, 
     is_open: bool
 ) where 
@@ -51,35 +52,27 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
     ));
     
     parent.spawn((
-        NodeBundle { 
-            style: Node { 
+        UiNode { node: Node { 
                 width: Val::Percent(100.0), 
                 flex_direction: FlexDirection::Column, 
                 display, 
                 ..default() 
-            }, 
-            ..default() 
-        }, 
+            }, ..default() }, 
         C::default(), 
     )).with_children(|container| {
         container.spawn((
-            NodeBundle { 
-                style: Node { 
+            UiNode { node: Node { 
                     width: Val::Percent(100.0), 
                     height: Val::Px(12.0), 
                     margin: UiRect::vertical(Val::Px(5.0)), 
                     ..default() 
-                }, 
-                background_color: Color::WHITE.into(), 
-                ..default() 
-            }, 
+                }, background_color: BackgroundColor(Color::WHITE), ..default() }, 
             H::default(), 
             Interaction::default(), 
             Tooltip("Slide to change Hue".to_string()), 
         ));
         
-        container.spawn(NodeBundle { 
-            style: Node { 
+        container.spawn(UiNode { node: Node { 
                 width: Val::Percent(100.0), 
                 display: Display::Grid, 
                 grid_template_columns: vec![GridTrack::flex(1.0); 5], 
@@ -87,9 +80,7 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
                 row_gap: Val::Px(4.0), 
                 margin: UiRect::top(Val::Px(5.0)), 
                 ..default() 
-            }, 
-            ..default() 
-        }).with_children(|grid| {
+            }, ..default() }).with_children(|grid| {
             let presets = [
                 Color::srgb(0.1, 0.1, 0.1), Color::srgb(0.5, 0.5, 0.5), Color::srgb(0.9, 0.9, 0.9), 
                 Color::srgb(1.0, 0.8, 0.2), Color::srgb(0.8, 0.8, 0.9), Color::srgb(0.8, 0.2, 0.2), 

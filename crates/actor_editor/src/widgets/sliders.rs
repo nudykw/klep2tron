@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use super::super::SlicingSettings;
 use super::common::Tooltip;
 
@@ -13,14 +14,14 @@ pub struct Slider {
 pub struct SliderThumb;
 
 pub fn spawn_slider(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     initial_value: f32,
 ) {
     spawn_slider_ext(parent, 0.0, 1.0, initial_value, ());
 }
 
 pub fn spawn_slider_ext<T: Bundle>(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     min: f32,
     max: f32,
     initial_value: f32,
@@ -29,43 +30,31 @@ pub fn spawn_slider_ext<T: Bundle>(
     let pct = ((initial_value - min) / (max - min)).clamp(0.0, 1.0);
     
     parent.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(20.0),
                 margin: UiRect::vertical(Val::Px(5.0)),
                 align_items: AlignItems::Center,
                 ..default()
-            },
-            ..default()
-        },
+            }, ..default() },
         Slider { value: initial_value, min, max },
         Interaction::default(),
         extra,
     )).with_children(|p| {
-        p.spawn(NodeBundle {
-            style: Node {
+        p.spawn(UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(4.0),
                 ..default()
-            },
-            background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
-            ..default()
-        }).with_children(|track| {
+            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.1)), ..default() }).with_children(|track| {
             track.spawn((
-                NodeBundle {
-                    style: Node {
+                UiNode { node: Node {
                         width: Val::Px(12.0),
                         height: Val::Px(12.0),
                         position_type: PositionType::Absolute,
                         left: Val::Percent(pct * 100.0),
                         top: Val::Px(-4.0),
                         ..default()
-                    },
-                    background_color: Color::WHITE.into(),
-                    border_radius: BorderRadius::all(Val::Px(6.0)),
-                    ..default()
-                },
+                    }, background_color: BackgroundColor(Color::WHITE), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() },
                 SliderThumb,
             ));
         });
@@ -126,7 +115,7 @@ pub struct ConfirmationCircleUI(pub RangeSliderThumb);
 
 
 pub fn spawn_range_slider(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     icon_font: &Handle<Font>,
     initial_min: f32,
     initial_max: f32,
@@ -134,12 +123,12 @@ pub fn spawn_range_slider(
     spawn_range_slider_internal(parent, icon_font, initial_min, initial_max, false);
 }
 
-pub fn spawn_vertical_range_slider(parent: &mut ChildBuilder, icon_font: &Handle<Font>, initial_min: f32, initial_max: f32) {
+pub fn spawn_vertical_range_slider(parent: &mut ChildSpawnerCommands, icon_font: &Handle<Font>, initial_min: f32, initial_max: f32) {
     spawn_range_slider_internal(parent, icon_font, initial_min, initial_max, true);
 }
 
 fn spawn_range_slider_internal(
-    parent: &mut ChildBuilder, 
+    parent: &mut ChildSpawnerCommands, 
     icon_font: &Handle<Font>,
     initial_min: f32, 
     initial_max: f32, 
@@ -167,11 +156,7 @@ fn spawn_range_slider_internal(
     };
 
     parent.spawn((
-        NodeBundle { 
-            style: container_style, 
-            background_color: Color::NONE.into(), 
-            ..default() 
-        },
+        UiNode { node: container_style, background_color: BackgroundColor(Color::NONE), ..default() },
         RangeSlider { 
             min_value: initial_min, 
             max_value: initial_max, 
@@ -189,11 +174,7 @@ fn spawn_range_slider_internal(
             Node { width: Val::Percent(100.0), height: Val::Px(4.0), ..default() }
         };
 
-        p.spawn(NodeBundle {
-            style: track_style,
-            background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
-            ..default()
-        }).with_children(|p| {
+        p.spawn(UiNode { node: track_style, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.1)), ..default() }).with_children(|p| {
             let thumb_size = 24.0;
             let thumb_style = Node { 
                 width: Val::Px(thumb_size), 
@@ -217,12 +198,7 @@ fn spawn_range_slider_internal(
             }
 
             p.spawn((
-                NodeBundle { 
-                    style: min_style, 
-                    background_color: Color::NONE.into(), 
-                    z_index: ZIndex::Local(2), 
-                    ..default() 
-                },
+                UiNode { node: min_style, background_color: BackgroundColor(Color::NONE), z_index: ZIndex(2), ..default() },
                 Interaction::default(), 
                 RangeSliderThumb::Min, 
                 Tooltip("Bottom Cut (Engine)".to_string()),
@@ -231,20 +207,14 @@ fn spawn_range_slider_internal(
 
                 // Confirmation Circle UI
                 btn.spawn((
-                    NodeBundle {
-                        style: Node {
+                    UiNode { node: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
                             position_type: PositionType::Absolute,
                             left: Val::Px(-8.0),
                             top: Val::Px(-8.0),
                             ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
-                        border_radius: BorderRadius::all(Val::Px(20.0)),
-                        visibility: Visibility::Hidden,
-                        ..default()
-                    },
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(20.0)), visibility: Visibility::Hidden, ..default() },
                     ConfirmationCircleUI(RangeSliderThumb::Min),
                     Interaction::default(),
                     bevy::ui::RelativeCursorPosition::default(),
@@ -278,12 +248,7 @@ fn spawn_range_slider_internal(
             }
 
             p.spawn((
-                NodeBundle { 
-                    style: max_style, 
-                    background_color: Color::NONE.into(), 
-                    z_index: ZIndex::Local(2), 
-                    ..default() 
-                },
+                UiNode { node: max_style, background_color: BackgroundColor(Color::NONE), z_index: ZIndex(2), ..default() },
                 Interaction::default(), 
                 RangeSliderThumb::Max, 
                 Tooltip("Top Cut (Head)".to_string()),
@@ -292,20 +257,14 @@ fn spawn_range_slider_internal(
 
                 // Confirmation Circle UI
                 btn.spawn((
-                    NodeBundle {
-                        style: Node {
+                    UiNode { node: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
                             position_type: PositionType::Absolute,
                             left: Val::Px(-8.0),
                             top: Val::Px(-8.0),
                             ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
-                        border_radius: BorderRadius::all(Val::Px(20.0)),
-                        visibility: Visibility::Hidden,
-                        ..default()
-                    },
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(20.0)), visibility: Visibility::Hidden, ..default() },
                     ConfirmationCircleUI(RangeSliderThumb::Max),
                     Interaction::default(),
                     bevy::ui::RelativeCursorPosition::default(),

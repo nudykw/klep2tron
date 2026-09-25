@@ -234,11 +234,7 @@ pub fn setup_editor(
         let pos = Vec3::new(100.0 + (*idx as f32 * 10.0), 1000.0, 0.0);
 
         commands.spawn((
-            Camera3dBundle {
-                camera: Camera { target: RenderTarget::Image(handle), clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() },
-                transform: Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y),
-                ..default()
-            },
+            (Camera3d::default(), Camera { target: RenderTarget::Image(handle), clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() }, Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y)),
             layer.clone(),
             RttCamera,
             RttCameraTarget(pos),
@@ -246,11 +242,7 @@ pub fn setup_editor(
         ));
 
         commands.spawn((
-            DirectionalLightBundle {
-                directional_light: DirectionalLight { illuminance: 10000.0, shadows_enabled: false, ..default() },
-                transform: Transform::from_xyz(pos.x + 1.0, pos.y + 2.0, pos.z + 1.0).looking_at(pos, Vec3::Y),
-                ..default()
-            },
+            (DirectionalLight { illuminance: 10000.0, shadow_maps_enabled: false, ..default() }, Transform::from_xyz(pos.x + 1.0, pos.y + 2.0, pos.z + 1.0).looking_at(pos, Vec3::Y)),
             layer.clone(),
             MapEntity,
         ));
@@ -264,13 +256,9 @@ pub fn setup_editor(
             _ => (client_assets.cube_mesh.clone(), 0.0),
         };
         commands.spawn((
-            PbrBundle {
-                mesh: mesh.clone(), material: top_mat.clone(),
-                transform: Transform::from_translation(pos)
+            (Mesh3d(mesh.clone()), MeshMaterial3d(top_mat.clone()), Transform::from_translation(pos)
                     .with_scale(Vec3::new(1.0, 0.5, 1.0))
-                    .with_rotation(Quat::from_rotation_y(rot)),
-                ..default()
-            },
+                    .with_rotation(Quat::from_rotation_y(rot))),
             layer.clone(),
             MapEntity,
         ));
@@ -331,18 +319,11 @@ pub fn setup_editor(
     });
 
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera { 
+        (Camera3d::default(), Camera { 
                 order: 2, 
                 clear_color: ClearColorConfig::None,
                 ..default() 
-            },
-            camera_3d: Camera3d {
-                depth_load_op: bevy::core_pipeline::core_3d::Camera3dDepthLoadOp::Clear(0.0),
-                ..default()
-            },
-            ..default()
-        },
+            }),
         OverlayCamera,
         RenderLayers::layer(1),
         MapEntity,

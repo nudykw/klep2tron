@@ -86,7 +86,7 @@ pub fn socket_vfx_interaction_system(
     save_query: Query<&Interaction, (Changed<Interaction>, With<SocketVfxSavePresetButton>)>,
     detach_query: Query<&Interaction, (Changed<Interaction>, With<SocketVfxDetachPresetButton>)>,
     name_input_query: Query<&crate::widgets::TextInput, With<SocketVfxPresetNameInput>>,
-    mut toast_events: EventWriter<crate::ToastEvent>,
+    mut toast_events: MessageWriter<crate::ToastEvent>,
 ) {
     if selected.0.is_empty() { return; }
     

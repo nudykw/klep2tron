@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use bevy::input::ButtonState;
 use super::super::PanelResizer;
 
@@ -14,38 +15,35 @@ pub struct CollapsibleHeader;
 pub struct CollapsibleContent;
 
 pub fn spawn_collapsible_section<T: Bundle>(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
     title: &str,
     is_open: bool,
     content_bundle: T,
-    add_content: impl FnOnce(&mut ChildBuilder),
+    add_content: impl FnOnce(&mut ChildSpawnerCommands),
 ) {
     spawn_collapsible_section_ext(parent, font, icon_font, title, is_open, content_bundle, add_content, |_| {});
 }
 
 pub fn spawn_collapsible_section_ext<T: Bundle>(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     icon_font: &Handle<Font>,
     title: &str,
     is_open: bool,
     content_bundle: T,
-    add_content: impl FnOnce(&mut ChildBuilder),
-    add_header_extra: impl FnOnce(&mut ChildBuilder),
+    add_content: impl FnOnce(&mut ChildSpawnerCommands),
+    add_header_extra: impl FnOnce(&mut ChildSpawnerCommands),
 ) {
     parent.spawn((
-        NodeBundle {
-            style: Node {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 margin: UiRect::bottom(Val::Px(10.0)),
                 flex_shrink: 0.0,
                 ..default()
-            },
-            ..default()
-        },
+            }, ..default() },
         CollapsibleSection { is_open },
     )).with_children(|p| {
         p.spawn((
@@ -63,58 +61,43 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
             },
             CollapsibleHeader,
         )).with_children(|h| {
-            h.spawn(NodeBundle {
-                style: Node {
+            h.spawn(UiNode { node: Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     column_gap: Val::Px(8.0),
                     ..default()
-                },
-                ..default()
-            }).with_children(|left| {
-                left.spawn(TextBundle::from_section(
-                    if is_open { "\u{f078} " } else { "\u{f054} " },
-                    TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.7, 0.7, 0.7) },
-                ));
-                left.spawn(TextBundle::from_section(
-                    title,
-                    TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE },
-                ));
+                }, ..default() }).with_children(|left| {
+                left.spawn(ui_text(if is_open { "\u{f078} " } else { "\u{f054} " }, &icon_font.clone(), 14.0, Color::srgb(0.7, 0.7, 0.7)));
+                left.spawn(ui_text(title, &font.clone(), 16.0, Color::WHITE));
             });
 
-            h.spawn(NodeBundle {
-                style: Node {
+            h.spawn(UiNode { node: Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     ..default()
-                },
-                ..default()
-            }).with_children(add_header_extra);
+                }, ..default() }).with_children(add_header_extra);
         });
 
         p.spawn((
             content_bundle,
             CollapsibleContent,
-            NodeBundle {
-                style: Node {
+            UiNode { node: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Column,
                     padding: UiRect::all(Val::Px(10.0)),
                     display: if is_open { Display::Flex } else { Display::None },
                     flex_shrink: 0.0,
                     ..default()
-                },
-                ..default()
-            },
+                }, ..default() },
         )).with_children(add_content);
     });
 }
 
 pub fn collapsible_system(
-    mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<CollapsibleHeader>)>,
+    mut interaction_query: Query<(&Interaction, &ChildOf), (Changed<Interaction>, With<CollapsibleHeader>)>,
     mut section_query: Query<(Entity, &mut CollapsibleSection)>,
-    mut content_query: Query<(&mut Node, &Parent), With<CollapsibleContent>>,
-    header_query: Query<(&Children, &Parent), With<CollapsibleHeader>>,
+    mut content_query: Query<(&mut Node, &ChildOf), With<CollapsibleContent>>,
+    header_query: Query<(&Children, &ChildOf), With<CollapsibleHeader>>,
     container_query: Query<&Children, Without<CollapsibleHeader>>,
     mut text_query: Query<&mut Text>,
 ) {
@@ -178,8 +161,8 @@ pub struct ScrollbarHandle {
 }
 
 pub fn scroll_system(
-    mut mouse_wheel_events: EventReader<bevy::input::mouse::MouseWheel>,
-    mut query: Query<(&mut ScrollingList, &mut Node, &Parent, &Node)>,
+    mut mouse_wheel_events: MessageReader<bevy::input::mouse::MouseWheel>,
+    mut query: Query<(&mut ScrollingList, &mut Node, &ChildOf, &Node)>,
     parent_node_query: Query<(&Node, &GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
@@ -226,7 +209,7 @@ pub fn scrolling_list_sync_system(
 }
 
 pub fn scrollbar_sync_system(
-    scrolling_list_query: Query<(Entity, &ScrollingList, &Node, &Parent)>,
+    scrolling_list_query: Query<(Entity, &ScrollingList, &Node, &ChildOf)>,
     mut scrollbar_query: Query<(&mut Node, &ScrollbarHandle)>,
     parent_node_query: Query<&Node>,
 ) {
@@ -254,7 +237,7 @@ pub fn scrollbar_sync_system(
 }
 
 pub fn scrollbar_sync_visibility_system(
-    scrolling_list_query: Query<(Entity, &Node, &Parent), With<ScrollingList>>,
+    scrolling_list_query: Query<(Entity, &Node, &ChildOf), With<ScrollingList>>,
     mut track_query: Query<(&mut Node, &ScrollbarTrack)>,
     parent_node_query: Query<&Node>,
 ) {
@@ -279,7 +262,7 @@ pub fn scrollbar_sync_visibility_system(
 
 pub fn scrollbar_drag_system(
     interaction_query: Query<(&Interaction, &ScrollbarHandle), Changed<Interaction>>,
-    mut scrolling_list_query: Query<(&mut ScrollingList, &Node, &Parent)>,
+    mut scrolling_list_query: Query<(&mut ScrollingList, &Node, &ChildOf)>,
     parent_node_query: Query<(&Node, &GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
@@ -336,7 +319,7 @@ impl Default for PanelSettings {
 pub struct ResizablePanel(pub PanelResizer);
 
 pub fn panel_resize_system(
-    mut mouse_events: EventReader<bevy::input::mouse::MouseButtonInput>,
+    mut mouse_events: MessageReader<bevy::input::mouse::MouseButtonInput>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut resizer_query: Query<(&Interaction, &PanelResizer, &mut BackgroundColor)>,
     mut panel_settings: ResMut<PanelSettings>,

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 use super::types::*;
 
 pub fn socket_ui_list_sync_system(
@@ -45,10 +46,7 @@ pub fn socket_ui_list_sync_system(
                     SocketListItem(socket_entity),
                 )).with_children(|item| {
                     item.spawn((
-                        TextBundle::from_section(
-                            &socket.definition.name,
-                            TextStyle { font: fonts.regular.clone(), font_size: 14.0, color: Color::srgb(0.9, 0.9, 0.9) },
-                        ),
+                        ui_text(&socket.definition.name, &fonts.regular.clone(), 14.0, Color::srgb(0.9, 0.9, 0.9)),
                         SocketListItemLabel,
                     ));
                 });
