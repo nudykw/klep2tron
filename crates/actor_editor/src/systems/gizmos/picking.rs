@@ -131,7 +131,7 @@ pub fn gizmo_highlight_system(
 ) {
     let mut any_hovered = false;
     for (interaction, axis, mat_handle) in axis_query.iter() {
-        if let Some(mat) = materials.get_mut(mat_handle) {
+        if let Some(mut mat) = materials.get_mut(mat_handle) {
             let is_active = *interaction != ManualGizmoInteraction::None;
             if is_active { any_hovered = true; }
 

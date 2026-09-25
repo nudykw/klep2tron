@@ -594,7 +594,7 @@ pub struct OriginalMeshComponent(pub Handle<Mesh>);
 
 #[derive(Resource, Default)]
 pub struct PendingImport {
-    pub handle: Option<Handle<Scene>>,
+    pub handle: Option<Handle<bevy::world_serialization::WorldAsset>>,
     pub mesh_handle: Option<Handle<Mesh>>,
     pub scale: Option<Vec3>,
 }

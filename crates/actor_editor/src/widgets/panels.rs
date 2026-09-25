@@ -258,7 +258,7 @@ pub fn scrollbar_sync_visibility_system(
 
 pub fn scrollbar_drag_system(
     interaction_query: Query<(&Interaction, &ScrollbarHandle), Changed<Interaction>>,
-    mut scrolling_list_query: Query<(&mut ScrollingList, &Node, &ChildOf)>,
+    mut scrolling_list_query: Query<(&mut ScrollingList, &ComputedNode, &ChildOf)>,
     parent_node_query: Query<(&ComputedNode, &GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mouse_button: Res<ButtonInput<MouseButton>>,

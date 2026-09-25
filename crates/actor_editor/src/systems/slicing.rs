@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::picking::prelude::*;
 use super::super::{SlicingSettings, ActorBounds, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper, systems::optimization::OptimizedMeshComponent, CapTriangleRange};
 
 #[derive(Resource, Default)]

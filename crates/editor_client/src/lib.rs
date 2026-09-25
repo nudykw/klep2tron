@@ -1,8 +1,9 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, MenuItemType, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState, RoomTransition, EditorMode};
 use bevy::asset::AssetMetaCheck;
 use bevy::render::render_resource::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
-use bevy::render::camera::RenderTarget;
+use bevy::camera::RenderTarget;
 use bevy::camera::visibility::RenderLayers;
 
 pub mod camera;
@@ -65,7 +66,7 @@ pub fn run_game() {
                 ..default()
             })
             .set(bevy::render::RenderPlugin {
-                render_creation: bevy::render::settings::RenderCreation::Automatic(client_core::get_wgpu_settings()),
+                render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(client_core::get_wgpu_settings())),
                 ..default()
             })
         )
@@ -185,25 +186,22 @@ pub fn setup_editor(
     });
 
     let config = config_store.config_mut::<DefaultGizmoConfigGroup>().0;
-    config.line_width = 6.0;
+    config.line.width = 6.0;
     config.depth_bias = -0.01; 
 
     let hidden_config = config_store.config_mut::<HiddenGizmos>().0;
-    hidden_config.line_width = 2.5;
+    hidden_config.line.width = 2.5;
     hidden_config.depth_bias = -0.01;
 
     let box_config = config_store.config_mut::<BoxGizmos>().0;
-    box_config.line_width = 3.0;
+    box_config.line.width = 3.0;
     box_config.depth_bias = -0.01; 
     box_config.render_layers = RenderLayers::layer(1);
     
     // HUD
-    commands.spawn((NodeBundle {
-        style: Node { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(10.0)), flex_direction: FlexDirection::Column, row_gap: Val::Px(5.0), ..default() },
-        background_color: Color::srgba(0.0, 0.0, 0.0, 0.8).into(), ..default()
-    }, MapEntity)).with_children(|p| {
-        p.spawn((TextBundle::from_section("CAM:", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }), CameraDebugText));
-        p.spawn((TextBundle::from_section("FPS: 0", TextStyle { font: font.clone(), font_size: 16.0, color: Color::srgb(1.0, 1.0, 0.0) }), HudText));
+    commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(10.0)), flex_direction: FlexDirection::Column, row_gap: Val::Px(5.0), ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)), ..default() }, MapEntity)).with_children(|p| {
+        p.spawn((ui_text("CAM:", &font.clone(), 16.0, Color::WHITE), CameraDebugText));
+        p.spawn((ui_text("FPS: 0", &font.clone(), 16.0, Color::srgb(1.0, 1.0, 0.0)), HudText));
     });
 
     // RTT Previews
@@ -234,7 +232,7 @@ pub fn setup_editor(
         let pos = Vec3::new(100.0 + (*idx as f32 * 10.0), 1000.0, 0.0);
 
         commands.spawn((
-            (Camera3d::default(), Camera { target: RenderTarget::Image(handle), clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() }, Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y)),
+            (Camera3d::default(), Camera { clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() }, RenderTarget::Image(handle.clone().into()), Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y)),
             layer.clone(),
             RttCamera,
             RttCameraTarget(pos),
@@ -265,10 +263,7 @@ pub fn setup_editor(
     }
 
     // Top Panel
-    commands.spawn((NodeBundle {
-        style: Node { position_type: PositionType::Absolute, top: Val::Px(0.0), left: Val::Percent(30.0), width: Val::Percent(40.0), height: Val::Px(85.0), justify_content: JustifyContent::SpaceEvenly, align_items: AlignItems::Center, ..default() },
-        background_color: Color::srgba(0.05, 0.05, 0.05, 0.95).into(), ..default()
-    }, MapEntity)).with_children(|p| {
+    commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, top: Val::Px(0.0), left: Val::Percent(30.0), width: Val::Percent(40.0), height: Val::Px(85.0), justify_content: JustifyContent::SpaceEvenly, align_items: AlignItems::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.95)), ..default() }, MapEntity)).with_children(|p| {
         for (idx, (tt, _)) in types.iter().enumerate() {
             let label = match tt {
                 TileType::Cube => "Cube",
@@ -284,24 +279,18 @@ pub fn setup_editor(
         }
         
         p.spawn(((Button, UiNode { node: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() }, background_color: BackgroundColor(Color::srgb(0.1, 0.3, 0.3)), border_color: BorderColor::all(Color::srgb(0.0, 0.8, 0.8)), ..default() }), HelpButton, TooltipText("Help (F1)".to_string()))).with_children(|p| {
-            p.spawn(TextBundle::from_section("?", TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE }));
+            p.spawn(ui_text("?", &font.clone(), 40.0, Color::WHITE));
         });
     });
 
-    commands.spawn((NodeBundle {
-        style: Node {
+    commands.spawn((UiNode { node: Node {
             position_type: PositionType::Absolute,
             display: Display::None,
             padding: UiRect::all(Val::Px(5.0)),
             border: UiRect::all(Val::Px(1.0)),
             ..default()
-        },
-        background_color: Color::srgba(0.0, 0.0, 0.0, 0.9).into(),
-        border_color: Color::WHITE.into(),
-        z_index: ZIndex::Global(200),
-        ..default()
-    }, TooltipUi)).with_children(|p| {
-        p.spawn(TextBundle::from_section("", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }));
+        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.9)), border_color: BorderColor::all(Color::WHITE), global_z_index: GlobalZIndex(200), ..default() }, TooltipUi)).with_children(|p| {
+        p.spawn(ui_text("", &font.clone(), 16.0, Color::WHITE));
     });
 
     commands.spawn((

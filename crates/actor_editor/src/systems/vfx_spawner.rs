@@ -92,7 +92,7 @@ pub fn socket_vfx_spawner_system(
             };
 
             let rate = base_rate * effect_config.emission.rate;
-            let spawner = Spawner::rate(rate.into());
+            let spawner = bevy_hanabi::SpawnerSettings::rate(rate.into());
 
             let init_pos = SetPositionSphereModifier {
                 center: writer.lit(Vec3::ZERO).expr(),
@@ -113,7 +113,7 @@ pub fn socket_vfx_spawner_system(
             let mut gradient = bevy_hanabi::Gradient::new();
             gradient.add_key(0.0, Vec4::new(c_start.red, c_start.green, c_start.blue, c_start.alpha));
             gradient.add_key(1.0, Vec4::new(c_end.red, c_end.green, c_end.blue, c_end.alpha));
-            let render_color = ColorOverLifetimeModifier { gradient };
+            let render_color = ColorOverLifetimeModifier::new(gradient);
 
             // --- PHYSICS ---
             let gravity = writer.lit(Vec3::new(0.0, effect_config.motion.gravity, 0.0)).expr();
@@ -131,7 +131,7 @@ pub fn socket_vfx_spawner_system(
             let mut texture_handle = None;
 
             if let Some(asset_path) = &effect_config.asset_path {
-                module.add_texture("color");
+                module.add_texture_slot("color");;
                 // Handle legacy short paths or new full paths
                 let full_path = if !asset_path.contains('/') {
                     format!("vfx/kenney/{}", asset_path)

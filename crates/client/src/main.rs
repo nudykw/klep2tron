@@ -11,7 +11,7 @@ fn main() {
             }),
             ..default()
         }).set(bevy::render::RenderPlugin {
-            render_creation: bevy::render::settings::RenderCreation::Automatic(client_core::get_wgpu_settings()),
+            render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(client_core::get_wgpu_settings())),
             ..default()
         }))
         .add_plugins(bevy_obj::ObjPlugin)

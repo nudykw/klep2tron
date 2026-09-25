@@ -14,7 +14,7 @@ pub fn xray_material_system(
     let current_xray = viewport_settings.xray;
 
     for (entity, mat_handle) in part_query.iter() {
-        if let Some(material) = materials.get_mut(mat_handle) {
+        if let Some(mut material) = materials.get_mut(mat_handle) {
             let target_alpha = if current_xray { 0.1 } else { 1.0 };
             let target_mode = if current_xray { AlphaMode::Blend } else { AlphaMode::Opaque };
 

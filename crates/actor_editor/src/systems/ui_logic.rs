@@ -256,7 +256,7 @@ pub fn material_sync_system(
 ) {
     if !color_res.is_changed() { return; }
     for handle in mesh_query.iter() {
-        if let Some(mat) = materials.get_mut(handle) { mat.base_color = color_res.color; }
+        if let Some(mut mat) = materials.get_mut(&handle.0) { mat.base_color = color_res.color; }
     }
 }
 
@@ -495,7 +495,7 @@ pub fn actor_import_processing_system(
             });
         } else if pending.handle.is_some() {
              commands.spawn(( 
-                 (SceneRoot(pending.handle.clone().unwrap()), Transform {
+                 (bevy::world_serialization::WorldAssetRoot(pending.handle.clone().unwrap()), Transform {
                          scale: pending.scale.unwrap_or(Vec3::ONE),
                          ..default()
                      }), 

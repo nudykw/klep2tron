@@ -146,13 +146,13 @@ pub fn perform_mesh_optimization(
         };
 
         // Match common IDs to their corresponding MeshVertexAttribute
-        let attr = if id == Mesh::ATTRIBUTE_POSITION.id {
+        let attr = if id.id == Mesh::ATTRIBUTE_POSITION.id {
             Mesh::ATTRIBUTE_POSITION
-        } else if id == Mesh::ATTRIBUTE_NORMAL.id {
+        } else if id.id == Mesh::ATTRIBUTE_NORMAL.id {
             Mesh::ATTRIBUTE_NORMAL
-        } else if id == Mesh::ATTRIBUTE_UV_0.id {
+        } else if id.id == Mesh::ATTRIBUTE_UV_0.id {
             Mesh::ATTRIBUTE_UV_0
-        } else if id == Mesh::ATTRIBUTE_COLOR.id {
+        } else if id.id == Mesh::ATTRIBUTE_COLOR.id {
             Mesh::ATTRIBUTE_COLOR
         } else {
             continue;

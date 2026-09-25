@@ -183,7 +183,7 @@ pub fn socket_material_sync_system(
         
         // Update the socket's own material (Torus)
         if let Ok(mat_handle) = material_handle_query.get(socket_entity) {
-            if let Some(mat) = materials.get_mut(mat_handle) {
+            if let Some(mut mat) = materials.get_mut(mat_handle) {
                 mat.base_color = color;
             }
         }
@@ -192,7 +192,7 @@ pub fn socket_material_sync_system(
         if let Ok(children) = children_query.get(socket_entity) {
             for child in children.iter() {
                 if let Ok(mat_handle) = material_handle_query.get(child) {
-                    if let Some(mat) = materials.get_mut(mat_handle) {
+                    if let Some(mut mat) = materials.get_mut(mat_handle) {
                         mat.base_color = color;
                     }
                 }

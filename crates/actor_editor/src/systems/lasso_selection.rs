@@ -170,7 +170,7 @@ pub fn triangle_selection_system(
                 for &v_idx in tri {
                     let local_pos = Vec3::from(positions[v_idx]);
                     let world_pos = transform.transform_point(local_pos);
-                    if let Some(screen_pos) = camera.world_to_viewport(camera_transform, world_pos) {
+                    if let Ok(screen_pos) = camera.world_to_viewport(camera_transform, world_pos) {
                         if !point_in_polygon(screen_pos, &lasso_state.points) {
                             all_inside = false;
                             break;

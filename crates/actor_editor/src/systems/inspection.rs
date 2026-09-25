@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::camera::primitives::MeshAabb;
 use super::super::{InspectionSettings, ActorPart, InspectionFocusEvent};
 use super::super::ui::inspector::{PartFocusButton, PartSoloButton, InspectionToggle, InspectionToggleType, InspectionMasterToggle, PartsSectionMarker};
 use super::super::widgets::CollapsibleSection;
@@ -38,7 +39,7 @@ pub fn inspection_visibility_system(
         if !settings.is_active {
             // Restore default visibility
             *visibility = Visibility::Visible;
-            if let Some(mat) = materials.get_mut(mat_handle) {
+            if let Some(mut mat) = materials.get_mut(mat_handle) {
                 mat.base_color = mat.base_color.with_alpha(1.0);
                 mat.alpha_mode = AlphaMode::Opaque;
             }
@@ -48,14 +49,14 @@ pub fn inspection_visibility_system(
         if let Some(isolated) = settings.isolated_part {
             if *part == isolated {
                 *visibility = Visibility::Visible;
-                if let Some(mat) = materials.get_mut(mat_handle) {
+                if let Some(mut mat) = materials.get_mut(mat_handle) {
                     mat.base_color = mat.base_color.with_alpha(1.0);
                     mat.alpha_mode = AlphaMode::Opaque;
                 }
             } else {
                 if settings.ghost_mode {
                     *visibility = Visibility::Visible;
-                    if let Some(mat) = materials.get_mut(mat_handle) {
+                    if let Some(mut mat) = materials.get_mut(mat_handle) {
                         mat.base_color = mat.base_color.with_alpha(0.1);
                         mat.alpha_mode = AlphaMode::Blend;
                     }
@@ -65,7 +66,7 @@ pub fn inspection_visibility_system(
             }
         } else {
             *visibility = Visibility::Visible;
-            if let Some(mat) = materials.get_mut(mat_handle) {
+            if let Some(mut mat) = materials.get_mut(mat_handle) {
                 mat.base_color = mat.base_color.with_alpha(1.0);
                 mat.alpha_mode = AlphaMode::Opaque;
             }
@@ -130,7 +131,7 @@ pub fn inspection_highlight_system(
     if !settings.is_changed() { return; }
 
     for (part, mat_handle) in part_query.iter_mut() {
-        if let Some(mat) = materials.get_mut(mat_handle) {
+        if let Some(mut mat) = materials.get_mut(mat_handle) {
             if settings.is_active && settings.hovered_part == Some(*part) {
                 mat.emissive = LinearRgba::from(Color::srgb(0.3, 0.6, 1.0)) * 0.2;
             } else {

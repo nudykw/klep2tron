@@ -55,7 +55,7 @@ pub fn text_input_system(
     mut char_events: MessageReader<KeyboardInput>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut query: Query<(Entity, &Interaction, &mut TextInput, &mut BackgroundColor, &Children)>,
-    mut text_query: Query<&mut Text, With<TextInputContent>>,
+    mut text_query: Query<(&mut Text, &mut TextColor), With<TextInputContent>>,
 ) {
     // 1. Handle focus changes
     for (_entity, interaction, mut input, _, _) in query.iter_mut() {
@@ -82,13 +82,13 @@ pub fn text_input_system(
         *bg = color.into();
 
         for child in children.iter() {
-            if let Ok(mut text) = text_query.get_mut(child) {
+            if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
                 if input.value.is_empty() && !input.is_focused {
                     text.0 = input.placeholder.clone();
-                    text.sections[0].style.color = Color::srgb(0.4, 0.4, 0.4);
+                    text_color.0 = Color::srgb(0.4, 0.4, 0.4);
                 } else {
                     text.0 = format!("{}{}", input.value, if input.is_focused { "|" } else { "" });
-                    text.sections[0].style.color = Color::WHITE;
+                    text_color.0 = Color::WHITE;
                 }
             }
         }

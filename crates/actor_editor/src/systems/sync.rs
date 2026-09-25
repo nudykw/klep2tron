@@ -373,7 +373,7 @@ pub fn slicing_gizmo_sync_system(
         // The intersection effect is now achieved naturally by depth testing against the opaque model.
         // No gizmo outlines are needed as they would draw on top of everything.
 
-        if let Some(mat) = materials.get_mut(mat_handle) {
+        if let Some(mut mat) = materials.get_mut(&mat_handle.0) {
             let alpha = if is_hovered { 0.7 } else { 0.3 }; 
             let color = match *gizmo_type {
                 SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, alpha),

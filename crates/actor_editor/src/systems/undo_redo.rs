@@ -227,10 +227,10 @@ impl Command for GeometryReassignCommand {
 }
 
 fn apply_mesh_to_entity(world: &mut World, entity: Entity, new_mesh: bevy::render::mesh::Mesh) {
-    let handle = world.get::<Handle<bevy::render::mesh::Mesh>>(entity).cloned();
+    let handle = world.get::<Mesh3d>(entity).cloned();
     if let Some(handle) = handle {
         if let Some(mut meshes) = world.get_resource_mut::<Assets<bevy::render::mesh::Mesh>>() {
-            if let Some(m) = meshes.get_mut(&handle) {
+            if let Some(mut m) = meshes.get_mut(&handle) {
                 *m = new_mesh;
             }
         }

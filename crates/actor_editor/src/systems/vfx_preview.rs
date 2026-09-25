@@ -111,11 +111,11 @@ pub fn socket_vfx_preview_system(
                         // Draw circles with slight rotation for "volume" look
                         let tilt = Quat::from_axis_angle(Vec3::X, offset * 2.0);
                         let normal = Dir3::new(rot * tilt * Vec3::Y).unwrap_or(Dir3::Y);
-                        gizmos.circle(Isometry3d::new(p, Quat::from_rotation_arc(Vec3::Y, normal)), r, Color::Hsla(hsla));
+                        gizmos.circle(Isometry3d::new(p, Quat::from_rotation_arc(Vec3::Y, *normal)), r, Color::Hsla(hsla));
                         
                         // Add a smaller inner circle for depth
                         hsla.alpha *= 0.5;
-                        gizmos.circle(Isometry3d::new(p, Quat::from_rotation_arc(Vec3::Y, normal)), r * 0.7, Color::Hsla(hsla));
+                        gizmos.circle(Isometry3d::new(p, Quat::from_rotation_arc(Vec3::Y, *normal)), r * 0.7, Color::Hsla(hsla));
                     }
                 }
                 EffectType::Hanabi => {}

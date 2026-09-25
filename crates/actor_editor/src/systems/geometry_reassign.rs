@@ -69,8 +69,8 @@ pub fn geometry_reassign_system(
         );
 
         // Применяем немедленно
-        if let Some(m) = meshes.get_mut(src_handle) { *m = new_src.clone(); }
-        if let Some(m) = meshes.get_mut(&dst_handle) { *m = new_dst.clone(); }
+        if let Some(mut m) = meshes.get_mut(src_handle) { *m = new_src.clone(); }
+        if let Some(mut m) = meshes.get_mut(&dst_handle) { *m = new_dst.clone(); }
 
         // Очищаем выделение на src
         if let Ok((_, _, _, mut sel)) = part_query.get_mut(*src_entity) {
@@ -102,7 +102,7 @@ pub fn caps_cleanup_system(
     slicing_settings.trigger_caps_cleanup = false;
 
     for (handle, cap_range) in part_query.iter() {
-        if let Some(mesh) = meshes.get_mut(handle) {
+        if let Some(mut mesh) = meshes.get_mut(handle) {
             if let Some(indices) = mesh.indices_mut() {
                 match indices {
                     Indices::U32(ref mut idx) => {

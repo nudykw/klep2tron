@@ -90,7 +90,7 @@ pub fn mouse_selection_system(
     let Ok((camera, camera_transform)) = camera_query.single() else { return; };
 
     if let Some(cursor_pos) = window.cursor_position() {
-        if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
+        if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
             let mut best_hit: Option<(usize, usize, f32)> = None;
             let room = &project.rooms[project.current_room_idx];
 

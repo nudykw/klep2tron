@@ -60,7 +60,7 @@ pub fn editor_tooltip_system(
     mut text_query: Query<&mut Text>,
     interaction_query: Query<(&Interaction, &TooltipText)>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.single() else { return; };
     let mut tooltip_active = false;
 
     if let Ok((mut style, mut visibility, children)) = tooltip_query.single_mut() {
