@@ -79,10 +79,21 @@ pub fn run_game() {
             options: ClientCoreOptions { title: "Klep2Tron Editor".to_string() }
         })
         .insert_resource(ExtraMenuButtons {
-            buttons: vec![
-                ("LEVEL EDITOR".to_string(), MenuAction::StartEditor, None),
-                ("ACTOR EDITOR".to_string(), MenuAction::OpenActorEditor, Some("Modular character editor".to_string())),
-            ]
+            buttons: {
+                #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
+                let mut buttons = vec![
+                    ("LEVEL EDITOR".to_string(), MenuAction::StartEditor, None),
+                ];
+                // The actor editor is native-only (native file dialogs), so only offer
+                // its entry point when the plugin is actually registered (see above).
+                #[cfg(not(target_arch = "wasm32"))]
+                buttons.push((
+                    "ACTOR EDITOR".to_string(),
+                    MenuAction::OpenActorEditor,
+                    Some("Modular character editor".to_string()),
+                ));
+                buttons
+            }
         })
         .init_resource::<EditorState>()
         .init_resource::<EditorMode>()
