@@ -36,8 +36,8 @@ pub fn spawn_sockets_section(
                                 height: Val::Px(25.0),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
-                                ..default()
-                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), border_radius: BorderRadius::all(Val::Px(4.0)), ..default() },
+                                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() },
                         axis,
                     )).with_children(|box_| {
                         box_.spawn(ui_text(format!("{}: {:.2}", label, 0.0), &font.clone(), 11.0, Color::WHITE));
@@ -60,8 +60,8 @@ pub fn spawn_sockets_section(
                                 height: Val::Px(25.0),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
-                                ..default()
-                            }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.4)), border_radius: BorderRadius::all(Val::Px(4.0)), ..default() },
+                                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.4)), ..default() },
                         axis,
                     )).with_children(|box_| {
                         box_.spawn(ui_text(format!("{}: {:.1}°", label, 0.0), &font.clone(), 11.0, Color::srgb(0.8, 0.8, 1.0)));
@@ -383,8 +383,8 @@ pub fn spawn_sockets_section(
                                             bottom: Val::Px(2.0),
                                             width: Val::Px(8.0),
                                             height: Val::Px(8.0),
-                                            ..default()
-                                        }, background_color: BackgroundColor(Color::srgba(0.0, 1.0, 0.8, 0.8)), border_radius: BorderRadius::all(Val::Px(4.0)), ..default() });
+                                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                        }, background_color: BackgroundColor(Color::srgba(0.0, 1.0, 0.8, 0.8)), ..default() });
                                 });
                             }
                         });

@@ -16,7 +16,7 @@ pub fn actor_save_system(
     mut modal_events: MessageWriter<ConfirmationRequestEvent>,
     opt_settings: Res<crate::systems::optimization::OptimizationSettings>,
     meshes: Res<Assets<Mesh>>,
-    part_query: Query<(&shared::npc::ActorPart, &Handle<Mesh>)>,
+    part_query: Query<(&shared::npc::ActorPart, &Mesh3d)>,
 ) {
     for event in save_events.read() {
         let target_name = event.name.as_ref().unwrap_or(&current_project.name);

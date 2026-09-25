@@ -10,7 +10,7 @@ pub fn normalization_system(
     children_query: Query<&Children>,
     parent_query: Query<&ChildOf>,
     transform_query: Query<&Transform>,
-    mesh_query: Query<(Entity, &Aabb, &GlobalTransform, &Handle<Mesh>, Option<&Name>)>,
+    mesh_query: Query<(Entity, &Aabb, &GlobalTransform, &Mesh3d, Option<&Name>)>,
     meshes: Res<Assets<Mesh>>,
     mut progress: ResMut<ImportProgress>,
     mut status: ResMut<EditorStatus>,
@@ -21,7 +21,7 @@ pub fn normalization_system(
         let mut entities_to_process = Vec::new();
         while let Some(entity) = stack.pop() {
             entities_to_process.push(entity);
-            if let Ok(children) = children_query.get(entity) { for child in children.iter() { stack.push(*child); } }
+            if let Ok(children) = children_query.get(entity) { for child in children.iter() { stack.push(child); } }
         }
         commands.entity(root_entity).remove::<AwaitingNormalization>();
         commands.entity(root_entity).insert(NormalizationState { entities_to_process,                processed_count: 0, 

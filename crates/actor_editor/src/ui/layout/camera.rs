@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::render::camera::ClearColorConfig;
+use bevy::camera::ClearColorConfig;
 use crate::{ActorEditorEntity, MainEditorCamera, GizmoCamera, GIZMO_LAYER};
 
 pub fn spawn_actor_editor_cameras(commands: &mut Commands) -> Entity {
@@ -18,7 +18,7 @@ pub fn spawn_actor_editor_cameras(commands: &mut Commands) -> Entity {
     commands.spawn((
         (Camera3d::default(), Camera {
                 order: 10,
-                viewport: Some(bevy::render::camera::Viewport {
+                viewport: Some(bevy::camera::Viewport {
                     physical_position: UVec2::new(20, 20),
                     physical_size: UVec2::new(120, 120),
                     depth: 0.0..1.0,
@@ -72,8 +72,9 @@ pub fn spawn_actor_editor_lighting(commands: &mut Commands, main_camera_entity: 
             }, Transform::from_xyz(0.8, 0.8, 0.0)));
     });
 
-    commands.insert_resource(AmbientLight {
+    commands.entity(main_camera_entity).insert(AmbientLight {
         color: Color::WHITE,
         brightness: 400.0,
+        affects_lightmapped_meshes: false,
     });
 }

@@ -140,8 +140,8 @@ fn intersect_triangle_with_plane(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::render::render_resource::PrimitiveTopology;
-    use bevy::render::render_asset::RenderAssetUsages;
+    use bevy::mesh::PrimitiveTopology;
+    use bevy::asset::RenderAssetUsages;
     
     #[test]
     fn test_intersect_simple_triangle() {

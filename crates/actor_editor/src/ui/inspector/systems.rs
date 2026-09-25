@@ -167,7 +167,7 @@ pub fn socket_transform_update_system(
     // Update Translation
     for (axis, children) in pos_axis_query.iter_mut() {
         for child in children.iter() {
-            if let Ok(mut text) = text_query.get_mut(*child) {
+            if let Ok(mut text) = text_query.get_mut(child) {
                 let (val, label) = match axis {
                     TransformAxis::X => (transform.translation.x, "X"),
                     TransformAxis::Y => (transform.translation.y, "Y"),
@@ -182,7 +182,7 @@ pub fn socket_transform_update_system(
     let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
     for (axis, children) in rot_axis_query.iter_mut() {
         for child in children.iter() {
-            if let Ok(mut text) = text_query.get_mut(*child) {
+            if let Ok(mut text) = text_query.get_mut(child) {
                 let (val, label) = match axis {
                     RotationAxis::Roll => (roll.to_degrees(), "R"),
                     RotationAxis::Pitch => (pitch.to_degrees(), "P"),

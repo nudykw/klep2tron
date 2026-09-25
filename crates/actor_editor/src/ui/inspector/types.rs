@@ -183,10 +183,7 @@ pub struct ScalingLinkToggle;
 #[derive(Component)]
 pub struct ScalingApplyButton;
 
+#[derive(Component)]
 pub struct InteractionState {
     pub is_active: bool,
-}
-
-impl Component for InteractionState {
-    const STORAGE_TYPE: bevy::ecs::component::StorageType = bevy::ecs::component::StorageType::Table;
 }

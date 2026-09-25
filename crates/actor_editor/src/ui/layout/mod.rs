@@ -117,8 +117,8 @@ pub fn setup_actor_editor(
                                 position_type: PositionType::Absolute,
                                 width: Val::Percent(100.0),
                                 height: Val::Percent(20.0),
-                                ..default()
-                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(2.0)), ..default() },
+                                border_radius: BorderRadius::all(Val::Px(2.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), ..default() },
                         ScrollbarHandle { target: scroll_id },
                         Interaction::default(),
                     ));
@@ -163,8 +163,8 @@ pub fn setup_actor_editor(
                             padding: UiRect::all(Val::Px(4.0)),
                             flex_direction: FlexDirection::Row,
                             align_items: AlignItems::Center,
-                            ..default()
-                        }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)), border_radius: BorderRadius::all(Val::Px(8.0)), ..default() }).with_children(|btns| {
+                            border_radius: BorderRadius::all(Val::Px(8.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)), ..default() }).with_children(|btns| {
                         spawn_viewport_button(btns, ViewportToggleType::Grid, "\u{f00a}", "Toggle Grid (G)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Slices, "\u{f121}", "Toggle Slices (S)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Sockets, "\u{f1e0}", "Toggle Sockets (K)", &icon_font);
@@ -292,8 +292,8 @@ pub fn setup_actor_editor(
                                 position_type: PositionType::Absolute,
                                 width: Val::Percent(100.0),
                                 height: Val::Percent(20.0),
-                                ..default()
-                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(2.0)), ..default() },
+                                border_radius: BorderRadius::all(Val::Px(2.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), ..default() },
                         ScrollbarHandle { target: scroll_id },
                         Interaction::default(),
                     ));

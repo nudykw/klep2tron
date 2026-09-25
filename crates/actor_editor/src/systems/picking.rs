@@ -8,7 +8,7 @@ pub fn socket_picking_system(
     mut settings: ResMut<SocketSettings>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainEditorCamera>>,
-    part_query: Query<(Entity, &ActorPart, &Handle<Mesh>, &GlobalTransform)>,
+    part_query: Query<(Entity, &ActorPart, &Mesh3d, &GlobalTransform)>,
     meshes: Res<Assets<Mesh>>,
 ) {
     if !settings.is_adding {
@@ -206,8 +206,8 @@ pub fn socket_3d_selection_system(
     socket_query: Query<Entity, With<super::super::ActorSocket>>,
 ) {
     for event in events.read() {
-        if socket_query.get(event.target).is_ok() {
-            let entity = event.target;
+        if socket_query.get(event.entity).is_ok() {
+            let entity = event.entity;
             
             if keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight) {
                 if let Some(pos) = selected.0.iter().position(|&e| e == entity) {
@@ -239,15 +239,15 @@ pub fn draw_socket_previews_system(
         
         // "Torus" approximation using 2 circles
         if let Ok(dir) = Dir3::new(n) {
-            gizmos.circle(p + n * 0.01, dir, 0.04, color);
-            gizmos.circle(p + n * 0.01, dir, 0.035, color);
+            gizmos.circle(Isometry3d::new(p + n * 0.01, Quat::from_rotation_arc(Vec3::Y, dir)), 0.04, color);
+            gizmos.circle(Isometry3d::new(p + n * 0.01, Quat::from_rotation_arc(Vec3::Y, dir)), 0.035, color);
         }
         
         // "Pin" direction
         gizmos.line(p, p + n * 0.15, Color::srgba(1.0, 1.0, 0.0, 0.5));
         
         // Small dot at center
-        gizmos.sphere(p, Quat::IDENTITY, 0.005, Color::WHITE);
+        gizmos.sphere(Isometry3d::new(p, Quat::IDENTITY), 0.005, Color::WHITE);
     }
 }
 

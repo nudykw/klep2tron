@@ -9,7 +9,7 @@ use super::undo_redo::{ActionStack, GeometryReassignCommand};
 pub fn geometry_reassign_system(
     btn_query: Query<(&Interaction, &TargetPartButton), Changed<Interaction>>,
     mut target_part: ResMut<TargetPart>,
-    mut part_query: Query<(Entity, &ActorPart, &Handle<Mesh>, &mut SelectedTriangles)>,
+    mut part_query: Query<(Entity, &ActorPart, &Mesh3d, &mut SelectedTriangles)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut action_stack: ResMut<ActionStack>,
     slicing_settings: Res<SlicingSettings>,
@@ -95,7 +95,7 @@ pub fn geometry_reassign_system(
 /// Удаляет процедурные крышки из мешей частей при переходе Auto → Manual с Keep Caps = OFF.
 pub fn caps_cleanup_system(
     mut slicing_settings: ResMut<SlicingSettings>,
-    part_query: Query<(&Handle<Mesh>, &CapTriangleRange)>,
+    part_query: Query<(&Mesh3d, &CapTriangleRange)>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     if !slicing_settings.trigger_caps_cleanup { return; }

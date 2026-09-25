@@ -269,8 +269,8 @@ fn spawn_slicing_precision_ui(
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(8.0),
                 padding: UiRect::all(Val::Px(10.0)),
-                ..default()
-            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.2)), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() },
+                border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.2)), ..default() },
         super::SlicingAutoModeContainer,
     )).with_children(|container| {
         // TOP CUT
@@ -374,8 +374,8 @@ fn spawn_slicing_precision_ui(
                 row_gap: Val::Px(8.0),
                 padding: UiRect::all(Val::Px(10.0)),
                 display: Display::None, // Hidden by default
-                ..default()
-            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.2)), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() },
+                border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.2)), ..default() },
         super::SlicingManualModeContainer,
     )).with_children(|container| {
         // Selection Counter
@@ -385,8 +385,8 @@ fn spawn_slicing_precision_ui(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
-            }, background_color: BackgroundColor(Color::srgba(0.0, 1.0, 1.0, 0.1)), border_radius: BorderRadius::all(Val::Px(4.0)), ..default() }).with_children(|row| {
+                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+            }, background_color: BackgroundColor(Color::srgba(0.0, 1.0, 1.0, 0.1)), ..default() }).with_children(|row| {
             row.spawn((
                 ui_text("Selected: 0 triangles", &font.clone(), 12.0, Color::srgb(0.0, 1.0, 1.0)),
                 crate::TriangleSelectionCounter,

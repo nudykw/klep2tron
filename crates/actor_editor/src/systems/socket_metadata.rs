@@ -176,7 +176,7 @@ pub fn socket_material_sync_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     socket_query: Query<(Entity, &ActorSocket), Changed<ActorSocket>>,
     children_query: Query<&Children>,
-    material_handle_query: Query<&Handle<StandardMaterial>>,
+    material_handle_query: Query<&MeshMaterial3d<StandardMaterial>>,
 ) {
     for (socket_entity, socket) in socket_query.iter() {
         let color = socket.definition.color;

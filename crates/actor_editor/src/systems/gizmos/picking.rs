@@ -126,7 +126,7 @@ pub fn ray_segment_closest_points(ray: &Ray3d, p1: Vec3, p2: Vec3) -> Option<(f3
 
 pub fn gizmo_highlight_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
-    axis_query: Query<(&ManualGizmoInteraction, &GizmoAxis, &Handle<StandardMaterial>)>,
+    axis_query: Query<(&ManualGizmoInteraction, &GizmoAxis, &MeshMaterial3d<StandardMaterial>)>,
     mut busy: ResMut<crate::GizmoBusy>,
 ) {
     let mut any_hovered = false;

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, Mesh, VertexAttributeValues};
-use bevy::render::render_resource::PrimitiveTopology;
-use bevy::render::render_asset::RenderAssetUsages;
+use bevy::mesh::PrimitiveTopology;
+use bevy::asset::RenderAssetUsages;
 
 
 #[derive(Clone, Copy, Debug)]

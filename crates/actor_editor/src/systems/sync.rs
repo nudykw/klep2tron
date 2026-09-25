@@ -32,7 +32,7 @@ pub fn gizmo_viewport_system(
     let size = 120;
     let padding = 20;
     
-    camera.viewport = Some(bevy::render::camera::Viewport {
+    camera.viewport = Some(bevy::camera::Viewport {
         physical_position: UVec2::new(padding, window.physical_height().saturating_sub(size + padding)),
         physical_size: UVec2::new(size, size),
         depth: 0.0..1.0,
@@ -276,7 +276,7 @@ pub fn draw_actor_bounds_debug_system(
         let size = bounds.max - bounds.min;
         let (root_scale, root_rotation, _root_translation) = transform.to_scale_rotation_translation();
         
-        gizmos.cuboid(
+        gizmos.cube(
             Transform::from_translation(transform.transform_point(center))
                 .with_scale(size * root_scale)
                 .with_rotation(root_rotation),
@@ -345,7 +345,7 @@ pub fn slicing_gizmo_manager_system(
 pub fn slicing_gizmo_sync_system(
     slicing_settings: Res<SlicingSettings>,
     actor_query: Query<(&ActorBounds, &GlobalTransform)>,
-    mut gizmo_query: Query<(&mut Transform, &SlicingGizmoType, &Handle<StandardMaterial>)>,
+    mut gizmo_query: Query<(&mut Transform, &SlicingGizmoType, &MeshMaterial3d<StandardMaterial>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Ok((bounds, transform)) = actor_query.single() else { return; };

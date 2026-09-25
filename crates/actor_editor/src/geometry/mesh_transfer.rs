@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
-use bevy::render::render_resource::PrimitiveTopology;
-use bevy::render::render_asset::RenderAssetUsages;
+use bevy::mesh::PrimitiveTopology;
+use bevy::asset::RenderAssetUsages;
 use std::collections::{HashMap, HashSet};
 
 /// Переносит выделенные треугольники из `src` в `dst`.

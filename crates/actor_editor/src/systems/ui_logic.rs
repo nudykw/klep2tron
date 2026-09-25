@@ -39,7 +39,7 @@ pub fn status_update_system(
 
 pub fn polycount_update_system(
     meshes: Res<Assets<Mesh>>,
-    mesh_query: Query<(&Handle<Mesh>, &ActorPart)>,
+    mesh_query: Query<(&Mesh3d, &ActorPart)>,
     visibility_query: Query<&Visibility>,
     inherited_visibility_query: Query<&InheritedVisibility>,
     root_query: Query<(Entity, Option<&ActorBounds>), (With<Actor3DRoot>, Without<EditorHelper>)>,
@@ -79,7 +79,7 @@ pub fn polycount_update_system(
                 }
             }
             if let Ok(children) = children_query.get(entity) {
-                for child in children.iter() { stack.push((*child, is_visible)); }
+                for child in children.iter() { stack.push((child, is_visible)); }
             }
         }
     }
@@ -252,7 +252,7 @@ pub fn color_picker_system(
 pub fn material_sync_system(
     color_res: Res<EditorMaterialColor>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mesh_query: Query<&Handle<StandardMaterial>, (With<ActorEditorEntity>, Without<EditorHelper>)>,
+    mesh_query: Query<&MeshMaterial3d<StandardMaterial>, (With<ActorEditorEntity>, Without<EditorHelper>)>,
 ) {
     if !color_res.is_changed() { return; }
     for handle in mesh_query.iter() {

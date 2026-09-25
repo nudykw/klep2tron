@@ -110,7 +110,7 @@ pub fn socket_vfx_spawner_system(
             // --- COLOR GRADIENT ---
             let c_start = effect_config.visuals.color_start.to_srgba();
             let c_end = effect_config.visuals.color_end.to_srgba();
-            let mut gradient = Gradient::new();
+            let mut gradient = bevy_hanabi::Gradient::new();
             gradient.add_key(0.0, Vec4::new(c_start.red, c_start.green, c_start.blue, c_start.alpha));
             gradient.add_key(1.0, Vec4::new(c_end.red, c_end.green, c_end.blue, c_end.alpha));
             let render_color = ColorOverLifetimeModifier { gradient };
@@ -121,7 +121,7 @@ pub fn socket_vfx_spawner_system(
             let drag = LinearDragModifier::new(writer.lit(effect_config.motion.drag).expr());
 
             // --- SIZE GRADIENT ---
-            let mut size_gradient = Gradient::new();
+            let mut size_gradient = bevy_hanabi::Gradient::new();
             size_gradient.add_key(0.0, Vec3::splat(base_size * effect_config.visuals.size_start));
             size_gradient.add_key(1.0, Vec3::splat(base_size * effect_config.visuals.size_end));
             let render_size = SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false };

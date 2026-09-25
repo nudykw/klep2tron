@@ -4,7 +4,7 @@ pub fn xray_material_system(
     viewport_settings: Res<crate::ViewportSettings>,
     inspection_settings: Res<crate::InspectionSettings>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    part_query: Query<(Entity, &Handle<StandardMaterial>), With<crate::ActorPart>>,
+    part_query: Query<(Entity, &MeshMaterial3d<StandardMaterial>), With<crate::ActorPart>>,
 ) {
     // If inspection is active, don't interfere with its transparency/highlighting logic
     if inspection_settings.is_active {

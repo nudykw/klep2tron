@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use super::super::SelectedTriangles;
 
 pub fn selection_highlight_system(
-    part_query: Query<(&Handle<Mesh>, &GlobalTransform, &SelectedTriangles)>,
+    part_query: Query<(&Mesh3d, &GlobalTransform, &SelectedTriangles)>,
     meshes: Res<Assets<Mesh>>,
     mut gizmos: Gizmos,
 ) {
@@ -36,7 +36,7 @@ pub fn selection_highlight_system(
                     
                     // Optional: Draw a small "X" or cross in the middle for more visibility
                     // let center = (v0 + v1 + v2) / 3.0;
-                    // gizmos.sphere(center, Quat::IDENTITY, 0.002, color);
+                    // gizmos.sphere(Isometry3d::new(center, Quat::IDENTITY), 0.002, color);
                 }
             }
         }

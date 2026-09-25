@@ -13,7 +13,7 @@ pub fn mesh_slicing_system(
     mut commands: Commands,
     mut slicing_settings: ResMut<SlicingSettings>,
     actor_root_query: Query<(&ActorBounds, &GlobalTransform), With<crate::Actor3DRoot>>,
-    mesh_query: Query<(Entity, &OriginalMeshComponent, Option<&OptimizedMeshComponent>, &GlobalTransform, Option<&Handle<StandardMaterial>>, Option<&mut SlicingContours>)>,
+    mesh_query: Query<(Entity, &OriginalMeshComponent, Option<&OptimizedMeshComponent>, &GlobalTransform, Option<&MeshMaterial3d<StandardMaterial>>, Option<&mut SlicingContours>)>,
     child_query: Query<(Entity, &ActorPart, &Visibility)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -69,8 +69,8 @@ pub fn mesh_slicing_system(
                 });
 
                 // Hide original mesh
-                commands.entity(root_entity).remove::<Handle<Mesh>>();
-                commands.entity(root_entity).remove::<Handle<StandardMaterial>>();
+                commands.entity(root_entity).remove::<Mesh3d>();
+                commands.entity(root_entity).remove::<MeshMaterial3d<StandardMaterial>>();
 
                 pending_slices.0.clear();
                 info!("Applied pre-sliced meshes from disk.");
@@ -142,8 +142,8 @@ pub fn mesh_slicing_system(
                     commands.entity(parent_entity).insert(SlicingContours { segments: parts.contours });
                 }
 
-                commands.entity(parent_entity).remove::<Handle<Mesh>>();
-                commands.entity(parent_entity).remove::<Handle<StandardMaterial>>();
+                commands.entity(parent_entity).remove::<Mesh3d>();
+                commands.entity(parent_entity).remove::<MeshMaterial3d<StandardMaterial>>();
             }
             slicing_task.0 = None;
             info!("Async slicing completed and applied.");

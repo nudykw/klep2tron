@@ -29,7 +29,7 @@ pub fn inspection_input_system(
 
 pub fn inspection_visibility_system(
     settings: Res<InspectionSettings>,
-    mut part_query: Query<(&ActorPart, &mut Visibility, &Handle<StandardMaterial>)>,
+    mut part_query: Query<(&ActorPart, &mut Visibility, &MeshMaterial3d<StandardMaterial>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if !settings.is_changed() { return; }
@@ -76,7 +76,7 @@ pub fn inspection_visibility_system(
 pub fn inspection_camera_focus_system(
     mut focus_events: MessageReader<InspectionFocusEvent>,
     mut camera_query: Query<&mut PanOrbitCamera>,
-    actor_query: Query<(&ActorPart, &GlobalTransform, &Handle<Mesh>)>,
+    actor_query: Query<(&ActorPart, &GlobalTransform, &Mesh3d)>,
     meshes: Res<Assets<Mesh>>,
 ) {
     let mut camera = match camera_query.single_mut() {
@@ -123,7 +123,7 @@ pub fn inspection_camera_focus_system(
 
 pub fn inspection_highlight_system(
     settings: Res<InspectionSettings>,
-    mut part_query: Query<(&ActorPart, &Handle<StandardMaterial>)>,
+    mut part_query: Query<(&ActorPart, &MeshMaterial3d<StandardMaterial>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Only update if settings changed
@@ -143,7 +143,7 @@ pub fn inspection_highlight_system(
 pub fn inspection_debug_draw_system(
     settings: Res<InspectionSettings>,
     mut gizmos: Gizmos,
-    part_query: Query<(&ActorPart, &Handle<Mesh>, &GlobalTransform)>,
+    part_query: Query<(&ActorPart, &Mesh3d, &GlobalTransform)>,
     meshes: Res<Assets<Mesh>>,
 ) {
     if !settings.is_active { return; }
@@ -310,7 +310,7 @@ pub fn wireframe_sync_system(
     settings: Res<InspectionSettings>,
     opt_settings: Res<super::optimization::OptimizationSettings>,
     mut commands: Commands,
-    query: Query<(Entity, &ActorPart), With<Handle<Mesh>>>,
+    query: Query<(Entity, &ActorPart), With<Mesh3d>>,
 ) {
     let show = (settings.is_active && settings.wireframe) || opt_settings.wireframe;
     

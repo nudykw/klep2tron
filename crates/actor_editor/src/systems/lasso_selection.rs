@@ -98,7 +98,7 @@ pub fn triangle_selection_system(
     mut lasso_state: ResMut<LassoState>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainEditorCamera>>,
-    mut part_query: Query<(Entity, &ActorPart, &Handle<Mesh>, &GlobalTransform, &mut SelectedTriangles)>,
+    mut part_query: Query<(Entity, &ActorPart, &Mesh3d, &GlobalTransform, &mut SelectedTriangles)>,
     meshes: Res<Assets<Mesh>>,
 ) {
     if !lasso_state.is_active || !mouse_button.just_released(MouseButton::Left) { return; }
@@ -250,7 +250,7 @@ fn point_in_polygon(point: Vec2, polygon: &[Vec2]) -> bool {
 fn is_visible(
     target: Vec3,
     camera_pos: Vec3,
-    part_query: &Query<(Entity, &ActorPart, &Handle<Mesh>, &GlobalTransform, &mut SelectedTriangles)>,
+    part_query: &Query<(Entity, &ActorPart, &Mesh3d, &GlobalTransform, &mut SelectedTriangles)>,
     meshes: &Res<Assets<Mesh>>,
 ) -> bool {
     let dir = (target - camera_pos).normalize();

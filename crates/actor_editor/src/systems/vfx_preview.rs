@@ -30,26 +30,26 @@ pub fn socket_vfx_preview_system(
                     hsla.alpha = 0.9 * effect.emission.rate;
                     
                     // 1. Bright Core
-                    gizmos.sphere(pos, rot, base_radius * 0.4, Color::Hsla(hsla));
+                    gizmos.sphere(Isometry3d::new(pos, rot), base_radius * 0.4, Color::Hsla(hsla));
                     
                     // 2. Middle Layer (Shift Hue towards Blue)
                     let mut mid_hsla = hsla;
                     mid_hsla.hue = (mid_hsla.hue + 40.0) % 360.0; // Shift towards blue
                     mid_hsla.alpha = 0.4 * effect.emission.rate;
-                    gizmos.sphere(pos, rot, base_radius * 0.8, Color::Hsla(mid_hsla));
+                    gizmos.sphere(Isometry3d::new(pos, rot), base_radius * 0.8, Color::Hsla(mid_hsla));
                     
                     // 3. Outer Layer (Shift Hue towards Purple/Magenta)
                     let mut outer_hsla = hsla;
                     outer_hsla.hue = (outer_hsla.hue + 80.0) % 360.0; // Shift towards purple
                     outer_hsla.alpha = 0.15 * effect.emission.rate;
-                    gizmos.sphere(pos, rot, base_radius * 1.2, Color::Hsla(outer_hsla));
+                    gizmos.sphere(Isometry3d::new(pos, rot), base_radius * 1.2, Color::Hsla(outer_hsla));
                     
                     // 4. Rotating Energy Rings
                     for i in 0..2 {
                         let ring_rot = Quat::from_axis_angle(Vec3::Y, t * effect.motion.speed * (1.0 + i as f32)) * 
                                        Quat::from_axis_angle(Vec3::X, t * 0.5);
                         let ring_color = if i == 0 { mid_hsla } else { outer_hsla };
-                        gizmos.circle(pos, Dir3::new(ring_rot * Vec3::Z).unwrap_or(Dir3::Z), base_radius * (1.1 + i as f32 * 0.2), Color::Hsla(ring_color));
+                        gizmos.circle(Isometry3d::new(pos, Quat::from_rotation_arc(Vec3::Y, Dir3::new(ring_rot * Vec3::Z).unwrap_or(Dir3::Z))), base_radius * (1.1 + i as f32 * 0.2), Color::Hsla(ring_color));
                     }
                 }
                 EffectType::MuzzleFlash => {
@@ -89,7 +89,7 @@ pub fn socket_vfx_preview_system(
                         // Central flash sphere
                         let mut flash_hsla = hsla;
                         flash_hsla.lightness = (flash_hsla.lightness + 0.3).min(1.0);
-                        gizmos.sphere(pos, rot, size * 0.2, Color::Hsla(flash_hsla));
+                        gizmos.sphere(Isometry3d::new(pos, rot), size * 0.2, Color::Hsla(flash_hsla));
                     }
                 }
                 EffectType::Smoke => {
@@ -111,11 +111,11 @@ pub fn socket_vfx_preview_system(
                         // Draw circles with slight rotation for "volume" look
                         let tilt = Quat::from_axis_angle(Vec3::X, offset * 2.0);
                         let normal = Dir3::new(rot * tilt * Vec3::Y).unwrap_or(Dir3::Y);
-                        gizmos.circle(p, normal, r, Color::Hsla(hsla));
+                        gizmos.circle(Isometry3d::new(p, Quat::from_rotation_arc(Vec3::Y, normal)), r, Color::Hsla(hsla));
                         
                         // Add a smaller inner circle for depth
                         hsla.alpha *= 0.5;
-                        gizmos.circle(p, normal, r * 0.7, Color::Hsla(hsla));
+                        gizmos.circle(Isometry3d::new(p, Quat::from_rotation_arc(Vec3::Y, normal)), r * 0.7, Color::Hsla(hsla));
                     }
                 }
                 EffectType::Hanabi => {}

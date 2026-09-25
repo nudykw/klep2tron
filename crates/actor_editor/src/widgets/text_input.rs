@@ -28,7 +28,7 @@ pub struct TextInputContent;
 
 #[derive(Bundle)]
 pub struct TextInputBundle {
-    pub button: ButtonBundle,
+    pub button: Button,
     pub input: TextInput,
 }
 

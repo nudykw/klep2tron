@@ -53,8 +53,8 @@ pub fn spawn_slider_ext<T: Bundle>(
                         position_type: PositionType::Absolute,
                         left: Val::Percent(pct * 100.0),
                         top: Val::Px(-4.0),
-                        ..default()
-                    }, background_color: BackgroundColor(Color::WHITE), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() },
+                        border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+                    }, background_color: BackgroundColor(Color::WHITE), ..default() },
                 SliderThumb,
             ));
         });
@@ -213,8 +213,8 @@ fn spawn_range_slider_internal(
                             position_type: PositionType::Absolute,
                             left: Val::Px(-8.0),
                             top: Val::Px(-8.0),
-                            ..default()
-                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(20.0)), visibility: Visibility::Hidden, ..default() },
+                            border_radius: BorderRadius::all(Val::Px(20.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), visibility: Visibility::Hidden, ..default() },
                     ConfirmationCircleUI(RangeSliderThumb::Min),
                     Interaction::default(),
                     bevy::ui::RelativeCursorPosition::default(),
@@ -255,8 +255,8 @@ fn spawn_range_slider_internal(
                             position_type: PositionType::Absolute,
                             left: Val::Px(-8.0),
                             top: Val::Px(-8.0),
-                            ..default()
-                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), border_radius: BorderRadius::all(Val::Px(20.0)), visibility: Visibility::Hidden, ..default() },
+                            border_radius: BorderRadius::all(Val::Px(20.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.2)), visibility: Visibility::Hidden, ..default() },
                     ConfirmationCircleUI(RangeSliderThumb::Max),
                     Interaction::default(),
                     bevy::ui::RelativeCursorPosition::default(),

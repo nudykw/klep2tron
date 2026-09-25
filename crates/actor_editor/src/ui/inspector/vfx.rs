@@ -55,10 +55,8 @@ pub fn socket_vfx_ui_sync_system(
         if let Ok(mut text) = status_label_query.single_mut() {
             if let Some(preset_name) = &socket.definition.effect_preset {
                 text.0 = format!("Linked: {}", preset_name);
-                text.sections[0].style.color = Color::srgb(0.3, 0.7, 1.0);
             } else {
                 text.0 = "Custom (Unique)".to_string();
-                text.sections[0].style.color = Color::srgb(0.5, 0.5, 0.5);
             }
         }
     } else {

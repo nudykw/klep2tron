@@ -10,7 +10,7 @@ pub struct Tooltip(pub String);
 pub struct TooltipRoot;
 
 pub fn spawn_tooltip_root(commands: &mut Commands, font: &Handle<Font>, target_camera: Option<Entity>) {
-    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, padding: UiRect::all(Val::Px(10.0)), display: Display::None, width: Val::Auto, height: Val::Auto, ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.95)), border_radius: BorderRadius::all(Val::Px(6.0)), global_z_index: GlobalZIndex(100), ..default() }, TooltipRoot, ActorEditorEntity, ));
+    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, padding: UiRect::all(Val::Px(10.0)), display: Display::None, width: Val::Auto, height: Val::Auto, border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.95)), global_z_index: GlobalZIndex(100), ..default() }, TooltipRoot, ActorEditorEntity, ));
     if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| { p.spawn(ui_text("", &font.clone(), 14.0, Color::WHITE)); });
 }
@@ -140,8 +140,8 @@ pub fn spawn_viewport_slicer(parent: &mut ChildSpawnerCommands, icon_font: &Hand
             flex_direction: FlexDirection::Column, 
             align_items: AlignItems::Center, 
             padding: UiRect::vertical(Val::Px(10.0)), 
-            ..default() 
-        }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.6)), border_radius: BorderRadius::all(Val::Px(8.0)), ..default() }, SlicerContainer, )).with_children(|p| {
+            border_radius: BorderRadius::all(Val::Px(8.0)), ..default() 
+        }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.6)), ..default() }, SlicerContainer, )).with_children(|p| {
         p.spawn(((Button, UiNode { node: Node { 
                 width: Val::Px(30.0), 
                 height: Val::Px(30.0), 
