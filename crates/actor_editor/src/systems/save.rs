@@ -74,7 +74,7 @@ pub fn actor_save_system(
             head_mesh: None,
             body_mesh: None,
             legs_mesh: None,
-            scale: transform_query.get_single().map(|t| t.scale).unwrap_or(Vec3::ONE),
+            scale: transform_query.single().map(|t| t.scale).unwrap_or(Vec3::ONE),
             config: ActorConfig { sockets },
         };
 

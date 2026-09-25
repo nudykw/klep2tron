@@ -69,7 +69,7 @@ pub fn actor_editor_input_system(
         if keyboard.just_pressed(KeyCode::KeyS) {
             if !current_project.is_saved {
                 let font = asset_server.load("fonts/Roboto-Regular.ttf");
-                let target_camera = camera_query.get_single().ok();
+                let target_camera = camera_query.single().ok();
                 super::super::widgets::spawn_save_modal(&mut commands, &font, &current_project.name, target_camera);
             } else {
                 events.save.send(ActorSaveEvent { name: None, force: false });

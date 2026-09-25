@@ -16,7 +16,7 @@ pub fn selection_system(
     let mut move_dx = 0i32;
     let mut move_dz = 0i32;
 
-    if let Ok(cam_transform) = camera_query.get_single() {
+    if let Ok(cam_transform) = camera_query.single() {
         let forward = cam_transform.forward();
         let forward_h = Vec2::new(forward.x, forward.z).normalize_or_zero();
         
@@ -86,8 +86,8 @@ pub fn mouse_selection_system(
     for interaction in interaction_query.iter() {
         if *interaction != Interaction::None { return; }
     }
-    let Ok(window) = windows.get_single() else { return; };
-    let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
+    let Ok(window) = windows.single() else { return; };
+    let Ok((camera, camera_transform)) = camera_query.single() else { return; };
 
     if let Some(cursor_pos) = window.cursor_position() {
         if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
@@ -185,8 +185,8 @@ pub fn selection_highlight_system(
 ) {
     let room_idx = project.current_room_idx;
     let cell = project.rooms[room_idx].cells[selection.x][selection.z];
-    let cam_pos = camera_query.get_single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
-    let is_on = (time.elapsed_seconds() * 5.0).sin() > 0.0;
+    let cam_pos = camera_query.single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
+    let is_on = (time.elapsed_secs() * 5.0).sin() > 0.0;
     if !is_on { return; }
 
     if cell.h > 0 {

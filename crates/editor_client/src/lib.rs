@@ -199,7 +199,7 @@ pub fn setup_editor(
     
     // HUD
     commands.spawn((NodeBundle {
-        style: Style { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(10.0)), flex_direction: FlexDirection::Column, row_gap: Val::Px(5.0), ..default() },
+        style: Node { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(10.0)), flex_direction: FlexDirection::Column, row_gap: Val::Px(5.0), ..default() },
         background_color: Color::srgba(0.0, 0.0, 0.0, 0.8).into(), ..default()
     }, MapEntity)).with_children(|p| {
         p.spawn((TextBundle::from_section("CAM:", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }), CameraDebugText));
@@ -278,7 +278,7 @@ pub fn setup_editor(
 
     // Top Panel
     commands.spawn((NodeBundle {
-        style: Style { position_type: PositionType::Absolute, top: Val::Px(0.0), left: Val::Percent(30.0), width: Val::Percent(40.0), height: Val::Px(85.0), justify_content: JustifyContent::SpaceEvenly, align_items: AlignItems::Center, ..default() },
+        style: Node { position_type: PositionType::Absolute, top: Val::Px(0.0), left: Val::Percent(30.0), width: Val::Percent(40.0), height: Val::Px(85.0), justify_content: JustifyContent::SpaceEvenly, align_items: AlignItems::Center, ..default() },
         background_color: Color::srgba(0.05, 0.05, 0.05, 0.95).into(), ..default()
     }, MapEntity)).with_children(|p| {
         for (idx, (tt, _)) in types.iter().enumerate() {
@@ -291,21 +291,21 @@ pub fn setup_editor(
                 _ => "Tile",
             };
             p.spawn((ButtonBundle {
-                style: Style { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
+                style: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
                 background_color: Color::srgb(0.2, 0.2, 0.2).into(),
                 border_color: Color::srgb(0.4, 0.4, 0.4).into(),
                 ..default()
             }, TileTypeButton(*tt), TooltipText(label.to_string()))).with_children(|p| {
                 p.spawn(ImageBundle {
                     image: UiImage::new(preview_handles[idx].clone()),
-                    style: Style { width: Val::Px(60.0), height: Val::Px(60.0), ..default() },
+                    style: Node { width: Val::Px(60.0), height: Val::Px(60.0), ..default() },
                     ..default()
                 });
             });
         }
         
         p.spawn((ButtonBundle {
-            style: Style { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
+            style: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
             background_color: Color::srgb(0.1, 0.3, 0.3).into(),
             border_color: Color::srgb(0.0, 0.8, 0.8).into(),
             ..default()
@@ -315,7 +315,7 @@ pub fn setup_editor(
     });
 
     commands.spawn((NodeBundle {
-        style: Style {
+        style: Node {
             position_type: PositionType::Absolute,
             display: Display::None,
             padding: UiRect::all(Val::Px(5.0)),

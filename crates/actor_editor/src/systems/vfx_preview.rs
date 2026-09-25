@@ -12,7 +12,7 @@ pub fn socket_vfx_preview_system(
         return;
     }
 
-    let t = time.elapsed_seconds();
+    let t = time.elapsed_secs();
 
     for (transform, socket) in socket_query.iter() {
         if let Some(effect) = &socket.definition.effect {

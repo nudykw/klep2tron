@@ -30,7 +30,7 @@ pub fn map_rendering_system(
             
             for entity in _tile_query.iter() {
                 if let Some(ec) = commands.get_entity(entity) {
-                    ec.despawn_recursive();
+                    ec.despawn();
                 }
             }
             tile_map.entities.clear();
@@ -50,7 +50,7 @@ pub fn map_rendering_system(
         if let Some(entities) = tile_map.entities.remove(&(x, z)) {
             for entity in entities { 
                 if let Some(ec) = commands.get_entity(entity) {
-                    ec.despawn_recursive();
+                    ec.despawn();
                 }
             }
         }

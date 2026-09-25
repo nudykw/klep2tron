@@ -16,7 +16,7 @@ pub fn socket_vfx_ui_sync_system(
     let Ok(socket) = socket_query.get(entity) else { return; };
     
     if let Some(effect) = &socket.definition.effect {
-        if let Ok(mut bg) = toggle_query.get_single_mut() {
+        if let Ok(mut bg) = toggle_query.single_mut() {
             bg.0 = Color::srgba(0.2, 0.8, 0.2, 0.8);
         }
         
@@ -52,17 +52,17 @@ pub fn socket_vfx_ui_sync_system(
             }
         }
 
-        if let Ok(mut text) = status_label_query.get_single_mut() {
+        if let Ok(mut text) = status_label_query.single_mut() {
             if let Some(preset_name) = &socket.definition.effect_preset {
-                text.sections[0].value = format!("Linked: {}", preset_name);
+                text.0 = format!("Linked: {}", preset_name);
                 text.sections[0].style.color = Color::srgb(0.3, 0.7, 1.0);
             } else {
-                text.sections[0].value = "Custom (Unique)".to_string();
+                text.0 = "Custom (Unique)".to_string();
                 text.sections[0].style.color = Color::srgb(0.5, 0.5, 0.5);
             }
         }
     } else {
-        if let Ok(mut bg) = toggle_query.get_single_mut() {
+        if let Ok(mut bg) = toggle_query.single_mut() {
             bg.0 = Color::srgba(0.0, 0.0, 0.0, 0.5); // Black/Dim for inactive
         }
         for (_, mut bg) in texture_items_query.iter_mut() {
@@ -121,7 +121,7 @@ pub fn socket_vfx_interaction_system(
 
     for interaction in save_query.iter() {
         if *interaction == Interaction::Pressed {
-            if let Ok(name_input) = name_input_query.get_single() {
+            if let Ok(name_input) = name_input_query.single() {
                 let name = name_input.value.trim();
                 if name.is_empty() {
                     toast_events.send(crate::ToastEvent {

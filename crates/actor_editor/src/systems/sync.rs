@@ -5,8 +5,8 @@ pub fn gizmo_sync_system(
     main_camera: Query<&Transform, (With<MainEditorCamera>, Without<GizmoCamera>)>,
     mut gizmo_camera: Query<&mut Transform, With<GizmoCamera>>,
 ) {
-    if let Ok(main_transform) = main_camera.get_single() {
-        if let Ok(mut gizmo_transform) = gizmo_camera.get_single_mut() {
+    if let Ok(main_transform) = main_camera.single() {
+        if let Ok(mut gizmo_transform) = gizmo_camera.single_mut() {
             let distance = 3.0;
             let rotation = main_transform.rotation;
             gizmo_transform.translation = rotation * (Vec3::Z * distance);
@@ -20,8 +20,8 @@ pub fn gizmo_viewport_system(
     viewport_settings: Res<ViewportSettings>,
     mut gizmo_camera: Query<&mut Camera, With<GizmoCamera>>,
 ) {
-    let Ok(window) = window_query.get_single() else { return; };
-    let Ok(mut camera) = gizmo_camera.get_single_mut() else { return; };
+    let Ok(window) = window_query.single() else { return; };
+    let Ok(mut camera) = gizmo_camera.single_mut() else { return; };
     
     if camera.is_active != viewport_settings.gizmos {
         camera.is_active = viewport_settings.gizmos;
@@ -70,7 +70,7 @@ pub fn slicing_ui_sync_system(
     }
 
     // 2. Sync with Precision Text Inputs (Right Panel)
-    if let Ok(mut top_input) = top_input_query.get_single_mut() {
+    if let Ok(mut top_input) = top_input_query.single_mut() {
         if top_input.is_focused {
             // Nudge with Arrow Keys
             let mut nudged = false;
@@ -100,7 +100,7 @@ pub fn slicing_ui_sync_system(
         }
     }
 
-    if let Ok(mut bot_input) = bottom_input_query.get_single_mut() {
+    if let Ok(mut bot_input) = bottom_input_query.single_mut() {
         if bot_input.is_focused {
             // Nudge with Arrow Keys
             let mut nudged = false;
@@ -157,7 +157,7 @@ pub fn slicing_manual_mode_system(
     for (interaction, children) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
             if let Ok(text) = text_query.get(children[0]) {
-                let label = text.sections[0].value.trim();
+                let label = text.0.trim();
                 let target_manual = label == "MANUAL";
                 if slicing_settings.manual_mode != target_manual {
                     slicing_settings.manual_mode = target_manual;
@@ -179,7 +179,7 @@ pub fn slicing_manual_mode_visual_sync_system(
 ) {
     for (mut bg, interaction, children) in btn_query.iter_mut() {
         if let Ok(text) = text_query.get(children[0]) {
-            let label = text.sections[0].value.trim();
+            let label = text.0.trim();
             let is_manual_btn = label == "MANUAL";
             let is_active = slicing_settings.manual_mode == is_manual_btn;
 
@@ -204,8 +204,8 @@ pub fn slicing_manual_mode_visual_sync_system(
 
 pub fn slicing_ui_visibility_sync_system(
     slicing_settings: Res<SlicingSettings>,
-    mut auto_container_query: Query<&mut Style, (With<SlicingAutoModeContainer>, Without<super::super::SlicingManualModeContainer>)>,
-    mut manual_container_query: Query<&mut Style, (With<super::super::SlicingManualModeContainer>, Without<SlicingAutoModeContainer>)>,
+    mut auto_container_query: Query<&mut Node, (With<SlicingAutoModeContainer>, Without<super::super::SlicingManualModeContainer>)>,
+    mut manual_container_query: Query<&mut Node, (With<super::super::SlicingManualModeContainer>, Without<SlicingAutoModeContainer>)>,
 ) {
     for mut style in auto_container_query.iter_mut() {
         let display = if slicing_settings.manual_mode { Display::None } else { Display::Flex };
@@ -292,11 +292,11 @@ pub fn slicing_ui_visibility_system(
     viewport_settings: Res<ViewportSettings>,
     slicing_settings: Res<SlicingSettings>,
 ) {
-    let has_model = actor_query.get_single().is_ok();
+    let has_model = actor_query.single().is_ok();
     let show_slicer = has_model && viewport_settings.slices && !slicing_settings.manual_mode;
     let target_visibility = if show_slicer { Visibility::Visible } else { Visibility::Hidden };
     
-    if let Ok(mut vis) = container_query.get_single_mut() {
+    if let Ok(mut vis) = container_query.single_mut() {
         if *vis != target_visibility { *vis = target_visibility; }
     }
     for mut vis in gizmo_query.iter_mut() {
@@ -343,7 +343,7 @@ pub fn slicing_gizmo_manager_system(
         }
     } else if !viewport_settings.slices && gizmo_count > 0 {
 
-        for entity in gizmo_query.iter() { commands.entity(entity).despawn_recursive(); }
+        for entity in gizmo_query.iter() { commands.entity(entity).despawn(); }
     }
 }
 
@@ -354,7 +354,7 @@ pub fn slicing_gizmo_sync_system(
     mut gizmo_query: Query<(&mut Transform, &SlicingGizmoType, &Handle<StandardMaterial>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let Ok((bounds, transform)) = actor_query.get_single() else { return; };
+    let Ok((bounds, transform)) = actor_query.single() else { return; };
     
     let height = bounds.max.y - bounds.min.y;
     let radius = (bounds.max.x - bounds.min.x).max(bounds.max.z - bounds.min.z) * 0.7;

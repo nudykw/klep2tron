@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.14", features = ["default", "wayland"] }
+bevy = { version = "0.19", features = ["default", "wayland"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 shared = { path = "../shared" }
 image = "0.25"
 winit = "0.30"
-wgpu = "0.20"
-bevy_framepace = "0.17"
+wgpu = "29"
+bevy_framepace = "0.22"
 ron = "0.12.1"
 
 

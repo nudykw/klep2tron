@@ -15,8 +15,8 @@ pub fn socket_picking_system(
         return;
     }
 
-    let Ok(window) = window_query.get_single() else { return; };
-    let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
+    let Ok((camera, camera_transform)) = camera_query.single() else { return; };
 
     let Some(cursor_pos) = window.cursor_position() else {
         settings.hovered_data = None;
@@ -67,7 +67,7 @@ pub fn socket_spawn_system(
     
     if mouse_button.just_pressed(MouseButton::Left) {
         if let Some(data) = settings.hovered_data.clone() {
-            let Ok((actor_root, root_transform)) = actor_root_query.get_single() else { 
+            let Ok((actor_root, root_transform)) = actor_root_query.single() else { 
                 info!("Socket Spawn Failed: Actor3DRoot not found");
                 return; 
             };
@@ -301,7 +301,7 @@ pub fn socket_restoration_system(
 ) {
     if *status != super::super::EditorStatus::Ready || pending.0.is_empty() { return; }
     
-    let Ok(actor_root) = actor_root_query.get_single() else { return; };
+    let Ok(actor_root) = actor_root_query.single() else { return; };
     
     info!("Restoring {} sockets...", pending.0.len());
     

@@ -30,7 +30,7 @@ pub fn socket_vfx_sync_system(
                 transform.scale = Vec3::splat(effect_config.visuals.scale);
             }
         } else {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -76,7 +76,7 @@ pub fn socket_vfx_spawner_system(
 
         for (instance_entity, instance) in instance_query.iter() {
             if instance.socket_entity == socket_entity {
-                commands.entity(instance_entity).despawn_recursive();
+                commands.entity(instance_entity).despawn();
             }
         }
 

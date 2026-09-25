@@ -91,7 +91,7 @@ pub fn menu_input_system(
         params.nav_timer.timer.reset();
     } else if up_pressed || down_pressed {
         params.nav_timer.timer.tick(params.time.delta());
-        if params.nav_timer.timer.finished() {
+        if params.nav_timer.timer.is_finished() {
             if up_pressed { move_dir -= 1; }
             if down_pressed { move_dir += 1; }
             params.nav_timer.timer.set_duration(std::time::Duration::from_secs_f32(0.15));
@@ -176,7 +176,7 @@ pub fn menu_input_system(
 
     if horizontal_dir != 0 {
         if !is_confirmation {
-            if let Ok(item) = params.focused_query.get_single() {
+            if let Ok(item) = params.focused_query.single() {
                 if item.item_type == MenuItemType::Toggle || item.item_type == MenuItemType::Slider {
                     let action = match item.action {
                         MenuAction::NextQuality | MenuAction::PrevQuality => if horizontal_dir > 0 { MenuAction::NextQuality } else { MenuAction::PrevQuality },

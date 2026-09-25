@@ -19,7 +19,7 @@ pub fn spawn_scaling_section(
         |content| {
             // Dimensions Inputs
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(8.0),
@@ -38,7 +38,7 @@ pub fn spawn_scaling_section(
 
             // Action Row
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
@@ -51,7 +51,7 @@ pub fn spawn_scaling_section(
                 // Link Proportions Toggle
                 row.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
@@ -74,7 +74,7 @@ pub fn spawn_scaling_section(
                 // Apply Button
                 row.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             flex_grow: 1.0,
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
@@ -108,7 +108,7 @@ fn spawn_dimension_input(
 ) {
     p.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(24.0),
                 flex_direction: FlexDirection::Row,
@@ -129,7 +129,7 @@ fn spawn_dimension_input(
         row.spawn((
             crate::widgets::TextInputBundle {
                 button: ButtonBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Px(80.0),
                         height: Val::Px(28.0),
                         padding: UiRect::horizontal(Val::Px(8.0)),

@@ -40,7 +40,7 @@ pub fn spawn_text_input(
 ) -> Entity {
     parent.spawn(TextInputBundle {
         button: ButtonBundle {
-            style: Style {
+            style: Node {
                 width,
                 height: Val::Px(28.0),
                 padding: UiRect::horizontal(Val::Px(8.0)),
@@ -104,10 +104,10 @@ pub fn text_input_system(
         for &child in children.iter() {
             if let Ok(mut text) = text_query.get_mut(child) {
                 if input.value.is_empty() && !input.is_focused {
-                    text.sections[0].value = input.placeholder.clone();
+                    text.0 = input.placeholder.clone();
                     text.sections[0].style.color = Color::srgb(0.4, 0.4, 0.4);
                 } else {
-                    text.sections[0].value = format!("{}{}", input.value, if input.is_focused { "|" } else { "" });
+                    text.0 = format!("{}{}", input.value, if input.is_focused { "|" } else { "" });
                     text.sections[0].style.color = Color::WHITE;
                 }
             }

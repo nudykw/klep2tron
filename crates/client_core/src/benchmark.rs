@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::ui::widgets::*;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use crate::{GameState, GraphicsSettings, QualityLevel, Project, Room, DirtyTiles};
 
@@ -125,34 +126,21 @@ fn setup_benchmark(
     // UI Setup
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     commands.spawn((
-        NodeBundle {
-            style: Style {
+        UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
-            },
-            background_color: Color::srgba(0.0, 0.0, 0.0, 0.5).into(),
-            ..default()
-        },
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)), ..default() },
         BenchmarkEntity,
         BenchmarkUi,
     )).with_children(|p| {
-        p.spawn(TextBundle::from_section(
-            "BENCHMARK IN PROGRESS",
-            TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE },
-        ).with_style(Style { margin: UiRect::bottom(Val::Px(60.0)), ..default() }));
+        p.spawn((ui_text("BENCHMARK IN PROGRESS", &font.clone(), 40.0, Color::WHITE), Node { margin: UiRect::bottom(Val::Px(60.0)), ..default() }));
         
-        p.spawn(TextBundle::from_section(
-            "Testing Quality: Low",
-            TextStyle { font: font.clone(), font_size: 30.0, color: Color::srgb(1.0, 0.8, 0.0) },
-        ).with_style(Style { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));
-        p.spawn(TextBundle::from_section(
-            "Current FPS: --",
-            TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE },
-        ));
+        p.spawn((ui_text("Testing Quality: Low", &font.clone(), 30.0, Color::srgb(1.0, 0.8, 0.0)), Node { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));
+        p.spawn(ui_text("Current FPS: --", &font.clone(), 24.0, Color::WHITE));
     });
 }
 
@@ -161,7 +149,7 @@ fn benchmark_camera_system(
     mut query: Query<&mut Transform, With<BenchmarkCamera>>,
     mut angle: Local<f32>,
 ) {
-    *angle += time.delta_seconds() * 0.4;
+    *angle += time.delta_secs() * 0.4;
     let radius = 18.0;
     let center = Vec3::new(7.5, 0.0, 7.5);
     let height = 10.0 + (angle.sin() * 0.2).abs() * 5.0;
@@ -238,7 +226,7 @@ fn benchmark_logic_system(
         }
     }
 
-    if benchmark_data.timer.finished() || benchmark_data.aborted {
+    if benchmark_data.timer.is_finished() || benchmark_data.aborted {
         // Calculate average
         let avg_fps = if benchmark_data.fps_samples.is_empty() {
             0.0
@@ -264,12 +252,12 @@ fn benchmark_ui_system(
     mut text_query: Query<&mut Text>,
     diagnostics: Res<DiagnosticsStore>,
 ) {
-    let Ok(children) = ui_query.get_single_mut() else { return; };
+    let Ok(children) = ui_query.single_mut() else { return; };
     
     if benchmark_data.finished || benchmark_data.aborted {
         // Results Screen
         if let Ok(mut text) = text_query.get_mut(children[0]) {
-            text.sections[0].value = if benchmark_data.aborted { "BENCHMARK ABORTED" } else { "BENCHMARK FINISHED" }.to_string();
+            text.0 = if benchmark_data.aborted { "BENCHMARK ABORTED" } else { "BENCHMARK FINISHED" }.to_string();
         }
         
         let mut results_text = "Results:\n".to_string();
@@ -280,23 +268,23 @@ fn benchmark_ui_system(
         }
         
         if let Ok(mut text) = text_query.get_mut(children[1]) {
-            text.sections[0].value = results_text;
+            text.0 = results_text;
             text.sections[0].style.color = Color::WHITE;
         }
         
         if let Ok(mut text) = text_query.get_mut(children[2]) {
-            text.sections[0].value = format!("Recommended: {:?}\n[ENTER] Apply & Back  [ESC] Cancel", best_fit);
+            text.0 = format!("Recommended: {:?}\n[ENTER] Apply & Back  [ESC] Cancel", best_fit);
         }
     } else {
         // Progress Screen
         if let Ok(mut text) = text_query.get_mut(children[1]) {
-            text.sections[0].value = format!("Testing Quality: {:?}", benchmark_data.levels[benchmark_data.current_level_idx]);
+            text.0 = format!("Testing Quality: {:?}", benchmark_data.levels[benchmark_data.current_level_idx]);
         }
         
         if let Ok(mut text) = text_query.get_mut(children[2]) {
             if let Some(fps_diag) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
                 if let Some(fps_val) = fps_diag.smoothed() {
-                    text.sections[0].value = format!("Current FPS: {:.1}", fps_val);
+                    text.0 = format!("Current FPS: {:.1}", fps_val);
                 }
             }
         }
@@ -310,7 +298,7 @@ fn cleanup_benchmark(
     mut settings: ResMut<GraphicsSettings>,
 ) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
     
     if !benchmark_data.finished && !benchmark_data.aborted {

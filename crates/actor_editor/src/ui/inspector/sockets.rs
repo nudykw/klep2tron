@@ -22,7 +22,7 @@ pub fn spawn_sockets_section(
         |content| {
             // --- POSITION DISPLAY ---
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     margin: UiRect::top(Val::Px(10.0)),
                     flex_direction: FlexDirection::Row,
@@ -34,7 +34,7 @@ pub fn spawn_sockets_section(
                 for (axis, label) in [(TransformAxis::X, "X"), (TransformAxis::Y, "Y"), (TransformAxis::Z, "Z")] {
                     row.spawn((
                         NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Px(75.0),
                                 height: Val::Px(25.0),
                                 align_items: AlignItems::Center,
@@ -57,7 +57,7 @@ pub fn spawn_sockets_section(
 
             // --- ROTATION DISPLAY ---
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     margin: UiRect::top(Val::Px(5.0)),
                     flex_direction: FlexDirection::Row,
@@ -69,7 +69,7 @@ pub fn spawn_sockets_section(
                 for (axis, label) in [(RotationAxis::Roll, "R"), (RotationAxis::Pitch, "P"), (RotationAxis::Yaw, "Y")] {
                     row.spawn((
                         NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Px(75.0),
                                 height: Val::Px(25.0),
                                 align_items: AlignItems::Center,
@@ -93,7 +93,7 @@ pub fn spawn_sockets_section(
             // --- RESET BUTTON ---
             content.spawn((
                 ButtonBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(25.0),
                         margin: UiRect::top(Val::Px(10.0)),
@@ -116,7 +116,7 @@ pub fn spawn_sockets_section(
             // --- SOCKET DETAILS (Name & Comment) ---
             content.spawn((
                 NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         margin: UiRect::top(Val::Px(15.0)),
@@ -130,7 +130,7 @@ pub fn spawn_sockets_section(
             )).with_children(|details| {
                 // ... (details content remains same, but we will add logic to hide it in systems)
                 details.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(1.0),
                         margin: UiRect::vertical(Val::Px(5.0)),
@@ -142,7 +142,7 @@ pub fn spawn_sockets_section(
 
                 details.spawn((
                     NodeBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Percent(100.0),
                             flex_direction: FlexDirection::Column,
                             row_gap: Val::Px(8.0),
@@ -160,7 +160,7 @@ pub fn spawn_sockets_section(
                     meta.spawn((
                         crate::widgets::TextInputBundle {
                             button: ButtonBundle {
-                                style: Style {
+                                style: Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Px(28.0),
                                     padding: UiRect::horizontal(Val::Px(8.0)),
@@ -196,7 +196,7 @@ pub fn spawn_sockets_section(
                     meta.spawn((
                         crate::widgets::TextInputBundle {
                             button: ButtonBundle {
-                                style: Style {
+                                style: Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Px(28.0),
                                     padding: UiRect::horizontal(Val::Px(8.0)),
@@ -248,7 +248,7 @@ pub fn spawn_sockets_section(
                     |vfx| {
                         // Toggle
                         vfx.spawn(NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Row,
                                 align_items: AlignItems::Center,
@@ -260,7 +260,7 @@ pub fn spawn_sockets_section(
                         }).with_children(|row| {
                             row.spawn((
                                 ButtonBundle {
-                                    style: Style {
+                                    style: Node {
                                         width: Val::Px(16.0),
                                         height: Val::Px(16.0),
                                         border: UiRect::all(Val::Px(1.0)),
@@ -321,7 +321,7 @@ pub fn spawn_sockets_section(
                         
                         // --- PRESETS MANAGEMENT ---
                         vfx.spawn(NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 row_gap: Val::Px(5.0),
@@ -339,7 +339,7 @@ pub fn spawn_sockets_section(
                             ));
 
                             manage.spawn(NodeBundle {
-                                style: Style {
+                                style: Node {
                                     width: Val::Percent(100.0),
                                     flex_direction: FlexDirection::Row,
                                     column_gap: Val::Px(5.0),
@@ -350,7 +350,7 @@ pub fn spawn_sockets_section(
                                 row.spawn((
                                     crate::widgets::TextInputBundle {
                                         button: ButtonBundle {
-                                            style: Style {
+                                            style: Node {
                                                 flex_grow: 1.0,
                                                 height: Val::Px(24.0),
                                                 padding: UiRect::horizontal(Val::Px(6.0)),
@@ -380,7 +380,7 @@ pub fn spawn_sockets_section(
 
                                 row.spawn((
                                     ButtonBundle {
-                                        style: Style {
+                                        style: Node {
                                             width: Val::Px(24.0),
                                             height: Val::Px(24.0),
                                             justify_content: JustifyContent::Center,
@@ -402,7 +402,7 @@ pub fn spawn_sockets_section(
 
                                 row.spawn((
                                     ButtonBundle {
-                                        style: Style {
+                                        style: Node {
                                             width: Val::Px(24.0),
                                             height: Val::Px(24.0),
                                             justify_content: JustifyContent::Center,
@@ -430,7 +430,7 @@ pub fn spawn_sockets_section(
                             TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6), ..default() },
                         ));
                         vfx.spawn(NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Row,
                                 flex_wrap: FlexWrap::Wrap,
@@ -446,7 +446,7 @@ pub fn spawn_sockets_section(
                             for preset in names {
                                 grid.spawn((
                                     ButtonBundle {
-                                        style: Style {
+                                        style: Node {
                                             padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
                                             ..default()
                                         },
@@ -468,10 +468,10 @@ pub fn spawn_sockets_section(
                         vfx.spawn(TextBundle::from_section(
                             "Texture Groups (Random Variation)",
                             TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.0, 1.0, 0.8), ..default() },
-                        ).with_style(Style { margin: UiRect::top(Val::Px(10.0)), ..default() }));
+                        ).with_style(Node { margin: UiRect::top(Val::Px(10.0)), ..default() }));
 
                         vfx.spawn(NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Row,
                                 flex_wrap: FlexWrap::Wrap,
@@ -489,7 +489,7 @@ pub fn spawn_sockets_section(
                                 let handles = &vfx_registry.groups[name];
                                 grid.spawn((
                                     ButtonBundle {
-                                        style: Style {
+                                        style: Node {
                                             width: Val::Px(40.0),
                                             height: Val::Px(40.0),
                                             padding: UiRect::all(Val::Px(2.0)),
@@ -506,7 +506,7 @@ pub fn spawn_sockets_section(
                                 )).with_children(|b| {
                                     // Show first image of group as preview
                                     b.spawn(ImageBundle {
-                                        style: Style {
+                                        style: Node {
                                             width: Val::Percent(90.0),
                                             height: Val::Percent(90.0),
                                             ..default()
@@ -516,7 +516,7 @@ pub fn spawn_sockets_section(
                                     });
                                     // Add a small indicator for group
                                     b.spawn(NodeBundle {
-                                        style: Style {
+                                        style: Node {
                                             position_type: PositionType::Absolute,
                                             right: Val::Px(2.0),
                                             bottom: Val::Px(2.0),
@@ -536,10 +536,10 @@ pub fn spawn_sockets_section(
                         vfx.spawn(TextBundle::from_section(
                             "Kenney Textures",
                             TextStyle { font: font.clone(), font_size: 11.0, color: Color::srgb(0.6, 0.6, 0.6), ..default() },
-                        ).with_style(Style { margin: UiRect::top(Val::Px(10.0)), ..default() }));
+                        ).with_style(Node { margin: UiRect::top(Val::Px(10.0)), ..default() }));
                         
                         vfx.spawn(NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Row,
                                 flex_wrap: FlexWrap::Wrap,
@@ -553,7 +553,7 @@ pub fn spawn_sockets_section(
                             for (name, handle) in &vfx_registry.textures {
                                 grid.spawn((
                                     ButtonBundle {
-                                        style: Style {
+                                        style: Node {
                                             width: Val::Px(30.0),
                                             height: Val::Px(30.0),
                                             padding: UiRect::all(Val::Px(2.0)),
@@ -567,7 +567,7 @@ pub fn spawn_sockets_section(
                                     Tooltip(name.clone()),
                                 )).with_children(|b| {
                                     b.spawn(ImageBundle {
-                                        style: Style {
+                                        style: Node {
                                             width: Val::Percent(100.0),
                                             height: Val::Percent(100.0),
                                             ..default()

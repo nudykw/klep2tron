@@ -6,7 +6,7 @@ pub fn setup_navigation(
     mut commands: Commands,
     camera_query: Query<Entity, With<MainEditorCamera>>,
 ) {
-    if let Ok(entity) = camera_query.get_single() {
+    if let Ok(entity) = camera_query.single() {
         commands.entity(entity).insert(PanOrbitCamera {
             focus: Vec3::new(0.0, 1.0, 0.0),
             radius: Some(4.0),
@@ -50,7 +50,7 @@ pub fn camera_reset_handler(
     mut camera_query: Query<&mut PanOrbitCamera, With<MainEditorCamera>>,
 ) {
     for _ in reset_events.read() {
-        if let Ok(mut pan_orbit) = camera_query.get_single_mut() {
+        if let Ok(mut pan_orbit) = camera_query.single_mut() {
             pan_orbit.target_focus = Vec3::new(0.0, 1.0, 0.0);
             pan_orbit.target_radius = 4.0;
             pan_orbit.target_yaw = 0.0;
@@ -93,7 +93,7 @@ pub fn camera_control_blocking_system(
         }
     }
 
-    if let Ok(mut camera) = camera_query.get_single_mut() {
+    if let Ok(mut camera) = camera_query.single_mut() {
         if camera.enabled == blocked {
             camera.enabled = !blocked;
         }

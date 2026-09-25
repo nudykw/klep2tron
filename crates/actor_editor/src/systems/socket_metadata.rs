@@ -8,8 +8,8 @@ pub fn socket_metadata_sync_system(
     mut socket_query: Query<(Entity, &mut ActorSocket)>,
     mut name_input_query: Query<&mut TextInput, (With<SocketNameInput>, Without<SocketCommentInput>)>,
     mut comment_input_query: Query<&mut TextInput, (With<SocketCommentInput>, Without<SocketNameInput>)>,
-    mut container_query: Query<&mut Style, With<SocketDetailsContainer>>,
-    mut meta_section_query: Query<&mut Style, (With<SocketMetadataSection>, Without<SocketDetailsContainer>)>,
+    mut container_query: Query<&mut Node, With<SocketDetailsContainer>>,
+    mut meta_section_query: Query<&mut Node, (With<SocketMetadataSection>, Without<SocketDetailsContainer>)>,
     mut last_selected: Local<Option<Entity>>,
     _toast_events: EventWriter<ToastEvent>,
     mut color_state: ResMut<SocketColorPickerState>,
@@ -40,8 +40,8 @@ pub fn socket_metadata_sync_system(
 
     let selected_entity = selected.0[0];
 
-    let Ok(mut name_input) = name_input_query.get_single_mut() else { return; };
-    let Ok(mut comment_input) = comment_input_query.get_single_mut() else { return; };
+    let Ok(mut name_input) = name_input_query.single_mut() else { return; };
+    let Ok(mut comment_input) = comment_input_query.single_mut() else { return; };
 
     // If selection changed, populate inputs from socket data
     if Some(selected_entity) != *last_selected {
@@ -120,20 +120,20 @@ pub fn socket_color_picker_system(
     button_query: Query<&Interaction, (Changed<Interaction>, With<SocketColorPicker>)>,
     hue_query: Query<(&Interaction, &Node, &GlobalTransform), With<SocketColorHueSlider>>,
     preset_query: Query<(&Interaction, &SocketColorPreset)>,
-    mut container_query: Query<&mut Style, With<SocketColorPickerContainer>>,
+    mut container_query: Query<&mut Node, With<SocketColorPickerContainer>>,
     mut preview_query: Query<&mut BackgroundColor, (With<SocketColorPicker>, Without<SocketColorPreset>)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     for interaction in button_query.iter() {
         if *interaction == Interaction::Pressed {
             color_state.is_open = !color_state.is_open;
-            if let Ok(mut style) = container_query.get_single_mut() {
+            if let Ok(mut style) = container_query.single_mut() {
                 style.display = if color_state.is_open { Display::Flex } else { Display::None };
             }
         }
     }
 
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     if let Some(cursor) = window.cursor_position() {
         for (interaction, node, transform) in hue_query.iter() {
             if *interaction == Interaction::Pressed || *interaction == Interaction::Hovered {
@@ -158,12 +158,12 @@ pub fn socket_color_picker_system(
     }
 
     if color_state.is_changed() {
-        if let Ok(mut bg) = preview_query.get_single_mut() {
+        if let Ok(mut bg) = preview_query.single_mut() {
             bg.0 = color_state.color;
         }
         
         // Also ensure container visibility matches state (useful when selection changes)
-        if let Ok(mut style) = container_query.get_single_mut() {
+        if let Ok(mut style) = container_query.single_mut() {
             let target_display = if color_state.is_open { Display::Flex } else { Display::None };
             if style.display != target_display {
                 style.display = target_display;

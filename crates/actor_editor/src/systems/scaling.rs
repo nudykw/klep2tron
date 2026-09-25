@@ -137,7 +137,7 @@ pub fn mesh_scaling_apply_system(
     mut slicing_settings: ResMut<SlicingSettings>,
     mut action_stack: ResMut<crate::systems::undo_redo::ActionStack>,
 ) {
-    let Ok((entity, bounds, mut transform)) = actor_query.get_single_mut() else { return; };
+    let Ok((entity, bounds, mut transform)) = actor_query.single_mut() else { return; };
     
     for interaction in btn_query.iter() {
         if *interaction == Interaction::Pressed && *status == EditorStatus::Ready {

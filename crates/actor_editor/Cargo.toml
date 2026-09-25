@@ -4,12 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.14", features = ["default", "wayland"] }
+bevy = { version = "0.19", features = ["default", "wayland"] }
 shared = { path = "../shared" }
 client_core = { path = "../client_core" }
-bevy_mod_picking = { version = "0.20", features = ["selection", "highlight", "backend_raycast", "backend_bevy_ui"] }
-bevy_panorbit_camera = "0.20"
-bevy_hanabi = "0.13"
+bevy_panorbit_camera = "0.35"
+bevy_hanabi = "0.19"
 rfd = "0.17"
 meshopt = "0.6"
 ron = "0.12.1"

@@ -242,7 +242,7 @@ fn exit_confirmation_sync_system(
         } else {
             // Cleanup confirmation UI
             for entity in menu_query.iter() {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             }
         }
     }
@@ -261,7 +261,7 @@ fn finish_loading_settings_on_menu(mut settings: ResMut<GraphicsSettings>) {
 
 
 pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<LoadingEntity>>) {
-    for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
+    for entity in query.iter() { commands.entity(entity).despawn(); }
 }
 
 pub fn reset_ambient_light(mut commands: Commands) {
@@ -278,7 +278,7 @@ pub fn cleanup_game(
 ) {
     for entity in query.iter() { 
         if let Some(e) = commands.get_entity(entity) {
-            e.despawn_recursive(); 
+            e.despawn(); 
         }
     }
     tile_map.entities.clear();

@@ -17,7 +17,7 @@ pub fn manual_gizmo_dragging_system(
     selected: Res<crate::ui::inspector::SelectedSocket>,
     mut action_stack: ResMut<crate::systems::undo_redo::ActionStack>,
 ) {
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_pos) = window.cursor_position() else { return; };
     
     if mouse.just_pressed(MouseButton::Left) {
@@ -42,7 +42,7 @@ pub fn manual_gizmo_dragging_system(
                 }
 
                 if axis.action == GizmoAction::Rotate {
-                    let Ok((camera, camera_gt)) = camera_query.get_single() else { continue; };
+                    let Ok((camera, camera_gt)) = camera_query.single() else { continue; };
                     if let Some(ray) = camera.viewport_to_world(camera_gt, cursor_pos) {
                         let center = gt.translation();
                         let normal = match axis.axis {
@@ -78,7 +78,7 @@ pub fn manual_gizmo_dragging_system(
                 let delta = cursor_pos - last_pos;
                 if delta.length_squared() > 0.0001 {
                     if let Ok(mut transform) = socket_query.get_mut(socket_entity) {
-                        let Ok((camera, camera_gt)) = camera_query.get_single() else { return; };
+                        let Ok((camera, camera_gt)) = camera_query.single() else { return; };
                         
                         match action {
                             GizmoAction::Translate => {

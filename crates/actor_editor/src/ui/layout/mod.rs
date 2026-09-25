@@ -35,7 +35,7 @@ pub fn setup_actor_editor(
     // Root UI Node (Vertical Column)
     commands.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
@@ -49,7 +49,7 @@ pub fn setup_actor_editor(
     )).with_children(|root| {
         // --- MAIN AREA ---
         root.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 flex_grow: 1.0,
                 flex_direction: FlexDirection::Row,
@@ -61,7 +61,7 @@ pub fn setup_actor_editor(
             // --- LEFT SIDEBAR ---
             parent.spawn((
                 NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Px(panel_settings.left_width),
                         height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
@@ -79,7 +79,7 @@ pub fn setup_actor_editor(
                 // --- WRAPPER ---
                 let mut scroll_id = None;
                 p.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         flex_grow: 1.0,
                         overflow: Overflow::clip(),
@@ -91,7 +91,7 @@ pub fn setup_actor_editor(
                 }).with_children(|wrapper| {
                     scroll_id = Some(wrapper.spawn((
                         NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
@@ -113,7 +113,7 @@ pub fn setup_actor_editor(
                         
                         // Spacer at the bottom
                         scroll_p.spawn(NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(60.0),
                                 ..default()
@@ -127,7 +127,7 @@ pub fn setup_actor_editor(
                 // --- SCROLLBAR ---
                 p.spawn((
                     NodeBundle {
-                        style: Style {
+                        style: Node {
                             position_type: PositionType::Absolute,
                             right: Val::Px(2.0),
                             top: Val::Px(2.0),
@@ -142,7 +142,7 @@ pub fn setup_actor_editor(
                 )).with_children(|track| {
                     track.spawn((
                         NodeBundle {
-                            style: Style {
+                            style: Node {
                                 position_type: PositionType::Absolute,
                                 width: Val::Percent(100.0),
                                 height: Val::Percent(20.0),
@@ -160,7 +160,7 @@ pub fn setup_actor_editor(
 
             parent.spawn((
                 ButtonBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Px(8.0),
                         height: Val::Percent(100.0),
                         ..default()
@@ -175,7 +175,7 @@ pub fn setup_actor_editor(
 
             // --- CENTER VIEWPORT SPACE ---
             parent.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     flex_grow: 1.0,
                     ..default()
                 },
@@ -184,7 +184,7 @@ pub fn setup_actor_editor(
             }).with_children(|p| {
                 // Header
                 p.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(20.0),
                         width: Val::Percent(100.0),
@@ -202,7 +202,7 @@ pub fn setup_actor_editor(
 
                 // --- TOP TOOLBAR ---
                 p.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(70.0),
                         width: Val::Percent(100.0),
@@ -213,7 +213,7 @@ pub fn setup_actor_editor(
                     ..default()
                 }).with_children(|toolbar| {
                     toolbar.spawn(NodeBundle {
-                        style: Style {
+                        style: Node {
                             padding: UiRect::all(Val::Px(4.0)),
                             flex_direction: FlexDirection::Row,
                             align_items: AlignItems::Center,
@@ -231,7 +231,7 @@ pub fn setup_actor_editor(
                         spawn_viewport_button(btns, ViewportToggleType::Xray, "\u{f06e}", "Toggle X-Ray (X)", &icon_font);
                         spawn_viewport_button(btns, ViewportToggleType::Reset, "\u{f021}", "Reset Camera (R)", &icon_font);
                         btns.spawn(NodeBundle {
-                            style: Style { width: Val::Px(2.0), height: Val::Px(20.0), margin: UiRect::horizontal(Val::Px(8.0)), ..default() },
+                            style: Node { width: Val::Px(2.0), height: Val::Px(20.0), margin: UiRect::horizontal(Val::Px(8.0)), ..default() },
                             background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
                             ..default()
                         });
@@ -246,7 +246,7 @@ pub fn setup_actor_editor(
                 // Toggle Sidebars
                 p.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(15.0),
                             top: Val::Px(15.0),
@@ -271,7 +271,7 @@ pub fn setup_actor_editor(
 
                 p.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             position_type: PositionType::Absolute,
                             right: Val::Px(15.0),
                             top: Val::Px(15.0),
@@ -297,7 +297,7 @@ pub fn setup_actor_editor(
 
             parent.spawn((
                 ButtonBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Px(8.0),
                         height: Val::Percent(100.0),
                         ..default()
@@ -313,7 +313,7 @@ pub fn setup_actor_editor(
             // --- RIGHT SIDEBAR ---
             parent.spawn((
                 NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Px(panel_settings.right_width),
                         height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
@@ -331,7 +331,7 @@ pub fn setup_actor_editor(
                 // --- WRAPPER ---
                 let mut scroll_id = None;
                 p.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         flex_grow: 1.0,
                         overflow: Overflow::clip(),
@@ -343,7 +343,7 @@ pub fn setup_actor_editor(
                 }).with_children(|wrapper| {
                     scroll_id = Some(wrapper.spawn((
                         NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect { left: Val::Px(15.0), right: Val::Px(15.0), top: Val::Px(15.0), bottom: Val::Px(0.0) },
@@ -365,7 +365,7 @@ pub fn setup_actor_editor(
                         
                         // Spacer at the bottom
                         scroll_p.spawn(NodeBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(60.0),
                                 ..default()
@@ -379,7 +379,7 @@ pub fn setup_actor_editor(
                 // --- SCROLLBAR ---
                 p.spawn((
                     NodeBundle {
-                        style: Style {
+                        style: Node {
                             position_type: PositionType::Absolute,
                             right: Val::Px(2.0),
                             top: Val::Px(2.0),
@@ -394,7 +394,7 @@ pub fn setup_actor_editor(
                 )).with_children(|track| {
                     track.spawn((
                         NodeBundle {
-                            style: Style {
+                            style: Node {
                                 position_type: PositionType::Absolute,
                                 width: Val::Percent(100.0),
                                 height: Val::Percent(20.0),
@@ -412,7 +412,7 @@ pub fn setup_actor_editor(
             
             parent.spawn((
                 ButtonBundle {
-                    style: Style {
+                    style: Node {
                         position_type: PositionType::Absolute,
                         bottom: Val::Px(20.0),
                         right: Val::Px(20.0),
@@ -448,7 +448,7 @@ pub fn cleanup_actor_editor(
     query: Query<Entity, With<ActorEditorEntity>>,
 ) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -461,7 +461,7 @@ fn spawn_viewport_button(
 ) {
     parent.spawn((
         ButtonBundle {
-            style: Style {
+            style: Node {
                 width: Val::Px(36.0),
                 height: Val::Px(36.0),
                 justify_content: JustifyContent::Center,
@@ -490,7 +490,7 @@ fn spawn_undo_redo_button(
 ) {
     let mut builder = parent.spawn((
         ButtonBundle {
-            style: Style {
+            style: Node {
                 width: Val::Px(36.0),
                 height: Val::Px(36.0),
                 justify_content: JustifyContent::Center,

@@ -84,7 +84,7 @@ pub fn cleanup_map(
 ) {
     for entity in tile_query.iter() {
         if let Some(ec) = commands.get_entity(entity) {
-            ec.despawn_recursive();
+            ec.despawn();
         }
     }
     tile_map.entities.clear();

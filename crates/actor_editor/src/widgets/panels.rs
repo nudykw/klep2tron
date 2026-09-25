@@ -37,7 +37,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
 ) {
     parent.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 margin: UiRect::bottom(Val::Px(10.0)),
@@ -50,7 +50,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
     )).with_children(|p| {
         p.spawn((
             ButtonBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(30.0),
                     align_items: AlignItems::Center,
@@ -64,7 +64,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
             CollapsibleHeader,
         )).with_children(|h| {
             h.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     column_gap: Val::Px(8.0),
@@ -83,7 +83,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
             });
 
             h.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     ..default()
@@ -96,7 +96,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
             content_bundle,
             CollapsibleContent,
             NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Column,
                     padding: UiRect::all(Val::Px(10.0)),
@@ -113,7 +113,7 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
 pub fn collapsible_system(
     mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<CollapsibleHeader>)>,
     mut section_query: Query<(Entity, &mut CollapsibleSection)>,
-    mut content_query: Query<(&mut Style, &Parent), With<CollapsibleContent>>,
+    mut content_query: Query<(&mut Node, &Parent), With<CollapsibleContent>>,
     header_query: Query<(&Children, &Parent), With<CollapsibleHeader>>,
     container_query: Query<&Children, Without<CollapsibleHeader>>,
     mut text_query: Query<&mut Text>,
@@ -146,14 +146,14 @@ pub fn collapsible_system(
                     
                     // Try old hierarchy first (header_children[0] is Text)
                     if let Ok(mut text) = text_query.get_mut(header_children[0]) {
-                        if text.sections[0].value != target_icon {
-                            text.sections[0].value = target_icon;
+                        if text.0 != target_icon {
+                            text.0 = target_icon;
                         }
                     } else if let Ok(container_children) = container_query.get(header_children[0]) {
                         // Try new hierarchy (header_children[0] is Container, container_children[0] is Icon)
                         if let Ok(mut text) = text_query.get_mut(container_children[0]) {
-                            if text.sections[0].value != target_icon {
-                                text.sections[0].value = target_icon;
+                            if text.0 != target_icon {
+                                text.0 = target_icon;
                             }
                         }
                     }
@@ -179,11 +179,11 @@ pub struct ScrollbarHandle {
 
 pub fn scroll_system(
     mut mouse_wheel_events: EventReader<bevy::input::mouse::MouseWheel>,
-    mut query: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
+    mut query: Query<(&mut ScrollingList, &mut Node, &Parent, &Node)>,
     parent_node_query: Query<(&Node, &GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_position) = window.cursor_position() else { return; };
 
     for event in mouse_wheel_events.read() {
@@ -218,7 +218,7 @@ pub fn scroll_system(
 }
 
 pub fn scrolling_list_sync_system(
-    mut query: Query<(&ScrollingList, &mut Style), Changed<ScrollingList>>,
+    mut query: Query<(&ScrollingList, &mut Node), Changed<ScrollingList>>,
 ) {
     for (scrolling_list, mut style) in query.iter_mut() {
         style.top = Val::Px(scrolling_list.position);
@@ -227,7 +227,7 @@ pub fn scrolling_list_sync_system(
 
 pub fn scrollbar_sync_system(
     scrolling_list_query: Query<(Entity, &ScrollingList, &Node, &Parent)>,
-    mut scrollbar_query: Query<(&mut Style, &ScrollbarHandle)>,
+    mut scrollbar_query: Query<(&mut Node, &ScrollbarHandle)>,
     parent_node_query: Query<&Node>,
 ) {
     for (list_entity, scrolling_list, node, parent) in scrolling_list_query.iter() {
@@ -255,7 +255,7 @@ pub fn scrollbar_sync_system(
 
 pub fn scrollbar_sync_visibility_system(
     scrolling_list_query: Query<(Entity, &Node, &Parent), With<ScrollingList>>,
-    mut track_query: Query<(&mut Style, &ScrollbarTrack)>,
+    mut track_query: Query<(&mut Node, &ScrollbarTrack)>,
     parent_node_query: Query<&Node>,
 ) {
     for (list_entity, node, parent) in scrolling_list_query.iter() {
@@ -285,7 +285,7 @@ pub fn scrollbar_drag_system(
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut dragging: Local<Option<Entity>>,
 ) {
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_position) = window.cursor_position() else { return; };
 
     for (interaction, handle) in interaction_query.iter() {
@@ -342,7 +342,7 @@ pub fn panel_resize_system(
     mut panel_settings: ResMut<PanelSettings>,
     mut dragging: Local<Option<PanelResizer>>,
 ) {
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_position) = window.cursor_position() else { return; };
     for (interaction, resizer, mut bg) in resizer_query.iter_mut() {
         match *interaction {
@@ -362,7 +362,7 @@ pub fn panel_resize_system(
 
 pub fn update_panel_style_system(
     panel_settings: Res<PanelSettings>,
-    mut query: Query<(&mut Style, &ResizablePanel)>,
+    mut query: Query<(&mut Node, &ResizablePanel)>,
 ) {
     if !panel_settings.is_changed() { return; }
     for (mut style, panel) in query.iter_mut() {

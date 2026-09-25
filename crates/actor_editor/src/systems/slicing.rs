@@ -27,12 +27,12 @@ pub fn mesh_slicing_system(
 ) {
     // 0. Handle Pre-sliced Meshes (from load)
     if !pending_slices.0.is_empty() {
-        if let Ok((_bounds, _root_global)) = actor_root_query.get_single() {
+        if let Ok((_bounds, _root_global)) = actor_root_query.single() {
             // Find root entity
-            if let Ok((root_entity, _, _, _, _, _)) = mesh_query.get_single() {
+            if let Ok((root_entity, _, _, _, _, _)) = mesh_query.single() {
                 // Despawn any existing parts
                 for (entity, _, _) in child_query.iter() {
-                    commands.entity(entity).despawn_recursive();
+                    commands.entity(entity).despawn();
                 }
 
                 commands.entity(root_entity).with_children(|p| {
@@ -104,7 +104,7 @@ pub fn mesh_slicing_system(
 
             // 2. Despawn old parts (Atomic swap start)
             for (entity, _, _) in child_query.iter() {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             }
 
             // 3. Apply result
@@ -166,7 +166,7 @@ pub fn mesh_slicing_system(
     }
 
     // 2. Start new task if needed
-    let Ok((bounds, root_global)) = actor_root_query.get_single() else { return; };
+    let Ok((bounds, root_global)) = actor_root_query.single() else { return; };
     
     // Check if we need to apply initial slice (only after auto-setup)
     let needs_initial_slice = child_query.is_empty() && !mesh_query.is_empty();

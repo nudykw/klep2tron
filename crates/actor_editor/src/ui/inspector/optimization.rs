@@ -22,7 +22,7 @@ pub fn spawn_optimization_section(
         |content| {
             // Target Triangles Input
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(30.0),
                     flex_direction: FlexDirection::Row,
@@ -63,7 +63,7 @@ pub fn spawn_optimization_section_v2(
         |content| {
             // Target Tris
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     margin: UiRect::bottom(Val::Px(10.0)),
                     flex_direction: FlexDirection::Row,
@@ -84,7 +84,7 @@ pub fn spawn_optimization_section_v2(
 
             // Buttons Row
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
@@ -96,7 +96,7 @@ pub fn spawn_optimization_section_v2(
                 // Optimize Button
                 row.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             flex_grow: 1.0,
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
@@ -119,7 +119,7 @@ pub fn spawn_optimization_section_v2(
                 // Original Toggle (A/B)
                 row.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
@@ -142,7 +142,7 @@ pub fn spawn_optimization_section_v2(
                 // Wireframe Toggle
                 row.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
@@ -243,7 +243,7 @@ pub fn mesh_optimization_system(
 
     // Auto-trigger if we just loaded an optimized project
     if opt_settings.is_optimized && *status == EditorStatus::Ready {
-        if let Ok((_entity, _, opt_comp)) = mesh_query.get_single() {
+        if let Ok((_entity, _, opt_comp)) = mesh_query.single() {
             if opt_comp.is_none() {
                 trigger_optimize = true;
                 info!("Auto-triggering optimization for loaded project...");
@@ -252,7 +252,7 @@ pub fn mesh_optimization_system(
     }
 
     if trigger_optimize {
-        if let Ok((entity, original, _)) = mesh_query.get_single() {
+        if let Ok((entity, original, _)) = mesh_query.single() {
             if let Some(source_mesh) = meshes.get(&original.0) {
                 *status = EditorStatus::Processing;
                 

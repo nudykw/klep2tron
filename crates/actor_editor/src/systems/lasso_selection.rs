@@ -19,7 +19,7 @@ pub fn lasso_input_system(
         return;
     }
 
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_pos) = window.cursor_position() else { return; };
 
     let mut hovering_ui = false;
@@ -64,7 +64,7 @@ pub fn lasso_render_system(
 ) {
     if !lasso_state.is_active || lasso_state.points.len() < 2 { return; }
     
-    let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
+    let Ok((camera, camera_transform)) = camera_query.single() else { return; };
     
     let color = if lasso_state.mode == LassoSelectionMode::Add {
         Color::srgb(0.0, 1.0, 1.0) // Cyan
@@ -104,7 +104,7 @@ pub fn triangle_selection_system(
     
     // Handle "Reset" or "Single Click Selection" (Click on empty space or tiny lasso)
     if lasso_state.points.len() < 5 {
-        let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
+        let Ok((camera, camera_transform)) = camera_query.single() else { return; };
         let last_pos = *lasso_state.points.last().unwrap();
         let ray = camera.viewport_to_world(camera_transform, last_pos).unwrap();
         
@@ -148,7 +148,7 @@ pub fn triangle_selection_system(
         return;
     }
 
-    let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
+    let Ok((camera, camera_transform)) = camera_query.single() else { return; };
     
     let mut selected_per_part = Vec::new();
 

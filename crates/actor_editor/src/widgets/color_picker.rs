@@ -36,7 +36,7 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
     let display = if is_open { Display::Flex } else { Display::None };
     parent.spawn((
         ButtonBundle { 
-            style: Style { 
+            style: Node { 
                 width: Val::Percent(100.0), 
                 height: Val::Px(32.0), 
                 margin: UiRect::bottom(Val::Px(10.0)), 
@@ -52,7 +52,7 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
     
     parent.spawn((
         NodeBundle { 
-            style: Style { 
+            style: Node { 
                 width: Val::Percent(100.0), 
                 flex_direction: FlexDirection::Column, 
                 display, 
@@ -64,7 +64,7 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
     )).with_children(|container| {
         container.spawn((
             NodeBundle { 
-                style: Style { 
+                style: Node { 
                     width: Val::Percent(100.0), 
                     height: Val::Px(12.0), 
                     margin: UiRect::vertical(Val::Px(5.0)), 
@@ -79,7 +79,7 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
         ));
         
         container.spawn(NodeBundle { 
-            style: Style { 
+            style: Node { 
                 width: Val::Percent(100.0), 
                 display: Display::Grid, 
                 grid_template_columns: vec![GridTrack::flex(1.0); 5], 
@@ -99,7 +99,7 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
             for color in presets { 
                 grid.spawn((
                     ButtonBundle { 
-                        style: Style { width: Val::Px(24.0), height: Val::Px(24.0), ..default() }, 
+                        style: Node { width: Val::Px(24.0), height: Val::Px(24.0), ..default() }, 
                         background_color: color.into(), 
                         border_radius: BorderRadius::all(Val::Px(4.0)), 
                         ..default() 

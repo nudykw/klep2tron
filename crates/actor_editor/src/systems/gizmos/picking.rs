@@ -8,7 +8,7 @@ pub fn manual_gizmo_picking_system(
     gizmo_axis_query: Query<&GizmoAxis>,
     ui_query: Query<&Interaction, With<Node>>,
 ) {
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_pos) = window.cursor_position() else { return; };
 
     // Skip if interacting with UI
@@ -26,7 +26,7 @@ pub fn manual_gizmo_picking_system(
         }
     }
 
-    let Ok((camera, camera_gt)) = camera_query.get_single() else { return; };
+    let Ok((camera, camera_gt)) = camera_query.single() else { return; };
     let Some(ray) = camera.viewport_to_world(camera_gt, cursor_pos) else { return; };
 
     // If any gizmo is already pressed (being dragged), don't update hover states for others

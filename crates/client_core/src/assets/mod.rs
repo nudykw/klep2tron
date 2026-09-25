@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::ui::widgets::*;
 use crate::{GameState, ProgressBar, LoadingEntity};
 
 #[derive(Resource, Default)]
@@ -22,22 +23,10 @@ pub fn start_loading(
     if *state.get() == GameState::Loading {
         commands.spawn((Camera2dBundle::default(), LoadingEntity));
 
-        commands.spawn((NodeBundle {
-        style: Style { width: Val::Percent(100.0), height: Val::Percent(100.0), flex_direction: FlexDirection::Column, justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() },
-        background_color: Color::srgb(0.0, 0.0, 0.0).into(),
-        ..default()
-    }, LoadingEntity)).with_children(|p| {
-        p.spawn(TextBundle::from_section("Loading...", TextStyle { font: assets.font.clone(), font_size: 30.0, color: Color::WHITE }));
-        p.spawn((NodeBundle {
-            style: Style { width: Val::Px(400.0), height: Val::Px(20.0), border: UiRect::all(Val::Px(2.0)), margin: UiRect::all(Val::Px(20.0)), ..default() },
-            border_color: Color::WHITE.into(),
-            ..default()
-        },)).with_children(|p| {
-            p.spawn((NodeBundle {
-                style: Style { width: Val::Percent(0.0), height: Val::Percent(100.0), ..default() },
-                background_color: Color::srgb(0.0, 1.0, 1.0).into(),
-                ..default()
-            }, ProgressBar));
+        commands.spawn((UiNode { node: Node { width: Val::Percent(100.0), height: Val::Percent(100.0), flex_direction: FlexDirection::Column, justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() }, background_color: BackgroundColor(Color::srgb(0.0, 0.0, 0.0)), ..default() }, LoadingEntity)).with_children(|p| {
+        p.spawn(ui_text("Loading...", &assets.font.clone(), 30.0, Color::WHITE));
+        p.spawn((UiNode { node: Node { width: Val::Px(400.0), height: Val::Px(20.0), border: UiRect::all(Val::Px(2.0)), margin: UiRect::all(Val::Px(20.0)), ..default() }, border_color: BorderColor::all(Color::WHITE), ..default() },)).with_children(|p| {
+            p.spawn((UiNode { node: Node { width: Val::Percent(0.0), height: Val::Percent(100.0), ..default() }, background_color: BackgroundColor(Color::srgb(0.0, 1.0, 1.0)), ..default() }, ProgressBar));
         });
         });
     }
@@ -47,7 +36,7 @@ pub fn check_loading_system(
     mut next_state: ResMut<NextState<GameState>>,
     asset_server: Res<AssetServer>,
     assets: Res<ClientAssets>,
-    mut bar_query: Query<&mut Style, With<ProgressBar>>,
+    mut bar_query: Query<&mut Node, With<ProgressBar>>,
 ) {
     use bevy::asset::RecursiveDependencyLoadState;
     let cube_state = asset_server.get_recursive_dependency_load_state(&assets.cube_mesh);
@@ -59,7 +48,7 @@ pub fn check_loading_system(
 
     let progress = (loaded_count as f32 / 2.0) * 100.0;
 
-    if let Ok(mut style) = bar_query.get_single_mut() {
+    if let Ok(mut style) = bar_query.single_mut() {
         style.width = Val::Percent(progress);
     }
 

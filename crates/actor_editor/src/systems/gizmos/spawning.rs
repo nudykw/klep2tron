@@ -26,7 +26,7 @@ pub fn update_socket_gizmos_system(
         
         // If socket is gone, nothing selected, mode changed, visibility changed, or selection changed, despawn
         if !socket_exists || selected_entity.is_none() || selected.is_changed() || editor_mode.is_changed() || viewport_settings.is_changed() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 

@@ -79,7 +79,7 @@ pub fn inspection_camera_focus_system(
     actor_query: Query<(&ActorPart, &GlobalTransform, &Handle<Mesh>)>,
     meshes: Res<Assets<Mesh>>,
 ) {
-    let mut camera = match camera_query.get_single_mut() {
+    let mut camera = match camera_query.single_mut() {
         Ok(c) => c,
         Err(_) => return,
     };
@@ -277,7 +277,7 @@ pub fn inspection_ui_sync_system(
     marker_query: Query<&Parent, With<PartsSectionMarker>>,
     mut section_query: Query<&mut CollapsibleSection>,
 ) {
-    let Ok(parent) = marker_query.get_single() else { return; };
+    let Ok(parent) = marker_query.single() else { return; };
     let Ok(mut section) = section_query.get_mut(parent.get()) else { return; };
 
     let current_active = settings.is_active;

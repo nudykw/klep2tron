@@ -293,7 +293,7 @@ fn apply_settings_system(
 ) {
     if !settings.is_changed() { return; }
     
-    if let Ok(mut window) = windows.get_single_mut() {
+    if let Ok(mut window) = windows.single_mut() {
         // Apply Window Mode
         window.mode = match settings.window_mode {
             MyWindowMode::Windowed => bevy::window::WindowMode::Windowed,

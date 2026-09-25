@@ -8,7 +8,7 @@ pub fn socket_ui_list_sync_system(
     socket_query: Query<(Entity, &crate::ActorSocket)>,
     list_items_query: Query<(Entity, &SocketListItem)>,
 ) {
-    let Ok(container) = container_query.get_single() else { return; };
+    let Ok(container) = container_query.single() else { return; };
     
     // Simple reconciliation: check if we have an item for each socket
     let existing_entities: std::collections::HashSet<Entity> = list_items_query.iter().map(|(_, item)| item.0).collect();
@@ -23,7 +23,7 @@ pub fn socket_ui_list_sync_system(
     if existing_entities != current_entities {
         // Despawn all existing items
         for (item_entity, _) in list_items_query.iter() {
-            commands.entity(item_entity).despawn_recursive();
+            commands.entity(item_entity).despawn();
         }
         
         // Spawn new items
@@ -31,7 +31,7 @@ pub fn socket_ui_list_sync_system(
             for (socket_entity, socket) in current_sockets {
                 parent.spawn((
                     ButtonBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Percent(100.0),
                             height: Val::Px(25.0),
                             margin: UiRect::bottom(Val::Px(2.0)),
@@ -66,8 +66,8 @@ pub fn socket_ui_list_label_sync_system(
         if let Ok(socket) = socket_query.get(item.0) {
             for &child in children.iter() {
                 if let Ok(mut text) = label_query.get_mut(child) {
-                    if text.sections[0].value != socket.definition.name {
-                        text.sections[0].value = socket.definition.name.clone();
+                    if text.0 != socket.definition.name {
+                        text.0 = socket.definition.name.clone();
                     }
                 }
             }
@@ -83,7 +83,7 @@ pub fn socket_list_click_system(
     container_query: Query<&Children, With<SocketListContainer>>,
     item_visibility_query: Query<(&SocketListItem, &Visibility)>,
 ) {
-    let Ok(children) = container_query.get_single() else { return; };
+    let Ok(children) = container_query.single() else { return; };
     
     // Get visible items in order they appear in UI
     let mut visible_entities = Vec::new();
@@ -179,7 +179,7 @@ pub fn socket_transform_update_system(
                     TransformAxis::Y => (transform.translation.y, "Y"),
                     TransformAxis::Z => (transform.translation.z, "Z"),
                 };
-                text.sections[0].value = format!("{}: {:.2}", label, val);
+                text.0 = format!("{}: {:.2}", label, val);
             }
         }
     }
@@ -194,7 +194,7 @@ pub fn socket_transform_update_system(
                     RotationAxis::Pitch => (pitch.to_degrees(), "P"),
                     RotationAxis::Yaw => (yaw.to_degrees(), "Y"),
                 };
-                text.sections[0].value = format!("{}: {:.1}°", label, val);
+                text.0 = format!("{}: {:.1}°", label, val);
             }
         }
     }
@@ -247,7 +247,7 @@ pub fn socket_filter_ui_system(
     mut btns_query: Query<(&SocketPartFilterButton, &Interaction, &mut BackgroundColor)>,
 ) {
     // 1. Update search text
-    if let Ok(search) = search_query.get_single() {
+    if let Ok(search) = search_query.single() {
         if search.value != filter.search_text {
             filter.search_text = search.value.clone();
         }
@@ -279,8 +279,8 @@ pub fn selection_counter_sync_system(
     
     for mut text in counter_query.iter_mut() {
         let new_val = format!("Selected: {} triangles", total);
-        if text.sections[0].value != new_val {
-            text.sections[0].value = new_val;
+        if text.0 != new_val {
+            text.0 = new_val;
         }
     }
 }

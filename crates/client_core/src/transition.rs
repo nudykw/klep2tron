@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::ui::widgets::*;
 use crate::{Project, DirtyTiles};
 
 #[derive(Resource, Default)]
@@ -37,7 +38,7 @@ pub fn transition_logic_system(
 ) {
     if transition.phase == TransitionPhase::Idle { return; }
 
-    transition.timer += time.delta_seconds() * transition.speed;
+    transition.timer += time.delta_secs() * transition.speed;
 
     if transition.phase == TransitionPhase::Out && transition.timer >= 1.0 {
         project.current_room_idx = transition.target_room_idx;
@@ -57,27 +58,22 @@ pub fn transition_ui_system(
     mut overlay_query: Query<&mut BackgroundColor, With<TransitionUi>>,
 ) {
     if transition.phase == TransitionPhase::Idle {
-        if let Ok(entity) = query.get_single() {
-            commands.entity(entity).despawn_recursive();
+        if let Ok(entity) = query.single() {
+            commands.entity(entity).despawn();
         }
         return;
     }
 
     if query.is_empty() {
         commands.spawn((
-            NodeBundle {
-                style: Style {
+            UiNode { node: Node {
                     width: Val::Percent(100.0), height: Val::Percent(100.0),
                     position_type: PositionType::Absolute,
                     ..default()
-                },
-                background_color: Color::NONE.into(),
-                z_index: ZIndex::Global(1000), 
-                ..default()
-            },
+                }, background_color: BackgroundColor(Color::NONE), global_z_index: GlobalZIndex(1000), ..default() },
             TransitionUi,
         ));
-    } else if let Ok(mut color) = overlay_query.get_single_mut() {
+    } else if let Ok(mut color) = overlay_query.single_mut() {
         let alpha = match transition.phase {
             TransitionPhase::Out => transition.timer.clamp(0.0, 1.0),
             TransitionPhase::In => (1.0 - transition.timer).clamp(0.0, 1.0),

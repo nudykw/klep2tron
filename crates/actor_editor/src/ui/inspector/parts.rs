@@ -25,7 +25,7 @@ pub fn spawn_parts_section(
                 (ActorPart::Engine, "Legs"),
             ] {
                 content.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(30.0),
                         flex_direction: FlexDirection::Row,
@@ -42,7 +42,7 @@ pub fn spawn_parts_section(
                     ));
 
                     row.spawn(NodeBundle {
-                        style: Style {
+                        style: Node {
                             flex_direction: FlexDirection::Row,
                             column_gap: Val::Px(5.0),
                             ..default()
@@ -52,7 +52,7 @@ pub fn spawn_parts_section(
                         // Focus Button
                         btns.spawn((
                             ButtonBundle {
-                                style: Style {
+                                style: Node {
                                     width: Val::Px(24.0),
                                     height: Val::Px(24.0),
                                     justify_content: JustifyContent::Center,
@@ -75,7 +75,7 @@ pub fn spawn_parts_section(
                         // Solo Button
                         btns.spawn((
                             ButtonBundle {
-                                style: Style {
+                                style: Node {
                                     width: Val::Px(24.0),
                                     height: Val::Px(24.0),
                                     justify_content: JustifyContent::Center,
@@ -100,7 +100,7 @@ pub fn spawn_parts_section(
 
             // Inspection Toggles (Ghost, Wireframe, Normals)
             content.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     margin: UiRect::top(Val::Px(10.0)),
                     flex_direction: FlexDirection::Row,
@@ -116,7 +116,7 @@ pub fn spawn_parts_section(
                 ] {
                     row.spawn((
                         ButtonBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Px(60.0),
                                 height: Val::Px(25.0),
                                 flex_direction: FlexDirection::Column,
@@ -146,7 +146,7 @@ pub fn spawn_parts_section(
         |header| {
             header.spawn((
                 ButtonBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Px(20.0),
                         height: Val::Px(20.0),
                         justify_content: JustifyContent::Center,

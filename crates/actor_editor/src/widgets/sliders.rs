@@ -30,7 +30,7 @@ pub fn spawn_slider_ext<T: Bundle>(
     
     parent.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(20.0),
                 margin: UiRect::vertical(Val::Px(5.0)),
@@ -44,7 +44,7 @@ pub fn spawn_slider_ext<T: Bundle>(
         extra,
     )).with_children(|p| {
         p.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(4.0),
                 ..default()
@@ -54,7 +54,7 @@ pub fn spawn_slider_ext<T: Bundle>(
         }).with_children(|track| {
             track.spawn((
                 NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Px(12.0),
                         height: Val::Px(12.0),
                         position_type: PositionType::Absolute,
@@ -75,10 +75,10 @@ pub fn spawn_slider_ext<T: Bundle>(
 pub fn slider_system(
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut Slider, &Children)>,
-    mut thumb_query: Query<&mut Style, With<SliderThumb>>,
+    mut thumb_query: Query<&mut Node, With<SliderThumb>>,
     node_query: Query<&Children>,
 ) {
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_position) = window.cursor_position() else { return; };
 
     for (interaction, node, transform, mut slider, children) in interaction_query.iter_mut() {
@@ -146,7 +146,7 @@ fn spawn_range_slider_internal(
     vertical: bool
 ) {
     let container_style = if vertical {
-        Style {
+        Node {
             width: Val::Px(30.0),
             flex_grow: 1.0,
             margin: UiRect::horizontal(Val::Px(5.0)),
@@ -156,7 +156,7 @@ fn spawn_range_slider_internal(
             ..default()
         }
     } else {
-        Style {
+        Node {
             width: Val::Percent(100.0),
             height: Val::Px(24.0),
             margin: UiRect::vertical(Val::Px(10.0)),
@@ -184,9 +184,9 @@ fn spawn_range_slider_internal(
     )).with_children(|p| {
 
         let track_style = if vertical {
-            Style { width: Val::Px(4.0), height: Val::Percent(100.0), ..default() }
+            Node { width: Val::Px(4.0), height: Val::Percent(100.0), ..default() }
         } else {
-            Style { width: Val::Percent(100.0), height: Val::Px(4.0), ..default() }
+            Node { width: Val::Percent(100.0), height: Val::Px(4.0), ..default() }
         };
 
         p.spawn(NodeBundle {
@@ -195,7 +195,7 @@ fn spawn_range_slider_internal(
             ..default()
         }).with_children(|p| {
             let thumb_size = 24.0;
-            let thumb_style = Style { 
+            let thumb_style = Node { 
                 width: Val::Px(thumb_size), 
                 height: Val::Px(thumb_size), 
                 position_type: PositionType::Absolute, 
@@ -232,7 +232,7 @@ fn spawn_range_slider_internal(
                 // Confirmation Circle UI
                 btn.spawn((
                     NodeBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
                             position_type: PositionType::Absolute,
@@ -293,7 +293,7 @@ fn spawn_range_slider_internal(
                 // Confirmation Circle UI
                 btn.spawn((
                     NodeBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
                             position_type: PositionType::Absolute,
@@ -332,7 +332,7 @@ fn spawn_range_slider_internal(
 
 pub fn range_slider_system(
     mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut RangeSlider, &Children, &bevy::ui::RelativeCursorPosition)>,
-    mut thumb_query: Query<(&Interaction, &mut Style, &RangeSliderThumb, &mut Tooltip, &Children, &GlobalTransform, &bevy::ui::RelativeCursorPosition)>,
+    mut thumb_query: Query<(&Interaction, &mut Node, &RangeSliderThumb, &mut Tooltip, &Children, &GlobalTransform, &bevy::ui::RelativeCursorPosition)>,
     mut circle_query: Query<(&ConfirmationCircleUI, &mut Visibility, &mut BackgroundColor, &Interaction, &bevy::ui::RelativeCursorPosition)>,
 
     node_query: Query<&Children>,

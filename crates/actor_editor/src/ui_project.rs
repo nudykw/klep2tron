@@ -26,7 +26,7 @@ pub fn setup_project_panel(
 ) {
     parent.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 margin: UiRect::top(Val::Px(20.0)),
@@ -43,7 +43,7 @@ pub fn setup_project_panel(
 
         // Mode Switch
         p.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(40.0),
                 margin: UiRect::top(Val::Px(30.0)),
@@ -58,7 +58,7 @@ pub fn setup_project_panel(
 
         // Content Area
         p.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 margin: UiRect::top(Val::Px(15.0)),
                 flex_direction: FlexDirection::Column,
@@ -69,7 +69,7 @@ pub fn setup_project_panel(
             // SLICING CONTENT
             content.spawn((
                 NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         display: Display::Flex, // Default
@@ -85,7 +85,7 @@ pub fn setup_project_panel(
             // SOCKETS CONTENT
             content.spawn((
                 NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         display: Display::None, // Hidden by default
@@ -97,7 +97,7 @@ pub fn setup_project_panel(
             )).with_children(|sockets_content| {
                 // --- SEARCH & ADD ---
                 sockets_content.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Row,
                         column_gap: Val::Px(5.0),
@@ -108,7 +108,7 @@ pub fn setup_project_panel(
                 }).with_children(|row| {
                     row.spawn((
                         ButtonBundle {
-                            style: Style {
+                            style: Node {
                                 width: Val::Px(30.0),
                                 height: Val::Px(30.0),
                                 justify_content: JustifyContent::Center,
@@ -131,7 +131,7 @@ pub fn setup_project_panel(
                     row.spawn((
                         crate::widgets::TextInputBundle {
                             button: ButtonBundle {
-                                style: Style {
+                                style: Node {
                                     flex_grow: 1.0,
                                     height: Val::Px(30.0),
                                     padding: UiRect::horizontal(Val::Px(10.0)),
@@ -177,7 +177,7 @@ pub fn setup_project_panel(
 
                 // --- FILTERS ---
                 sockets_content.spawn(NodeBundle {
-                    style: Style {
+                    style: Node {
                         width: Val::Percent(100.0),
                         margin: UiRect::vertical(Val::Px(5.0)),
                         flex_direction: FlexDirection::Row,
@@ -194,7 +194,7 @@ pub fn setup_project_panel(
                     ] {
                         btns.spawn((
                             ButtonBundle {
-                                style: Style {
+                                style: Node {
                                     flex_grow: 1.0,
                                     height: Val::Px(20.0),
                                     justify_content: JustifyContent::Center,
@@ -218,7 +218,7 @@ pub fn setup_project_panel(
                 // --- LIST ---
                 sockets_content.spawn((
                     NodeBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Percent(100.0),
                             flex_direction: FlexDirection::Column,
                             max_height: Val::Px(500.0), // Increased for hierarchy panel
@@ -246,7 +246,7 @@ fn spawn_button(
 ) {
     parent.spawn((
         ButtonBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(45.0),
                 margin: UiRect::bottom(Val::Px(10.0)),
@@ -263,7 +263,7 @@ fn spawn_button(
         Tooltip(tooltip.to_string()),
     )).with_children(|p| {
         p.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 align_items: AlignItems::Center,
                 ..default()
             },
@@ -274,7 +274,7 @@ fn spawn_button(
                 TextStyle { font: icon_font.clone(), font_size: 18.0, color: Color::srgb(0.3, 0.6, 1.0) },
             ));
             left.spawn(NodeBundle {
-                style: Style { width: Val::Px(10.0), ..default() },
+                style: Node { width: Val::Px(10.0), ..default() },
                 ..default()
             });
             left.spawn(TextBundle::from_section(
@@ -298,7 +298,7 @@ fn spawn_mode_tab(
 ) {
     parent.spawn((
         ButtonBundle {
-            style: Style {
+            style: Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
@@ -324,7 +324,7 @@ fn spawn_slicing_precision_ui(
 ) {
     // Mode Toggle: AUTO / MANUAL
     parent.spawn(NodeBundle {
-        style: Style {
+        style: Node {
             width: Val::Percent(100.0),
             height: Val::Px(30.0),
             margin: UiRect::vertical(Val::Px(10.0)),
@@ -336,7 +336,7 @@ fn spawn_slicing_precision_ui(
         for (label, is_manual) in [("AUTO", false), ("MANUAL", true)] {
             row.spawn((
                 ButtonBundle {
-                    style: Style {
+                    style: Node {
                         flex_grow: 1.0,
                         height: Val::Percent(100.0),
                         justify_content: JustifyContent::Center,
@@ -362,7 +362,7 @@ fn spawn_slicing_precision_ui(
     // Auto Mode Container
     parent.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(8.0),
@@ -377,7 +377,7 @@ fn spawn_slicing_precision_ui(
     )).with_children(|container| {
         // TOP CUT
         container.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
@@ -393,7 +393,7 @@ fn spawn_slicing_precision_ui(
             row.spawn((
                 super::widgets::TextInputBundle {
                     button: ButtonBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Px(60.0),
                             height: Val::Px(28.0),
                             padding: UiRect::horizontal(Val::Px(8.0)),
@@ -429,7 +429,7 @@ fn spawn_slicing_precision_ui(
 
         // BOTTOM CUT
         container.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
@@ -445,7 +445,7 @@ fn spawn_slicing_precision_ui(
             row.spawn((
                 super::widgets::TextInputBundle {
                     button: ButtonBundle {
-                        style: Style {
+                        style: Node {
                             width: Val::Px(60.0),
                             height: Val::Px(28.0),
                             padding: UiRect::horizontal(Val::Px(8.0)),
@@ -481,7 +481,7 @@ fn spawn_slicing_precision_ui(
 
         // RIM THICKNESS
         container.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
@@ -496,7 +496,7 @@ fn spawn_slicing_precision_ui(
             ));
             
             row.spawn(NodeBundle {
-                style: Style { width: Val::Px(100.0), ..default() },
+                style: Node { width: Val::Px(100.0), ..default() },
                 ..default()
             }).with_children(|slider_p| {
                 super::widgets::spawn_slider_ext(
@@ -516,7 +516,7 @@ fn spawn_slicing_precision_ui(
     // Manual Mode Container
     parent.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(8.0),
@@ -532,7 +532,7 @@ fn spawn_slicing_precision_ui(
     )).with_children(|container| {
         // Selection Counter
         container.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(25.0),
                 flex_direction: FlexDirection::Row,
@@ -560,7 +560,7 @@ fn spawn_slicing_precision_ui(
 
         // ── Target Part Selector ───────────────────────────────────────────
         container.spawn(NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 margin: UiRect::top(Val::Px(10.0)),
                 flex_direction: FlexDirection::Column,
@@ -575,7 +575,7 @@ fn spawn_slicing_precision_ui(
             ));
 
             col.spawn(NodeBundle {
-                style: Style {
+                style: Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(28.0),
                     flex_direction: FlexDirection::Row,
@@ -591,7 +591,7 @@ fn spawn_slicing_precision_ui(
                 ] {
                     row.spawn((
                         ButtonBundle {
-                            style: Style {
+                            style: Node {
                                 flex_grow: 1.0,
                                 height: Val::Percent(100.0),
                                 justify_content: JustifyContent::Center,

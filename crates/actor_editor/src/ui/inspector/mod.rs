@@ -21,7 +21,7 @@ pub fn setup_inspector(
 ) {
     parent.spawn((
         NodeBundle {
-            style: Style {
+            style: Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 flex_shrink: 0.0,

@@ -9,19 +9,19 @@ pub struct Tooltip(pub String);
 pub struct TooltipRoot;
 
 pub fn spawn_tooltip_root(commands: &mut Commands, font: &Handle<Font>, target_camera: Option<Entity>) {
-    let mut cmd = commands.spawn((NodeBundle { style: Style { position_type: PositionType::Absolute, padding: UiRect::all(Val::Px(10.0)), display: Display::None, width: Val::Auto, height: Val::Auto, ..default() }, background_color: Color::srgba(0.05, 0.05, 0.05, 0.95).into(), border_radius: BorderRadius::all(Val::Px(6.0)), z_index: ZIndex::Global(100), ..default() }, TooltipRoot, ActorEditorEntity, ));
+    let mut cmd = commands.spawn((NodeBundle { style: Node { position_type: PositionType::Absolute, padding: UiRect::all(Val::Px(10.0)), display: Display::None, width: Val::Auto, height: Val::Auto, ..default() }, background_color: Color::srgba(0.05, 0.05, 0.05, 0.95).into(), border_radius: BorderRadius::all(Val::Px(6.0)), z_index: ZIndex::Global(100), ..default() }, TooltipRoot, ActorEditorEntity, ));
     if let Some(camera) = target_camera { cmd.insert(bevy::ui::TargetCamera(camera)); }
     cmd.with_children(|p| { p.spawn(TextBundle::from_section("", TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE }, )); });
 }
 
-pub fn tooltip_system(window_query: Query<&Window, With<bevy::window::PrimaryWindow>>, interaction_query: Query<(&Interaction, &Tooltip)>, mut tooltip_query: Query<(&mut Style, &mut Visibility, &Children), With<TooltipRoot>>, mut text_query: Query<&mut Text>, ) {
-    let Ok(window) = window_query.get_single() else { return; };
+pub fn tooltip_system(window_query: Query<&Window, With<bevy::window::PrimaryWindow>>, interaction_query: Query<(&Interaction, &Tooltip)>, mut tooltip_query: Query<(&mut Node, &mut Visibility, &Children), With<TooltipRoot>>, mut text_query: Query<&mut Text>, ) {
+    let Ok(window) = window_query.single() else { return; };
     let Some(cursor_position) = window.cursor_position() else { return; };
-    let Ok((mut style, mut visibility, children)) = tooltip_query.get_single_mut() else { return; };
+    let Ok((mut style, mut visibility, children)) = tooltip_query.single_mut() else { return; };
     let mut hovered_text = None;
     for (interaction, tooltip) in interaction_query.iter() { if *interaction == Interaction::Hovered { hovered_text = Some(tooltip.0.clone()); break; } }
     if let Some(text_content) = hovered_text {
-        if let Ok(mut text) = text_query.get_mut(children[0]) { text.sections[0].value = text_content; }
+        if let Ok(mut text) = text_query.get_mut(children[0]) { text.0 = text_content; }
         *visibility = Visibility::Visible; style.display = Display::Flex;
         let x = (cursor_position.x + 15.0).min(window.width() - 150.0);
         let y = (cursor_position.y + 15.0).min(window.height() - 40.0);
@@ -37,12 +37,12 @@ pub struct PolycountText;
 pub struct KeyHintText;
 
 pub fn spawn_status_bar(parent: &mut ChildBuilder, font: &Handle<Font>, icon_font: &Handle<Font>) {
-    parent.spawn(NodeBundle { style: Style { width: Val::Percent(100.0), height: Val::Px(28.0), border: UiRect::top(Val::Px(1.0)), padding: UiRect::horizontal(Val::Px(15.0)), align_items: AlignItems::Center, justify_content: JustifyContent::SpaceBetween, ..default() }, background_color: Color::srgba(0.05, 0.05, 0.05, 0.9).into(), border_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(), ..default() }).with_children(|p| {
-        p.spawn((NodeBundle { style: Style { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Current Editor State".to_string()), )).with_children(|left| {
+    parent.spawn(NodeBundle { style: Node { width: Val::Percent(100.0), height: Val::Px(28.0), border: UiRect::top(Val::Px(1.0)), padding: UiRect::horizontal(Val::Px(15.0)), align_items: AlignItems::Center, justify_content: JustifyContent::SpaceBetween, ..default() }, background_color: Color::srgba(0.05, 0.05, 0.05, 0.9).into(), border_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(), ..default() }).with_children(|p| {
+        p.spawn((NodeBundle { style: Node { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Current Editor State".to_string()), )).with_children(|left| {
             left.spawn(TextBundle::from_section("\u{f05a} ", TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.3, 0.6, 1.0) }));
             left.spawn((TextBundle::from_section("READY", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.7, 0.7, 0.7) }), StatusText));
         });
-        p.spawn((NodeBundle { style: Style { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Keyboard Shortcuts & Gizmo Legend".to_string()), )).with_children(|mid| {
+        p.spawn((NodeBundle { style: Node { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Keyboard Shortcuts & Gizmo Legend".to_string()), )).with_children(|mid| {
             mid.spawn((TextBundle::from_sections(vec![
                 TextSection::new("TAB: Mode | G: Grid | R: Reset | ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
                 TextSection::new("X", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(1.0, 0.3, 0.3) }),
@@ -53,7 +53,7 @@ pub fn spawn_status_bar(parent: &mut ChildBuilder, font: &Handle<Font>, icon_fon
                 TextSection::new(":B", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
             ]), KeyHintText));
         });
-        p.spawn((NodeBundle { style: Style { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Total Scene Complexity".to_string()), )).with_children(|right| {
+        p.spawn((NodeBundle { style: Node { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Total Scene Complexity".to_string()), )).with_children(|right| {
             right.spawn(TextBundle::from_section("\u{f1b2} ", TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.7, 0.7, 0.7) }));
             right.spawn((TextBundle::from_section("POLYS: 0", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.7, 0.7, 0.7) }), PolycountText));
         });
@@ -123,7 +123,7 @@ pub struct SlicerContainer;
 
 pub fn spawn_viewport_slicer(parent: &mut ChildBuilder, icon_font: &Handle<Font>, initial_min: f32, initial_max: f32) {
     parent.spawn((NodeBundle { 
-        style: Style { 
+        style: Node { 
             position_type: PositionType::Absolute, 
             left: Val::Px(20.0), 
             top: Val::Px(150.0), 
@@ -139,7 +139,7 @@ pub fn spawn_viewport_slicer(parent: &mut ChildBuilder, icon_font: &Handle<Font>
         ..default() 
     }, SlicerContainer, )).with_children(|p| {
         p.spawn((ButtonBundle { 
-            style: Style { 
+            style: Node { 
                 width: Val::Px(30.0), 
                 height: Val::Px(30.0), 
                 justify_content: JustifyContent::Center, 

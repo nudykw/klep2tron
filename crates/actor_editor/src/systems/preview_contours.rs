@@ -14,14 +14,14 @@ pub fn preview_contours_system(
 ) {
     if slicing_settings.dragging_gizmo.is_none() {
         for _entity in preview_query.iter().map(|_| ()).collect::<Vec<_>>() {
-            if let Ok((root_entity, _, _)) = actor_root_query.get_single() {
+            if let Ok((root_entity, _, _)) = actor_root_query.single() {
                 commands.entity(root_entity).remove::<PreviewContours>();
             }
         }
         return;
     }
     
-    let Ok((root_entity, bounds, root_global)) = actor_root_query.get_single() else {
+    let Ok((root_entity, bounds, root_global)) = actor_root_query.single() else {
         return;
     };
     

@@ -25,14 +25,14 @@ pub fn status_update_system(
     mut query: Query<&mut Text, With<super::super::widgets::StatusText>>,
 ) {
     if !status.is_changed() { return; }
-    if let Ok(mut text) = query.get_single_mut() {
+    if let Ok(mut text) = query.single_mut() {
         let (val, color) = match *status {
             EditorStatus::Ready => ("READY", Color::srgb(0.8, 0.8, 0.8)),
             EditorStatus::Saving => ("SAVING...", Color::srgb(1.0, 0.8, 0.2)),
             EditorStatus::Loading => ("LOADING...", Color::srgb(0.2, 0.8, 1.0)),
             EditorStatus::Processing => ("PROCESSING...", Color::srgb(0.8, 0.4, 1.0)),
         };
-        text.sections[0].value = val.to_string();
+        text.0 = val.to_string();
         text.sections[0].style.color = color;
     }
 }
@@ -94,11 +94,11 @@ pub fn polycount_update_system(
         result.chars().rev().collect()
     }
 
-    if let Ok(mut text) = text_query.get_single_mut() {
+    if let Ok(mut text) = text_query.single_mut() {
         if original_polys > 0 {
-            text.sections[0].value = format!("POLYS: {} / ORIG: {}", format_number(total_polys), format_number(original_polys));
+            text.0 = format!("POLYS: {} / ORIG: {}", format_number(total_polys), format_number(original_polys));
         } else {
-            text.sections[0].value = format!("POLYS: {}", format_number(total_polys));
+            text.0 = format!("POLYS: {}", format_number(total_polys));
         }
     }
 }
@@ -114,7 +114,7 @@ pub fn toast_manager_system(
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
 
-    if let Ok(container) = container_query.get_single() {
+    if let Ok(container) = container_query.single() {
         for event in toast_events.read() {
             commands.entity(container).with_children(|p| {
                 super::super::widgets::spawn_toast_item(p, &font, &icon_font, &event.message, event.toast_type);
@@ -129,8 +129,8 @@ pub fn toast_manager_system(
             let alpha = (rem / 0.5).clamp(0.0, 1.0);
             bg.0.set_alpha(alpha * 0.95);
         }
-        if timer.0.finished() {
-            commands.entity(entity).despawn_recursive();
+        if timer.0.is_finished() {
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -149,7 +149,7 @@ pub fn modal_manager_system(
 ) {
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     let icon_font = asset_server.load("fonts/forkawesome.ttf");
-    let target_camera = camera_query.get_single().ok();
+    let target_camera = camera_query.single().ok();
 
     for event in modal_events.read() {
         super::super::widgets::spawn_confirmation_modal(&mut commands, &font, &icon_font, &event.title, &event.message, event.action.clone(), target_camera);
@@ -157,7 +157,7 @@ pub fn modal_manager_system(
 
     for interaction in cancel_query.iter() {
         if *interaction == Interaction::Pressed {
-            for entity in overlay_query.iter() { commands.entity(entity).despawn_recursive(); }
+            for entity in overlay_query.iter() { commands.entity(entity).despawn(); }
         }
     }
 
@@ -166,7 +166,7 @@ pub fn modal_manager_system(
             match &confirm.0 { 
                 EditorAction::BackToMenu => { next_state.set(GameState::Menu); } 
                 EditorAction::SaveProject(_) => {
-                    if let Ok(input) = input_query.get_single() {
+                    if let Ok(input) = input_query.single() {
                         let name = input.value.trim();
                         if !name.is_empty() {
                             save_events.send(ActorSaveEvent { name: Some(name.to_string()), force: false });
@@ -177,7 +177,7 @@ pub fn modal_manager_system(
                     save_events.send(ActorSaveEvent { name: Some(name.clone()), force: true });
                 }
             }
-            for entity in overlay_query.iter() { commands.entity(entity).despawn_recursive(); }
+            for entity in overlay_query.iter() { commands.entity(entity).despawn(); }
         }
     }
 }
@@ -187,7 +187,7 @@ pub fn color_picker_system(
     button_query: Query<&Interaction, (Changed<Interaction>, With<super::super::widgets::ColorPickerButton>)>,
     hue_query: Query<(&Interaction, &Node, &GlobalTransform), With<super::super::widgets::ColorHueSlider>>,
     preset_query: Query<(&Interaction, &super::super::widgets::ColorPreset)>,
-    mut container_query: Query<&mut Style, With<super::super::widgets::ColorPickerContainer>>,
+    mut container_query: Query<&mut Node, With<super::super::widgets::ColorPickerContainer>>,
     mut preview_query: Query<&mut BackgroundColor, (With<super::super::widgets::ColorPickerButton>, Without<super::super::widgets::ColorPreset>)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut initial_color: Local<Option<Color>>,
@@ -196,13 +196,13 @@ pub fn color_picker_system(
     for interaction in button_query.iter() {
         if *interaction == Interaction::Pressed {
             color_res.is_open = !color_res.is_open;
-            if let Ok(mut style) = container_query.get_single_mut() {
+            if let Ok(mut style) = container_query.single_mut() {
                 style.display = if color_res.is_open { Display::Flex } else { Display::None };
             }
         }
     }
 
-    let Ok(window) = window_query.get_single() else { return; };
+    let Ok(window) = window_query.single() else { return; };
     if let Some(cursor) = window.cursor_position() {
         for (interaction, node, transform) in hue_query.iter() {
             if *interaction == Interaction::Pressed {
@@ -245,7 +245,7 @@ pub fn color_picker_system(
     }
 
     if color_res.is_changed() {
-        if let Ok(mut bg) = preview_query.get_single_mut() { bg.0 = color_res.color; }
+        if let Ok(mut bg) = preview_query.single_mut() { bg.0 = color_res.color; }
     }
 }
 
@@ -293,7 +293,7 @@ pub fn project_action_system(
                 super::super::ui_project::ProjectAction::Save => {
                     if !current_project.is_saved {
                         let font = asset_server.load("fonts/Roboto-Regular.ttf");
-                        let target_camera = camera_query.get_single().ok();
+                        let target_camera = camera_query.single().ok();
                         super::super::widgets::spawn_save_modal(&mut commands, &font, &current_project.name, target_camera);
                     } else {
                         save_events.send(ActorSaveEvent { name: None, force: false });
@@ -418,10 +418,10 @@ pub fn actor_import_event_system(
 
 pub fn import_loading_overlay_system(
     status: Res<EditorStatus>,
-    mut query: Query<&mut Style, With<super::super::widgets::LoadingOverlay>>,
+    mut query: Query<&mut Node, With<super::super::widgets::LoadingOverlay>>,
 ) {
     if !status.is_changed() { return; }
-    if let Ok(mut style) = query.get_single_mut() {
+    if let Ok(mut style) = query.single_mut() {
         style.display = if *status == EditorStatus::Loading { Display::Flex } else { Display::None };
     }
 }
@@ -451,7 +451,7 @@ pub fn actor_import_processing_system(
                 finished = true;
                 loaded_mesh = Some(handle.clone());
             }
-            Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_seconds() * 0.1).min(0.65); }
+            Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_secs() * 0.1).min(0.65); }
             Some(bevy::asset::LoadState::Failed(_)) => {
                 *status = EditorStatus::Ready; progress.0 = 0.0; pending.mesh_handle = None;
                 toast_events.send(ToastEvent { message: "Failed to load OBJ model".to_string(), toast_type: ToastType::Error });
@@ -462,7 +462,7 @@ pub fn actor_import_processing_system(
     } else if let Some(ref handle) = pending.handle {
         match asset_server.get_load_state(handle) {
             Some(bevy::asset::LoadState::Loaded) => { target_progress = 0.7; finished = true; }
-            Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_seconds() * 0.05).min(0.68); }
+            Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_secs() * 0.05).min(0.68); }
             Some(bevy::asset::LoadState::Failed(_)) => {
                 *status = EditorStatus::Ready; progress.0 = 0.0; pending.handle = None;
                 toast_events.send(ToastEvent { message: "Failed to load GLTF model".to_string(), toast_type: ToastType::Error });
@@ -477,7 +477,7 @@ pub fn actor_import_processing_system(
     if finished {
         for entity in actor_entities.iter() { 
             if let Some(e) = commands.get_entity(entity) {
-                e.despawn_recursive();
+                e.despawn();
             }
         }
 
@@ -524,12 +524,12 @@ pub fn actor_import_processing_system(
 
 pub fn progress_bar_update_system(
     progress: Res<ImportProgress>,
-    mut progress_fill: Query<&mut Style, With<super::super::widgets::ProgressBarFill>>,
+    mut progress_fill: Query<&mut Node, With<super::super::widgets::ProgressBarFill>>,
     mut progress_text: Query<&mut Text, With<super::super::widgets::ProgressBarText>>,
 ) {
     if !progress.is_changed() { return; }
-    if let Ok(mut style) = progress_fill.get_single_mut() { style.width = Val::Percent(progress.0 * 100.0); }
-    if let Ok(mut text) = progress_text.get_single_mut() { text.sections[0].value = format!("{:.0}%", progress.0 * 100.0); }
+    if let Ok(mut style) = progress_fill.single_mut() { style.width = Val::Percent(progress.0 * 100.0); }
+    if let Ok(mut text) = progress_text.single_mut() { text.0 = format!("{:.0}%", progress.0 * 100.0); }
 }
 
 pub fn slicer_lock_system(
@@ -551,7 +551,7 @@ pub fn slicer_lock_system(
         *bg = color.with_alpha(if *interaction == Interaction::Hovered { 0.9 } else { 0.7 }).into();
 
         if let Ok(mut text) = text_query.get_mut(children[0]) {
-            text.sections[0].value = icon.to_string();
+            text.0 = icon.to_string();
         }
     }
 }
@@ -587,7 +587,7 @@ pub fn mode_visual_sync_system(
 
 pub fn mode_content_visibility_system(
     editor_mode: Res<EditorMode>,
-    mut content_query: Query<(&mut Style, &ProjectModeContent)>,
+    mut content_query: Query<(&mut Node, &ProjectModeContent)>,
 ) {
     if !editor_mode.is_changed() { return; }
     for (mut style, content) in content_query.iter_mut() {
@@ -606,8 +606,8 @@ pub fn inspector_section_sync_system(
         Query<&mut CollapsibleSection>,
     )>,
 ) {
-    let Ok(sockets_p) = sockets_marker.get_single() else { return; };
-    let Ok(parts_p) = parts_marker.get_single() else { return; };
+    let Ok(sockets_p) = sockets_marker.single() else { return; };
+    let Ok(parts_p) = parts_marker.single() else { return; };
 
     let sockets_entity = sockets_p.get();
     let parts_entity = parts_p.get();

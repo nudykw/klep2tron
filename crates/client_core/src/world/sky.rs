@@ -51,7 +51,7 @@ pub fn starry_sky_follow_system(
     camera_query: Query<&Transform, (With<Camera3d>, Without<StarrySky>)>,
     mut sky_query: Query<&mut Transform, With<StarrySky>>,
 ) {
-    let Ok(cam_transform) = camera_query.get_single() else { return; };
+    let Ok(cam_transform) = camera_query.single() else { return; };
     for mut sky_transform in sky_query.iter_mut() {
         sky_transform.translation = cam_transform.translation;
     }
