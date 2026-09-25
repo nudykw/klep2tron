@@ -100,7 +100,8 @@ pub fn input_hint_system(
 pub fn menu_visual_system(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &MenuItem, &mut BackgroundColor, &mut BorderColor, &mut Transform, Option<&MenuFocus>)>,
+    // Bevy 0.19 UI nodes use `UiTransform`, not `Transform`.
+    mut query: Query<(Entity, &MenuItem, &mut BackgroundColor, &mut BorderColor, &mut UiTransform, Option<&MenuFocus>)>,
     settings: Res<GraphicsSettings>,
     pending: Res<PendingGraphicsSettings>,
 ) {
@@ -116,17 +117,17 @@ pub fn menu_visual_system(
         if is_dimmed {
             *bg = Color::srgba(0.1, 0.1, 0.1, 0.2).into();
             *border = Color::NONE.into();
-            transform.scale = Vec3::splat(1.0);
+            transform.scale = Vec2::ONE;
         } else if focus.is_some() {
             let bg_alpha = 0.15 + t * 0.15;
             let border_alpha = 0.4 + t * 0.4;
             *bg = Color::srgba(0.3, 0.6, 1.0, bg_alpha).into();
             *border = Color::srgba(0.4, 0.7, 1.0, border_alpha).into();
-            transform.scale = Vec3::splat(1.05);
+            transform.scale = Vec2::splat(1.05);
         } else {
             *bg = Color::srgba(1.0, 1.0, 1.0, 0.05).into();
             *border = Color::NONE.into();
-            transform.scale = Vec3::splat(1.0);
+            transform.scale = Vec2::ONE;
         }
     }
 }
