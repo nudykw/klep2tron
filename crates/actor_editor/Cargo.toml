@@ -10,8 +10,8 @@ client_core = { path = "../client_core" }
 bevy_mod_picking = { version = "0.20", features = ["selection", "highlight", "backend_raycast", "backend_bevy_ui"] }
 bevy_panorbit_camera = "0.20"
 bevy_hanabi = "0.13"
-rfd = "0.14"
-meshopt = "0.3"
+rfd = "0.17"
+meshopt = "0.6"
 ron = "0.12.1"
 image = "0.25"
 chrono = "0.4"
