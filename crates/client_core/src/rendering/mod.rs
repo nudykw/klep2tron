@@ -104,6 +104,9 @@ pub fn map_rendering_system(
         let total_height = h_val * 0.5;
         let mut entities = Vec::new();
         
+        if x == 15 && z == 0 {
+            info!("TILE (15,0): h={} top_center_y={:.3}", cell.h, total_height - 0.25);
+        }
         let top_id = commands.spawn(((Mesh3d(mesh.clone()), MeshMaterial3d(mat_top), Transform::from_translation(Vec3::new(x as f32, total_height - 0.25, z as f32))
                 .with_scale(Vec3::new(1.0, 0.5, 1.0)).with_rotation(Quat::from_rotation_y(rot))), TileEntity)).id();
         entities.push(top_id);

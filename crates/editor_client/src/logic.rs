@@ -182,6 +182,7 @@ pub fn selection_highlight_system(
     camera_query: Query<&Transform, With<OrbitCamera>>,
     time: Res<Time>,
     mut gizmos: Gizmos<BoxGizmos>,
+    mut dbg: Local<Option<(usize, usize, i32)>>,
 ) {
     let room_idx = project.current_room_idx;
     let cell = project.rooms[room_idx].cells[selection.x][selection.z];
@@ -203,6 +204,14 @@ pub fn selection_highlight_system(
     }
 
     let top_pos = Vec3::new(selection.x as f32, (cell.h as f32 - 0.5) * TILE_H, selection.z as f32);
+    let dbg_state = (selection.x, selection.z, cell.h);
+    if *dbg != Some(dbg_state) {
+        *dbg = Some(dbg_state);
+        info!(
+            "HIGHLIGHT sel=({},{}) cell.h={} top_y={:.3} room={} cam={:?}",
+            selection.x, selection.z, cell.h, top_pos.y, room_idx, cam_pos
+        );
+    }
     let transform = Transform::from_translation(top_pos).with_scale(Vec3::new(TILE_SIZE * 1.01, TILE_H * 1.01, TILE_SIZE * 1.01));
     let preview_type = editor_state.current_type;
     let color = Color::srgba(1.0, 1.0, 1.0, 0.4);

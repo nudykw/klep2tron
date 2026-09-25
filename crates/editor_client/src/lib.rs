@@ -303,4 +303,9 @@ pub fn setup_editor(
         RenderLayers::layer(1),
         MapEntity,
     ));
+
+    info!(
+        "EDITOR SETUP: rooms={} previews={} rtt_cameras={} panel_children={}",
+        project.rooms.len(), preview_handles.len(), types.len(), types.len() + 1
+    );
 }
