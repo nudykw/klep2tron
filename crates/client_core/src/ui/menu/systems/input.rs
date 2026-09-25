@@ -36,7 +36,6 @@ pub fn device_detection_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mut mouse_motion: MessageReader<bevy::input::mouse::MouseMotion>,
-    gamepad_buttons: Res<ButtonInput<GamepadButton>>,
     mut gamepad_events: MessageReader<GamepadConnectionEvent>,
     touches: Res<Touches>,
 ) {
@@ -46,7 +45,7 @@ pub fn device_detection_system(
     if mouse_buttons.get_just_pressed().next().is_some() || mouse_motion.read().next().is_some() {
         *input_device = InputDevice::Mouse;
     }
-    if gamepad_buttons.get_just_pressed().next().is_some() || gamepad_events.read().next().is_some() {
+    if gamepad_events.read().next().is_some() {
         *input_device = InputDevice::Gamepad;
     }
     if touches.any_just_pressed() || touches.any_just_released() {

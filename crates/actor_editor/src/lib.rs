@@ -47,7 +47,6 @@ pub struct ActorEditorPlugin;
 impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
-           .add_plugins(DefaultPickingPlugins)
            .add_plugins(bevy_hanabi::HanabiPlugin)
            .add_plugins(bevy::pbr::wireframe::WireframePlugin::default())
            .init_resource::<EditorMode>()

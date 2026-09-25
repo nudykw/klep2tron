@@ -14,7 +14,6 @@ pub mod settings;
 pub mod benchmark;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::winit::WinitWindows;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::window::Icon;
 
@@ -298,7 +297,6 @@ fn load_app_icon(asset_server: Res<AssetServer>, mut commands: Commands) {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn set_window_icon(
-    windows: NonSend<WinitWindows>,
     images: Res<Assets<Image>>,
     icon_handle: Option<ResMut<AppIconHandle>>,
     mut commands: Commands,
@@ -330,9 +328,12 @@ fn set_window_icon(
             return;
         };
 
-        for window in windows.windows.values() {
-            window.set_window_icon(Some(icon.clone()));
-        }
+        // Bevy 0.19 moved the raw winit windows into a thread-local static.
+        bevy::winit::WINIT_WINDOWS.with_borrow(|windows| {
+            for window in windows.windows.values() {
+                window.set_window_icon(Some(icon.clone()));
+            }
+        });
         
         if icon_handle.retries > 0 {
             icon_handle.retries -= 1;
