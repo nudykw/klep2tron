@@ -12,12 +12,18 @@ This document serves as a technical overview for AI assistance to quickly naviga
   - `src/assets/`: Resource loading and progress bar.
   - `src/perf.rs`: Metrics collection and history.
   - `src/transition.rs`: Room switching logic and UI.
-  - `src/actor_editor/`: Modular system for creating and editing NPC actors.
-    - `ui/layout/`: Global layout, cameras, and lighting.
-    - `ui/inspector/`: Detailed part and socket inspection.
-    - `systems/`: Input, gizmos, slicing, and normalization logic.
   - `src/input.rs`: Global shared controls (fullscreen).
   - `src/history.rs`: Undo/Redo stack management.
+  - `GameState::ActorEditor` and `MenuAction::OpenActorEditor` are declared here, but the
+    systems are provided by the separate `actor_editor` crate. The menu button is **not**
+    hardcoded: binaries contribute it via `ExtraMenuButtons` `(label, action, tooltip)`.
+- `crates/actor_editor`: Modular system for creating and editing NPC actors (native-only).
+  - `ui/layout/`: Global layout, cameras, and lighting.
+  - `ui/inspector/`: Detailed part and socket inspection.
+  - `systems/`: Input, gizmos, slicing, and normalization logic.
+  - `geometry/`: Mesh slicing, capping, and contour math.
+  - Depends on `client_core` (only for `GameState` and `reset_ambient_light`) and `shared`.
+  - **Not** a dependency of `client_web` / `editor_client_web` — it uses native file dialogs (`rfd`).
 - `crates/client_web`: WASM wrapper for the game client.
 - `crates/editor_client`: Native map editor.
   - `src/camera.rs`: Orbit controls and RTT sync.

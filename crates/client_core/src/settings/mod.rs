@@ -134,6 +134,7 @@ pub fn pre_init_gpu_settings() {
 }
 
 pub fn get_wgpu_settings() -> bevy::render::settings::WgpuSettings {
+    #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
     let mut wgpu_settings = bevy::render::settings::WgpuSettings::default();
     
     #[cfg(not(target_arch = "wasm32"))]
@@ -267,6 +268,7 @@ pub fn save_settings(settings: &GraphicsSettings) {
     #[cfg(target_arch = "wasm32")] let _ = save_settings_to_web(settings);
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn save_settings_to_disk(settings: &GraphicsSettings) -> Result<(), Box<dyn std::error::Error>> {
     let json = serde_json::to_string_pretty(settings)?;
     std::fs::write(SETTINGS_FILE, json)?;

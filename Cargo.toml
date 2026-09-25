@@ -8,6 +8,7 @@ members = [
     "crates/client_core",
     "crates/client",
     "crates/client_web",
+    "crates/actor_editor",
 ]
 resolver = "2"
 

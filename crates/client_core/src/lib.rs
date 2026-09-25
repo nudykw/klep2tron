@@ -12,7 +12,6 @@ pub mod input;
 pub mod history;
 pub mod settings;
 pub mod benchmark;
-pub mod actor_editor;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::winit::WinitWindows;
@@ -31,7 +30,6 @@ pub use crate::transition::*;
 pub use crate::input::*;
 pub use crate::history::*;
 pub use crate::settings::*;
-pub use crate::actor_editor::*;
 
 // --- Core Data Structures (The "Project Contract") ---
 
@@ -72,8 +70,6 @@ pub enum GameState {
     ActorEditor,
 }
 
-#[derive(Component)]
-pub struct ActorEditorEntity;
 
 
 
@@ -88,6 +84,7 @@ pub struct ProgressBar;
 #[derive(Component)]
 pub struct HudText;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 struct AppIconHandle {
     handle: Handle<Image>,
@@ -172,7 +169,6 @@ impl Plugin for ClientCorePlugin {
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_plugins(MaterialPlugin::<StarrySkyMaterial>::default())
            .add_plugins(benchmark::BenchmarkPlugin)
-           .add_plugins(actor_editor::ActorEditorPlugin)
            .init_resource::<ExitConfirmationActive>()
            .add_systems(OnEnter(GameState::Menu), setup_menu)
            .add_systems(Startup, (load_app_icon, setup_starry_sky))

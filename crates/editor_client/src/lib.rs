@@ -50,8 +50,8 @@ impl Default for EditorState {
 
 pub fn run_game() {
     client_core::pre_init_gpu_settings();
-    App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window { 
@@ -69,12 +69,20 @@ pub fn run_game() {
                 ..default()
             })
         )
-        .add_plugins(bevy_obj::ObjPlugin)
-        .add_plugins(ClientCorePlugin {
+        .add_plugins(bevy_obj::ObjPlugin);
+
+    // Must be added *after* `DefaultPlugins` (its sub-plugins need `AssetServer`).
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(actor_editor::ActorEditorPlugin);
+
+    app.add_plugins(ClientCorePlugin {
             options: ClientCoreOptions { title: "Klep2Tron Editor".to_string() }
         })
         .insert_resource(ExtraMenuButtons {
-            buttons: vec![("LEVEL EDITOR".to_string(), MenuAction::StartEditor)]
+            buttons: vec![
+                ("LEVEL EDITOR".to_string(), MenuAction::StartEditor, None),
+                ("ACTOR EDITOR".to_string(), MenuAction::OpenActorEditor, Some("Modular character editor".to_string())),
+            ]
         })
         .init_resource::<EditorState>()
         .init_resource::<EditorMode>()

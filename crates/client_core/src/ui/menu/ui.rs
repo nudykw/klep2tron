@@ -239,13 +239,9 @@ pub fn menu_item_system(
                         MenuSubState::Main => {
                             spawn_menu_button(scroll_p, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()), false);
                             let mut count = 1;
-                            #[cfg(not(target_arch = "wasm32"))]
-                            {
-                                spawn_menu_button(scroll_p, &font, "ACTOR EDITOR", None, count, MenuItemType::Action, MenuAction::OpenActorEditor, Some("Modular character editor".to_string()), false);
-                                count += 1;
-                            }
-                            for (_i, (name, action)) in extra_buttons.buttons.iter().enumerate() {
-                                spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), None, false);
+                            // Buttons contributed by plugins/binaries (e.g. level editor, actor editor).
+                            for (_i, (name, action, tooltip)) in extra_buttons.buttons.iter().enumerate() {
+                                spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), tooltip.clone(), false);
                                 count += 1;
                             }
                             spawn_menu_button(scroll_p, &font, "SETTINGS", None, count, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Configure graphics and input".to_string()), false);
