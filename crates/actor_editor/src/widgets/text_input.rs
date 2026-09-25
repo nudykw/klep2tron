@@ -26,12 +26,6 @@ impl Default for TextInput {
 #[derive(Component)]
 pub struct TextInputContent;
 
-#[derive(Bundle)]
-pub struct TextInputBundle {
-    pub button: Button,
-    pub input: TextInput,
-}
-
 pub fn spawn_text_input(
     parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
@@ -39,20 +33,17 @@ pub fn spawn_text_input(
     initial_value: &str,
     width: Val,
 ) -> Entity {
-    parent.spawn(TextInputBundle {
-        button: (Button, UiNode { node: Node {
+    parent.spawn(((Button, UiNode { node: Node {
                 width,
                 height: Val::Px(28.0),
                 padding: UiRect::horizontal(Val::Px(8.0)),
                 align_items: AlignItems::Center,
                 border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-        input: TextInput {
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), TextInput {
             value: initial_value.to_string(),
             placeholder: placeholder.to_string(),
             ..default()
-        },
-    }).with_children(|p| {
+        })).with_children(|p| {
         p.spawn((
             ui_text(if initial_value.is_empty() { placeholder } else { initial_value }, &font.clone(), 13.0, if initial_value.is_empty() { Color::srgb(0.5, 0.5, 0.5) } else { Color::WHITE }),
             TextInputContent,
@@ -90,7 +81,7 @@ pub fn text_input_system(
         };
         *bg = color.into();
 
-        for &child in children.iter() {
+        for child in children.iter() {
             if let Ok(mut text) = text_query.get_mut(child) {
                 if input.value.is_empty() && !input.is_focused {
                     text.0 = input.placeholder.clone();

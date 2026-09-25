@@ -63,7 +63,7 @@ pub fn spawn_slider_ext<T: Bundle>(
 
 pub fn slider_system(
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
-    mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut Slider, &Children)>,
+    mut interaction_query: Query<(&Interaction, &ComputedNode, &GlobalTransform, &mut Slider, &Children)>,
     mut thumb_query: Query<&mut Node, With<SliderThumb>>,
     node_query: Query<&Children>,
 ) {
@@ -83,8 +83,8 @@ pub fn slider_system(
             let pct = ((slider.value - slider.min) / (slider.max - slider.min)).clamp(0.0, 1.0);
 
             for child in children.iter() {
-                if let Ok(track_children) = node_query.get(*child) {
-                    for &thumb_entity in track_children.iter() {
+                if let Ok(track_children) = node_query.get(child) {
+                    for thumb_entity in track_children.iter() {
                         if let Ok(mut style) = thumb_query.get_mut(thumb_entity) {
                             style.left = Val::Percent(pct * 100.0);
                         }
@@ -274,7 +274,7 @@ fn spawn_range_slider_internal(
 }
 
 pub fn range_slider_system(
-    mut interaction_query: Query<(&Interaction, &Node, &GlobalTransform, &mut RangeSlider, &Children, &bevy::ui::RelativeCursorPosition)>,
+    mut interaction_query: Query<(&Interaction, &ComputedNode, &GlobalTransform, &mut RangeSlider, &Children, &bevy::ui::RelativeCursorPosition)>,
     mut thumb_query: Query<(&Interaction, &mut Node, &RangeSliderThumb, &mut Tooltip, &Children, &GlobalTransform, &bevy::ui::RelativeCursorPosition)>,
     mut circle_query: Query<(&ConfirmationCircleUI, &mut Visibility, &mut BackgroundColor, &Interaction, &bevy::ui::RelativeCursorPosition)>,
 
@@ -294,9 +294,9 @@ pub fn range_slider_system(
 
     for (interaction, _node, _transform, mut slider, children, rel_pos) in interaction_query.iter_mut() {
         let mut hovered = None;
-        for &track_entity in children.iter() {
+        for track_entity in children.iter() {
             if let Ok(track_children) = node_query.get(track_entity) {
-                for &child in track_children.iter() {
+                for child in track_children.iter() {
                     if let Ok((thumb_interaction, _style, thumb_type, _tooltip, _children, _transform, _rp)) = thumb_query.get(child) {
 
                         if *thumb_interaction != Interaction::None { hovered = Some(*thumb_type); }
@@ -307,9 +307,9 @@ pub fn range_slider_system(
         }
         slider.hovered_thumb = hovered;
 
-        for &track_entity in children.iter() {
+        for track_entity in children.iter() {
             if let Ok(track_children) = node_query.get(track_entity) {
-                for &child in track_children.iter() {
+                for child in track_children.iter() {
                     if let Ok((thumb_interaction, mut style, thumb, mut tooltip, thumb_children, _thumb_transform, _thumb_rel_pos)) = thumb_query.get_mut(child) {
 
 
@@ -325,7 +325,7 @@ pub fn range_slider_system(
                         tooltip.0 = format!("{}: {:.0}%", base, pct);
 
                         // --- SYNC CIRCLES ---
-                        for &circle_entity in thumb_children.iter() {
+                        for circle_entity in thumb_children.iter() {
                             if let Ok((circle, mut vis, mut bg, circle_interaction, circle_rel_pos)) = circle_query.get_mut(circle_entity) {
                                 let slicing_type = match circle.0 {
                                     RangeSliderThumb::Min => super::super::SlicingGizmoType::Bottom,
@@ -397,15 +397,15 @@ pub fn range_slider_system(
             let mut released_inside = false;
 
             // Check if mouse is over the circle associated with this thumb
-            for &track_entity in children.iter() {
+            for track_entity in children.iter() {
                 if let Ok(track_children) = node_query.get(track_entity) {
-                    for &child in track_children.iter() {
+                    for child in track_children.iter() {
                         if let Ok((_ti, _st, thumb_type, _tt, thumb_children, _tr, thumb_rel_pos)) = thumb_query.get(child) {
                             if *thumb_type == target {
                                 if thumb_rel_pos.cursor_over() {
                                     released_inside = true;
                                 }
-                                for &circle_entity in thumb_children.iter() {
+                                for circle_entity in thumb_children.iter() {
                                     if let Ok((_c, _v, _b, _i, circle_rel_pos)) = circle_query.get(circle_entity) {
                                         if circle_rel_pos.cursor_over() {
                                             released_inside = true;

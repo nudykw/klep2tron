@@ -28,7 +28,7 @@ pub fn manual_gizmo_picking_system(
     }
 
     let Ok((camera, camera_gt)) = camera_query.single() else { return; };
-    let Some(ray) = camera.viewport_to_world(camera_gt, cursor_pos) else { return; };
+    let Ok(ray) = camera.viewport_to_world(camera_gt, cursor_pos) else { return; };
 
     // If any gizmo is already pressed (being dragged), don't update hover states for others
     if gizmo_query.iter().any(|(_, _, interaction)| *interaction == ManualGizmoInteraction::Pressed) {

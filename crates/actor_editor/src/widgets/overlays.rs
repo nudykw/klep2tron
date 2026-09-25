@@ -57,21 +57,18 @@ pub fn spawn_save_modal(commands: &mut Commands, font: &Handle<Font>, initial_na
                 m.spawn(ui_text("Model Name:", &font.clone(), 14.0, Color::srgb(0.6, 0.6, 0.6))); 
                 
                 m.spawn((
-                    super::text_input::TextInputBundle {
-                        button: (Button, UiNode { node: Node {
+                    ((Button, UiNode { node: Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(28.0),
                                 padding: UiRect::horizontal(Val::Px(8.0)),
                                 align_items: AlignItems::Center,
                                 margin: UiRect::top(Val::Px(5.0)),
                                 border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-                        input: super::text_input::TextInput {
+                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), super::text_input::TextInput {
                             value: initial_name.to_string(),
                             placeholder: "Enter model name...".to_string(),
                             ..default()
-                        },
-                    },
+                        }),
                     super::super::SaveModalInput,
                 )).with_children(|p| {
                     p.spawn((

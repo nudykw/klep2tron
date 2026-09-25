@@ -100,20 +100,17 @@ fn spawn_dimension_input(
         row.spawn(ui_text(label, &font.clone(), 13.0, Color::srgb(0.8, 0.8, 0.8)));
         
         row.spawn((
-            crate::widgets::TextInputBundle {
-                button: (Button, UiNode { node: Node {
+            ((Button, UiNode { node: Node {
                         width: Val::Px(80.0),
                         height: Val::Px(28.0),
                         padding: UiRect::horizontal(Val::Px(8.0)),
                         align_items: AlignItems::Center,
                         border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                    }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-                input: crate::widgets::TextInput {
+                    }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), crate::widgets::TextInput {
                     value: "1.00".to_string(),
                     placeholder: "1.00".to_string(),
                     ..default()
-                },
-            },
+                }),
             marker,
         )).with_children(|p| {
             p.spawn((

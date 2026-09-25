@@ -31,7 +31,7 @@ pub fn geometry_reassign_system(
     let Some(dst_part_type) = pressed_part else { return; };
 
     // Собираем данные обо всех частях (без mut borrow)
-    let parts_data: Vec<(Entity, ActorPart, Handle<Mesh>)> = part_query
+    let parts_data: Vec<(Entity, ActorPart, Mesh3d)> = part_query
         .iter()
         .map(|(e, p, h, _)| (e, *p, h.clone()))
         .collect();

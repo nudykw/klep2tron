@@ -58,7 +58,7 @@ pub fn socket_ui_list_label_sync_system(
 ) {
     for (item, children) in list_items_query.iter() {
         if let Ok(socket) = socket_query.get(item.0) {
-            for &child in children.iter() {
+            for child in children.iter() {
                 if let Ok(mut text) = label_query.get_mut(child) {
                     if text.0 != socket.definition.name {
                         text.0 = socket.definition.name.clone();
@@ -81,7 +81,7 @@ pub fn socket_list_click_system(
     
     // Get visible items in order they appear in UI
     let mut visible_entities = Vec::new();
-    for &child in children.iter() {
+    for child in children.iter() {
         if let Ok((item, visibility)) = item_visibility_query.get(child) {
             if visibility != Visibility::Hidden {
                 visible_entities.push(item.0);

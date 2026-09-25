@@ -43,7 +43,7 @@ pub fn manual_gizmo_dragging_system(
 
                 if axis.action == GizmoAction::Rotate {
                     let Ok((camera, camera_gt)) = camera_query.single() else { continue; };
-                    if let Some(ray) = camera.viewport_to_world(camera_gt, cursor_pos) {
+                    if let Ok(ray) = camera.viewport_to_world(camera_gt, cursor_pos) {
                         let center = gt.translation();
                         let normal = match axis.axis {
                             GizmoAxisType::X => Vec3::X,
@@ -104,7 +104,7 @@ pub fn manual_gizmo_dragging_system(
                             },
                             GizmoAction::Rotate => {
                                 if let (Some(initial_vec), Some(start_rot)) = (*initial_rotation_vector, *initial_socket_rotation) {
-                                    if let Some(ray) = camera.viewport_to_world(camera_gt, cursor_pos) {
+                                    if let Ok(ray) = camera.viewport_to_world(camera_gt, cursor_pos) {
                                         let center = transform.translation;
                                         let normal = match axis_type {
                                             GizmoAxisType::X => Vec3::X,

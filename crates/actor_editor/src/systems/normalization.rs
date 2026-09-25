@@ -84,7 +84,7 @@ pub fn normalization_system(
 
                         state.min = state.min.min(mesh_min);
                         state.max = state.max.max(mesh_max);
-                        state.found_meshes.push((entity, _mesh_handle.clone()));
+                        state.found_meshes.push((entity, _mesh_handle.0.clone()));
                         
                         if let Some(mesh) = meshes.get(_mesh_handle) {
                             if let Some(indices) = mesh.indices() {
@@ -123,7 +123,7 @@ pub fn normalization_system(
 
                     if let Ok(children) = children_query.get(root_entity) {
                         for child in children.iter() {
-                            commands.entity(pivot).add_child(*child);
+                            commands.entity(pivot).add_child(child);
                         }
                     }
                     commands.entity(root_entity).add_child(pivot);

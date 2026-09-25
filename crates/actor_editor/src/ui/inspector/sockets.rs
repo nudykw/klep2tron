@@ -116,19 +116,16 @@ pub fn spawn_sockets_section(
                     meta.spawn(ui_text("Socket Name", &font.clone(), 12.0, Color::srgb(0.6, 0.6, 0.6)));
                     
                     meta.spawn((
-                        crate::widgets::TextInputBundle {
-                            button: (Button, UiNode { node: Node {
+                        ((Button, UiNode { node: Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Px(28.0),
                                     padding: UiRect::horizontal(Val::Px(8.0)),
                                     align_items: AlignItems::Center,
                                     border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                                }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-                            input: crate::widgets::TextInput {
+                                }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), crate::widgets::TextInput {
                                 placeholder: "Socket name...".to_string(),
                                 ..default()
-                            },
-                        },
+                            }),
                         SocketNameInput,
                     ))
                     .with_children(|p| {
@@ -141,19 +138,16 @@ pub fn spawn_sockets_section(
                     meta.spawn(ui_text("Comment", &font.clone(), 12.0, Color::srgb(0.6, 0.6, 0.6)));
 
                     meta.spawn((
-                        crate::widgets::TextInputBundle {
-                            button: (Button, UiNode { node: Node {
+                        ((Button, UiNode { node: Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Px(28.0),
                                     padding: UiRect::horizontal(Val::Px(8.0)),
                                     align_items: AlignItems::Center,
                                     border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                                }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-                            input: crate::widgets::TextInput {
+                                }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), crate::widgets::TextInput {
                                 placeholder: "Add a comment...".to_string(),
                                 ..default()
-                            },
-                        },
+                            }),
                         SocketCommentInput,
                     ))
                     .with_children(|p| {
@@ -263,19 +257,16 @@ pub fn spawn_sockets_section(
                                     ..default()
                                 }, ..default() }).with_children(|row| {
                                 row.spawn((
-                                    crate::widgets::TextInputBundle {
-                                        button: (Button, UiNode { node: Node {
+                                    ((Button, UiNode { node: Node {
                                                 flex_grow: 1.0,
                                                 height: Val::Px(24.0),
                                                 padding: UiRect::horizontal(Val::Px(6.0)),
                                                 align_items: AlignItems::Center,
                                                 border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-                                        input: crate::widgets::TextInput {
+                                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), crate::widgets::TextInput {
                                             placeholder: "Preset name...".to_string(),
                                             ..default()
-                                        },
-                                    },
+                                        }),
                                     SocketVfxPresetNameInput,
                                 ))
                                 .with_children(|p| {

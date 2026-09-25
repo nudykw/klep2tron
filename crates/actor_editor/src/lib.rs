@@ -222,7 +222,7 @@ impl Plugin for ActorEditorPlugin {
                 systems::mesh_slicing_system,
                 systems::draw_slicing_contours_system,
                 systems::draw_actor_bounds_debug_system,
-            ).after(bevy::transform::TransformSystems::TransformPropagate)
+            ).after(bevy::transform::TransformSystems::Propagate)
              .run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui::layout::cleanup_actor_editor, client_core::reset_ambient_light));
     }

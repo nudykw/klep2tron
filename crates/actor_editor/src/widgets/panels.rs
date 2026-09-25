@@ -205,7 +205,7 @@ pub fn scrolling_list_sync_system(
 }
 
 pub fn scrollbar_sync_system(
-    scrolling_list_query: Query<(Entity, &ScrollingList, &Node, &ChildOf)>,
+    scrolling_list_query: Query<(Entity, &ScrollingList, &ComputedNode, &ChildOf)>,
     mut scrollbar_query: Query<(&mut Node, &ScrollbarHandle)>,
     parent_node_query: Query<&ComputedNode>,
 ) {
@@ -233,7 +233,7 @@ pub fn scrollbar_sync_system(
 }
 
 pub fn scrollbar_sync_visibility_system(
-    scrolling_list_query: Query<(Entity, &Node, &ChildOf), With<ScrollingList>>,
+    scrolling_list_query: Query<(Entity, &ComputedNode, &ChildOf), With<ScrollingList>>,
     mut track_query: Query<(&mut Node, &ScrollbarTrack)>,
     parent_node_query: Query<&ComputedNode>,
 ) {

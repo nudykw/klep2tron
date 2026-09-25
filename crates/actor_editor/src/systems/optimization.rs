@@ -44,7 +44,7 @@ impl Command for OptimizeMeshCommand {
     fn name(&self) -> String { format!("Optimize Mesh ({} tris)", self.target_tris) }
     
     fn execute(&self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(OptimizedMeshComponent(self.new_mesh.clone()));
         }
         if let Some(mut opt_settings) = world.get_resource_mut::<OptimizationSettings>() {
@@ -56,7 +56,7 @@ impl Command for OptimizeMeshCommand {
     }
     
     fn undo(&self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             entity.remove::<OptimizedMeshComponent>();
         }
         if let Some(mut opt_settings) = world.get_resource_mut::<OptimizationSettings>() {

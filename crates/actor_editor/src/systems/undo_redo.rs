@@ -126,7 +126,7 @@ impl Command for AddSocketCommand {
     fn name(&self) -> String { "Add Socket".to_string() }
     
     fn execute(&self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             if let Some(mut visibility) = entity.get_mut::<Visibility>() {
                 *visibility = Visibility::Inherited;
             }
@@ -137,7 +137,7 @@ impl Command for AddSocketCommand {
     }
     
     fn undo(&self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             if let Some(mut visibility) = entity.get_mut::<Visibility>() {
                 *visibility = Visibility::Hidden;
             }
@@ -155,7 +155,7 @@ impl Command for DeleteSocketCommand {
     fn name(&self) -> String { "Delete Socket".to_string() }
     
     fn execute(&self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             if let Some(mut visibility) = entity.get_mut::<Visibility>() {
                 *visibility = Visibility::Hidden;
             }
@@ -164,7 +164,7 @@ impl Command for DeleteSocketCommand {
     }
     
     fn undo(&self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             if let Some(mut visibility) = entity.get_mut::<Visibility>() {
                 *visibility = Visibility::Inherited;
             }

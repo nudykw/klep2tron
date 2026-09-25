@@ -24,7 +24,7 @@ pub fn socket_picking_system(
         return;
     };
 
-    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_pos) else {
+    let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_pos) else {
         settings.hovered_data = None;
         return;
     };
@@ -239,8 +239,8 @@ pub fn draw_socket_previews_system(
         
         // "Torus" approximation using 2 circles
         if let Ok(dir) = Dir3::new(n) {
-            gizmos.circle(Isometry3d::new(p + n * 0.01, Quat::from_rotation_arc(Vec3::Y, dir)), 0.04, color);
-            gizmos.circle(Isometry3d::new(p + n * 0.01, Quat::from_rotation_arc(Vec3::Y, dir)), 0.035, color);
+            gizmos.circle(Isometry3d::new(p + n * 0.01, Quat::from_rotation_arc(Vec3::Y, *dir)), 0.04, color);
+            gizmos.circle(Isometry3d::new(p + n * 0.01, Quat::from_rotation_arc(Vec3::Y, *dir)), 0.035, color);
         }
         
         // "Pin" direction

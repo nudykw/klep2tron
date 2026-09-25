@@ -104,19 +104,16 @@ pub fn setup_project_panel(
                     });
 
                     row.spawn((
-                        crate::widgets::TextInputBundle {
-                            button: (Button, UiNode { node: Node {
+                        ((Button, UiNode { node: Node {
                                     flex_grow: 1.0,
                                     height: Val::Px(30.0),
                                     padding: UiRect::horizontal(Val::Px(10.0)),
                                     align_items: AlignItems::Center,
                                     border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), global_z_index: GlobalZIndex(100), ..default() }),
-                            input: crate::widgets::TextInput {
+                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), global_z_index: GlobalZIndex(100), ..default() }), crate::widgets::TextInput {
                                 placeholder: "Search sockets...".to_string(),
                                 ..default()
-                            },
-                        },
+                            }),
                         SocketSearchInput,
                         Pickable::default(),
                     )).with_children(|search| {
@@ -283,20 +280,17 @@ fn spawn_slicing_precision_ui(
             row.spawn(ui_text("Top Cut:", &font.clone(), 13.0, Color::srgb(0.7, 0.7, 0.7)));
             
             row.spawn((
-                super::widgets::TextInputBundle {
-                    button: (Button, UiNode { node: Node {
+                ((Button, UiNode { node: Node {
                             width: Val::Px(60.0),
                             height: Val::Px(28.0),
                             padding: UiRect::horizontal(Val::Px(8.0)),
                             align_items: AlignItems::Center,
                             border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-                    input: super::widgets::TextInput {
+                        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), super::widgets::TextInput {
                         value: "1.000".to_string(),
                         placeholder: "1.000".to_string(),
                         ..default()
-                    },
-                },
+                    }),
                 super::SlicingTopCutInput,
                 super::widgets::Tooltip("Top slicing plane position. Use UP/DOWN arrows to nudge by 0.001".to_string()),
             )).with_children(|p| {
@@ -317,20 +311,17 @@ fn spawn_slicing_precision_ui(
             row.spawn(ui_text("Bottom Cut:", &font.clone(), 13.0, Color::srgb(0.7, 0.7, 0.7)));
             
             row.spawn((
-                super::widgets::TextInputBundle {
-                    button: (Button, UiNode { node: Node {
+                ((Button, UiNode { node: Node {
                             width: Val::Px(60.0),
                             height: Val::Px(28.0),
                             padding: UiRect::horizontal(Val::Px(8.0)),
                             align_items: AlignItems::Center,
                             border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
-                    input: super::widgets::TextInput {
+                        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }), super::widgets::TextInput {
                         value: "0.000".to_string(),
                         placeholder: "0.000".to_string(),
                         ..default()
-                    },
-                },
+                    }),
                 super::SlicingBottomCutInput,
                 super::widgets::Tooltip("Bottom slicing plane position. Use UP/DOWN arrows to nudge by 0.001".to_string()),
             )).with_children(|p| {

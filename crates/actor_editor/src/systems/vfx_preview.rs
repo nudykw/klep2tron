@@ -49,7 +49,7 @@ pub fn socket_vfx_preview_system(
                         let ring_rot = Quat::from_axis_angle(Vec3::Y, t * effect.motion.speed * (1.0 + i as f32)) * 
                                        Quat::from_axis_angle(Vec3::X, t * 0.5);
                         let ring_color = if i == 0 { mid_hsla } else { outer_hsla };
-                        gizmos.circle(Isometry3d::new(pos, Quat::from_rotation_arc(Vec3::Y, Dir3::new(ring_rot * Vec3::Z).unwrap_or(Dir3::Z))), base_radius * (1.1 + i as f32 * 0.2), Color::Hsla(ring_color));
+                        gizmos.circle(Isometry3d::new(pos, Quat::from_rotation_arc(Vec3::Y, *Dir3::new(ring_rot * Vec3::Z).unwrap_or(Dir3::Z))), base_radius * (1.1 + i as f32 * 0.2), Color::Hsla(ring_color));
                     }
                 }
                 EffectType::MuzzleFlash => {

@@ -118,7 +118,7 @@ pub fn socket_validation_feedback_system(
 pub fn socket_color_picker_system(
     mut color_state: ResMut<SocketColorPickerState>,
     button_query: Query<&Interaction, (Changed<Interaction>, With<SocketColorPicker>)>,
-    hue_query: Query<(&Interaction, &Node, &GlobalTransform), With<SocketColorHueSlider>>,
+    hue_query: Query<(&Interaction, &ComputedNode, &GlobalTransform), With<SocketColorHueSlider>>,
     preset_query: Query<(&Interaction, &SocketColorPreset)>,
     mut container_query: Query<&mut Node, With<SocketColorPickerContainer>>,
     mut preview_query: Query<&mut BackgroundColor, (With<SocketColorPicker>, Without<SocketColorPreset>)>,
@@ -190,7 +190,7 @@ pub fn socket_material_sync_system(
         
         // Update children materials (Pin/Cone)
         if let Ok(children) = children_query.get(socket_entity) {
-            for &child in children.iter() {
+            for child in children.iter() {
                 if let Ok(mat_handle) = material_handle_query.get(child) {
                     if let Some(mat) = materials.get_mut(mat_handle) {
                         mat.base_color = color;

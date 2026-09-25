@@ -22,10 +22,10 @@ use super::super::widgets::CollapsibleSection;
 
 pub fn status_update_system(
     status: Res<EditorStatus>,
-    mut query: Query<&mut Text, With<super::super::widgets::StatusText>>,
+    mut query: Query<(&mut Text, &mut TextColor), With<super::super::widgets::StatusText>>,
 ) {
     if !status.is_changed() { return; }
-    if let Ok(mut text) = query.single_mut() {
+    if let Ok((mut text, mut text_color)) = query.single_mut() {
         let (val, color) = match *status {
             EditorStatus::Ready => ("READY", Color::srgb(0.8, 0.8, 0.8)),
             EditorStatus::Saving => ("SAVING...", Color::srgb(1.0, 0.8, 0.2)),
@@ -33,7 +33,7 @@ pub fn status_update_system(
             EditorStatus::Processing => ("PROCESSING...", Color::srgb(0.8, 0.4, 1.0)),
         };
         text.0 = val.to_string();
-        text.sections[0].style.color = color;
+        text_color.0 = color;
     }
 }
 
@@ -185,7 +185,7 @@ pub fn modal_manager_system(
 pub fn color_picker_system(
     mut color_res: ResMut<EditorMaterialColor>,
     button_query: Query<&Interaction, (Changed<Interaction>, With<super::super::widgets::ColorPickerButton>)>,
-    hue_query: Query<(&Interaction, &Node, &GlobalTransform), With<super::super::widgets::ColorHueSlider>>,
+    hue_query: Query<(&Interaction, &ComputedNode, &GlobalTransform), With<super::super::widgets::ColorHueSlider>>,
     preset_query: Query<(&Interaction, &super::super::widgets::ColorPreset)>,
     mut container_query: Query<&mut Node, With<super::super::widgets::ColorPickerContainer>>,
     mut preview_query: Query<&mut BackgroundColor, (With<super::super::widgets::ColorPickerButton>, Without<super::super::widgets::ColorPreset>)>,

@@ -77,7 +77,7 @@ pub fn lasso_render_system(
     let draw_at_dist = 0.1;
     let mut world_points = Vec::new();
     for p in &lasso_state.points {
-        if let Some(ray) = camera.viewport_to_world(camera_transform, *p) {
+        if let Ok(ray) = camera.viewport_to_world(camera_transform, *p) {
             world_points.push(ray.origin + ray.direction * draw_at_dist);
         }
     }
