@@ -10,6 +10,7 @@ Cargo.lock
 
 # Project specific
 perf_metrics.json
+settings.json
 liked_params.json
 map.json
 build_counter.tmp
