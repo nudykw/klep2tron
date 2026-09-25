@@ -45,18 +45,13 @@ pub fn spawn_scaling_section(
                 }, ..default() }).with_children(|row| {
                 // Link Proportions Toggle
                 row.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                     ScalingLinkToggle,
                     crate::widgets::Tooltip("Uniform Scaling (All dimensions equal)".to_string()),
                 )).with_children(|b| {
@@ -65,18 +60,13 @@ pub fn spawn_scaling_section(
 
                 // Apply Button
                 row.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             flex_grow: 1.0,
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(0.2, 0.5, 0.2, 0.6).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(0.2, 0.5, 0.2, 0.6)), ..default() }),
                     ScalingApplyButton,
                     crate::widgets::Tooltip("Apply new dimensions to the model".to_string()),
                 )).with_children(|b| {
@@ -111,18 +101,13 @@ fn spawn_dimension_input(
         
         row.spawn((
             crate::widgets::TextInputBundle {
-                button: ButtonBundle {
-                    style: Node {
+                button: (Button, UiNode { node: Node {
                         width: Val::Px(80.0),
                         height: Val::Px(28.0),
                         padding: UiRect::horizontal(Val::Px(8.0)),
                         align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
-                    ..default()
-                },
+                        border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                    }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                 input: crate::widgets::TextInput {
                     value: "1.00".to_string(),
                     placeholder: "1.00".to_string(),

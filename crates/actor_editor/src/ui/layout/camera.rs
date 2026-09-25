@@ -64,16 +64,12 @@ pub fn spawn_actor_editor_lighting(commands: &mut Commands, main_camera_entity: 
     ));
 
     commands.entity(main_camera_entity).with_children(|parent| {
-        parent.spawn(PointLightBundle {
-            point_light: PointLight {
+        parent.spawn((PointLight {
                 intensity: 80000.0,
                 range: 15.0,
                 shadow_maps_enabled: false,
                 ..default()
-            },
-            transform: Transform::from_xyz(0.8, 0.8, 0.0),
-            ..default()
-        });
+            }, Transform::from_xyz(0.8, 0.8, 0.0)));
     });
 
     commands.insert_resource(AmbientLight {

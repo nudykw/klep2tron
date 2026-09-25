@@ -71,19 +71,14 @@ pub fn spawn_sockets_section(
 
             // --- RESET BUTTON ---
             content.spawn((
-                ButtonBundle {
-                    style: Node {
+                (Button, UiNode { node: Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(25.0),
                         margin: UiRect::top(Val::Px(10.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
-                    ..default()
-                },
+                        border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                    }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                 SocketResetRotationButton,
             )).with_children(|b| {
                 b.spawn(ui_text("Reset Rotation", &font.clone(), 12.0, Color::srgb(0.7, 0.7, 0.7)));
@@ -122,18 +117,13 @@ pub fn spawn_sockets_section(
                     
                     meta.spawn((
                         crate::widgets::TextInputBundle {
-                            button: ButtonBundle {
-                                style: Node {
+                            button: (Button, UiNode { node: Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Px(28.0),
                                     padding: UiRect::horizontal(Val::Px(8.0)),
                                     align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                                border_radius: BorderRadius::all(Val::Px(4.0)),
-                                ..default()
-                            },
+                                    border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                             input: crate::widgets::TextInput {
                                 placeholder: "Socket name...".to_string(),
                                 ..default()
@@ -152,18 +142,13 @@ pub fn spawn_sockets_section(
 
                     meta.spawn((
                         crate::widgets::TextInputBundle {
-                            button: ButtonBundle {
-                                style: Node {
+                            button: (Button, UiNode { node: Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Px(28.0),
                                     padding: UiRect::horizontal(Val::Px(8.0)),
                                     align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                                border_radius: BorderRadius::all(Val::Px(4.0)),
-                                ..default()
-                            },
+                                    border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                             input: crate::widgets::TextInput {
                                 placeholder: "Add a comment...".to_string(),
                                 ..default()
@@ -207,18 +192,12 @@ pub fn spawn_sockets_section(
                                 ..default()
                             }, ..default() }).with_children(|row| {
                             row.spawn((
-                                ButtonBundle {
-                                    style: Node {
+                                (Button, UiNode { node: Node {
                                         width: Val::Px(16.0),
                                         height: Val::Px(16.0),
                                         border: UiRect::all(Val::Px(1.0)),
-                                        ..default()
-                                    },
-                                    background_color: Color::srgba(0.0, 0.0, 0.0, 0.5).into(),
-                                    border_color: Color::srgba(1.0, 1.0, 1.0, 0.2).into(),
-                                    border_radius: BorderRadius::all(Val::Px(2.0)),
-                                    ..default()
-                                },
+                                        border_radius: BorderRadius::all(Val::Px(2.0)), ..default()
+                                    }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)), border_color: BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.2)), ..default() }),
                                 SocketVfxToggle,
                                 Tooltip("Toggle visual effects for this socket".to_string()),
                             ));
@@ -285,18 +264,13 @@ pub fn spawn_sockets_section(
                                 }, ..default() }).with_children(|row| {
                                 row.spawn((
                                     crate::widgets::TextInputBundle {
-                                        button: ButtonBundle {
-                                            style: Node {
+                                        button: (Button, UiNode { node: Node {
                                                 flex_grow: 1.0,
                                                 height: Val::Px(24.0),
                                                 padding: UiRect::horizontal(Val::Px(6.0)),
                                                 align_items: AlignItems::Center,
-                                                ..default()
-                                            },
-                                            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                                            ..default()
-                                        },
+                                                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                                         input: crate::widgets::TextInput {
                                             placeholder: "Preset name...".to_string(),
                                             ..default()
@@ -312,18 +286,13 @@ pub fn spawn_sockets_section(
                                 });
 
                                 row.spawn((
-                                    ButtonBundle {
-                                        style: Node {
+                                    (Button, UiNode { node: Node {
                                             width: Val::Px(24.0),
                                             height: Val::Px(24.0),
                                             justify_content: JustifyContent::Center,
                                             align_items: AlignItems::Center,
-                                            ..default()
-                                        },
-                                        background_color: Color::srgba(0.2, 0.6, 1.0, 0.2).into(),
-                                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                                        ..default()
-                                    },
+                                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                        }, background_color: BackgroundColor(Color::srgba(0.2, 0.6, 1.0, 0.2)), ..default() }),
                                     SocketVfxSavePresetButton,
                                     Tooltip("Save current settings as preset".to_string()),
                                 )).with_children(|b| {
@@ -331,18 +300,13 @@ pub fn spawn_sockets_section(
                                 });
 
                                 row.spawn((
-                                    ButtonBundle {
-                                        style: Node {
+                                    (Button, UiNode { node: Node {
                                             width: Val::Px(24.0),
                                             height: Val::Px(24.0),
                                             justify_content: JustifyContent::Center,
                                             align_items: AlignItems::Center,
-                                            ..default()
-                                        },
-                                        background_color: Color::srgba(1.0, 0.3, 0.3, 0.2).into(),
-                                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                                        ..default()
-                                    },
+                                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                        }, background_color: BackgroundColor(Color::srgba(1.0, 0.3, 0.3, 0.2)), ..default() }),
                                     SocketVfxDetachPresetButton,
                                     Tooltip("Detach from preset (make unique)".to_string()),
                                 )).with_children(|b| {
@@ -366,15 +330,10 @@ pub fn spawn_sockets_section(
                             names.sort();
                             for preset in names {
                                 grid.spawn((
-                                    ButtonBundle {
-                                        style: Node {
+                                    (Button, UiNode { node: Node {
                                             padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
-                                            ..default()
-                                        },
-                                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                                        ..default()
-                                    },
+                                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                                     SocketVfxPresetItem(preset.to_string()),
                                 )).with_children(|b| {
                                     b.spawn(ui_text(preset, &font.clone(), 11.0, Color::srgb(0.8, 0.8, 0.8)));
@@ -400,32 +359,23 @@ pub fn spawn_sockets_section(
                             for name in group_names {
                                 let handles = &vfx_registry.groups[name];
                                 grid.spawn((
-                                    ButtonBundle {
-                                        style: Node {
+                                    (Button, UiNode { node: Node {
                                             width: Val::Px(40.0),
                                             height: Val::Px(40.0),
                                             padding: UiRect::all(Val::Px(2.0)),
                                             justify_content: JustifyContent::Center,
                                             align_items: AlignItems::Center,
-                                            ..default()
-                                        },
-                                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                                        ..default()
-                                    },
+                                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                                     SocketVfxGroupItem(name.clone()),
                                     Tooltip(format!("Group: {} ({} variations)", name, handles.len())),
                                 )).with_children(|b| {
                                     // Show first image of group as preview
-                                    b.spawn(ImageBundle {
-                                        style: Node {
+                                    b.spawn((ImageNode::new(handles[0].clone()), UiNode { node: Node {
                                             width: Val::Percent(90.0),
                                             height: Val::Percent(90.0),
                                             ..default()
-                                        },
-                                        image: UiImage::new(handles[0].clone()),
-                                        ..default()
-                                    });
+                                        }, ..default() }));
                                     // Add a small indicator for group
                                     b.spawn(UiNode { node: Node {
                                             position_type: PositionType::Absolute,
@@ -453,29 +403,20 @@ pub fn spawn_sockets_section(
                             }, ..default() }).with_children(|grid| {
                             for (name, handle) in &vfx_registry.textures {
                                 grid.spawn((
-                                    ButtonBundle {
-                                        style: Node {
+                                    (Button, UiNode { node: Node {
                                             width: Val::Px(30.0),
                                             height: Val::Px(30.0),
                                             padding: UiRect::all(Val::Px(2.0)),
-                                            ..default()
-                                        },
-                                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                                        ..default()
-                                    },
+                                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                                     SocketVfxTextureItem(name.clone()),
                                     Tooltip(name.clone()),
                                 )).with_children(|b| {
-                                    b.spawn(ImageBundle {
-                                        style: Node {
+                                    b.spawn((ImageNode::new(handle.clone()), UiNode { node: Node {
                                             width: Val::Percent(100.0),
                                             height: Val::Percent(100.0),
                                             ..default()
-                                        },
-                                        image: UiImage::new(handle.clone()),
-                                        ..default()
-                                    });
+                                        }, ..default() }));
                                 });
                             }
                         });

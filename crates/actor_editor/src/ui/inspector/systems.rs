@@ -31,18 +31,14 @@ pub fn socket_ui_list_sync_system(
         commands.entity(container).with_children(|parent| {
             for (socket_entity, socket) in current_sockets {
                 parent.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             width: Val::Percent(100.0),
                             height: Val::Px(25.0),
                             margin: UiRect::bottom(Val::Px(2.0)),
                             padding: UiRect::horizontal(Val::Px(10.0)),
                             align_items: AlignItems::Center,
                             ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.02).into(),
-                        ..default()
-                    },
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.02)), ..default() }),
                     SocketListItem(socket_entity),
                 )).with_children(|item| {
                     item.spawn((

@@ -40,18 +40,13 @@ pub fn spawn_text_input(
     width: Val,
 ) -> Entity {
     parent.spawn(TextInputBundle {
-        button: ButtonBundle {
-            style: Node {
+        button: (Button, UiNode { node: Node {
                 width,
                 height: Val::Px(28.0),
                 padding: UiRect::horizontal(Val::Px(8.0)),
                 align_items: AlignItems::Center,
-                ..default()
-            },
-            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-            border_radius: BorderRadius::all(Val::Px(4.0)),
-            ..default()
-        },
+                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
         input: TextInput {
             value: initial_value.to_string(),
             placeholder: placeholder.to_string(),

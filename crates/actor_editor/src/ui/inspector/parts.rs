@@ -43,18 +43,13 @@ pub fn spawn_parts_section(
                         }, ..default() }).with_children(|btns| {
                         // Focus Button
                         btns.spawn((
-                            ButtonBundle {
-                                style: Node {
+                            (Button, UiNode { node: Node {
                                     width: Val::Px(24.0),
                                     height: Val::Px(24.0),
                                     justify_content: JustifyContent::Center,
                                     align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                                border_radius: BorderRadius::all(Val::Px(4.0)),
-                                ..default()
-                            },
+                                    border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                             PartFocusButton(part),
                             crate::widgets::Tooltip("Focus camera on part".to_string()),
                         )).with_children(|b| {
@@ -63,18 +58,13 @@ pub fn spawn_parts_section(
 
                         // Solo Button
                         btns.spawn((
-                            ButtonBundle {
-                                style: Node {
+                            (Button, UiNode { node: Node {
                                     width: Val::Px(24.0),
                                     height: Val::Px(24.0),
                                     justify_content: JustifyContent::Center,
                                     align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                                border_radius: BorderRadius::all(Val::Px(4.0)),
-                                ..default()
-                            },
+                                    border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                             PartSoloButton(part),
                             crate::widgets::Tooltip("Isolate part (Solo mode)".to_string()),
                         )).with_children(|b| {
@@ -98,19 +88,14 @@ pub fn spawn_parts_section(
                     (InspectionToggleType::Normals, "\u{f201}", "Norm", "Toggle Normals visualization"),
                 ] {
                     row.spawn((
-                        ButtonBundle {
-                            style: Node {
+                        (Button, UiNode { node: Node {
                                 width: Val::Px(60.0),
                                 height: Val::Px(25.0),
                                 flex_direction: FlexDirection::Column,
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                            ..default()
-                        },
+                                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                         InspectionToggle(toggle),
                         crate::widgets::Tooltip(tooltip.to_string()),
                     )).with_children(|b| {
@@ -122,18 +107,13 @@ pub fn spawn_parts_section(
         },
         |header| {
             header.spawn((
-                ButtonBundle {
-                    style: Node {
+                (Button, UiNode { node: Node {
                         width: Val::Px(20.0),
                         height: Val::Px(20.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
-                    ..default()
-                },
+                        border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                    }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                 InspectionMasterToggle,
                 crate::widgets::Tooltip("Toggle Inspection Mode (Master Switch)".to_string()),
             )).with_children(|b| {

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::render::primitives::Aabb;
+use bevy::camera::primitives::Aabb;
 use bevy::render::mesh::VertexAttributeValues;
 use super::super::{NormalizationState, ImportProgress, EditorStatus, ActorBounds, AwaitingNormalization, OriginalMeshComponent, EditorHelper};
 
@@ -51,10 +51,10 @@ pub fn normalization_system(
                     for _ in 0..32 { // Safety limit
                         if curr == root_entity { found_root = true; break; }
                         if let Ok(transform) = transform_query.get(curr) {
-                            current_matrix = transform.compute_matrix() * current_matrix;
+                            current_matrix = transform.to_matrix() * current_matrix;
                         }
                         if let Ok(parent) = parent_query.get(curr) {
-                            curr = parent.get();
+                            curr = parent.0;
                         } else {
                             break;
                         }
@@ -112,14 +112,11 @@ pub fn normalization_system(
                     let translation = (offset + Vec3::Y * y_offset) * scale;
                     
                     let pivot = commands.spawn((
-                        SpatialBundle {
-                            transform: Transform {
+                        (Transform {
                                 translation,
                                 rotation: Quat::IDENTITY,
                                 scale: Vec3::splat(scale),
-                            },
-                            ..default()
-                        },
+                            }, Visibility::default()),
                         EditorHelper,
                         Name::new("NormalizationPivot"),
                     )).id();

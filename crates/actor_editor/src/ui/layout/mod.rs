@@ -42,7 +42,7 @@ pub fn setup_actor_editor(
                 ..default()
             }, ..default() },
         ActorEditorEntity,
-        bevy::ui::TargetCamera(main_camera_entity),
+        bevy::ui::UiTargetCamera(main_camera_entity),
     )).with_children(|root| {
         // --- MAIN AREA ---
         root.spawn(UiNode { node: Node {
@@ -126,16 +126,11 @@ pub fn setup_actor_editor(
             });
 
             parent.spawn((
-                ButtonBundle {
-                    style: Node {
+                (Button, UiNode { node: Node {
                         width: Val::Px(8.0),
                         height: Val::Percent(100.0),
                         ..default()
-                    },
-                    background_color: Color::srgba(1.0, 1.0, 1.0, 0.02).into(),
-                    z_index: ZIndex::Local(10),
-                    ..default()
-                },
+                    }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.02)), z_index: ZIndex(10), ..default() }),
                 PanelResizer::Left,
                 Tooltip("Resize Project Panel".to_string()),
             ));
@@ -187,8 +182,7 @@ pub fn setup_actor_editor(
 
                 // Toggle Sidebars
                 p.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(15.0),
                             top: Val::Px(15.0),
@@ -196,12 +190,8 @@ pub fn setup_actor_editor(
                             height: Val::Px(40.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(0.2, 0.2, 0.2, 0.9).into(),
-                        border_radius: BorderRadius::all(Val::Px(6.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)), ..default() }),
                     PanelToggle(PanelResizer::Left),
                     Tooltip("Toggle Project Panel".to_string()),
                 )).with_children(|btn| {
@@ -209,8 +199,7 @@ pub fn setup_actor_editor(
                 });
 
                 p.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             position_type: PositionType::Absolute,
                             right: Val::Px(15.0),
                             top: Val::Px(15.0),
@@ -218,12 +207,8 @@ pub fn setup_actor_editor(
                             height: Val::Px(40.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(0.2, 0.2, 0.2, 0.9).into(),
-                        border_radius: BorderRadius::all(Val::Px(6.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)), ..default() }),
                     PanelToggle(PanelResizer::Right),
                     Tooltip("Toggle Inspector Panel".to_string()),
                 )).with_children(|btn| {
@@ -232,16 +217,11 @@ pub fn setup_actor_editor(
             });
 
             parent.spawn((
-                ButtonBundle {
-                    style: Node {
+                (Button, UiNode { node: Node {
                         width: Val::Px(8.0),
                         height: Val::Percent(100.0),
                         ..default()
-                    },
-                    background_color: Color::srgba(1.0, 1.0, 1.0, 0.02).into(),
-                    z_index: ZIndex::Local(10),
-                    ..default()
-                },
+                    }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.02)), z_index: ZIndex(10), ..default() }),
                 PanelResizer::Right,
                 Tooltip("Resize Inspector Panel".to_string()),
             ));
@@ -321,8 +301,7 @@ pub fn setup_actor_editor(
             });
             
             parent.spawn((
-                ButtonBundle {
-                    style: Node {
+                (Button, UiNode { node: Node {
                         position_type: PositionType::Absolute,
                         bottom: Val::Px(20.0),
                         right: Val::Px(20.0),
@@ -330,12 +309,8 @@ pub fn setup_actor_editor(
                         height: Val::Px(35.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    background_color: Color::srgba(0.3, 0.1, 0.1, 0.8).into(),
-                    border_radius: BorderRadius::all(Val::Px(6.0)),
-                    ..default()
-                },
+                        border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+                    }, background_color: BackgroundColor(Color::srgba(0.3, 0.1, 0.1, 0.8)), ..default() }),
                 ActorEditorBackButton,
                 Tooltip("Back to Main Menu".to_string()),
             )).with_children(|p| {
@@ -367,19 +342,14 @@ fn spawn_viewport_button(
     icon_font: &Handle<Font>,
 ) {
     parent.spawn((
-        ButtonBundle {
-            style: Node {
+        (Button, UiNode { node: Node {
                 width: Val::Px(36.0),
                 height: Val::Px(36.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 margin: UiRect::horizontal(Val::Px(2.0)),
-                ..default()
-            },
-            background_color: Color::srgba(0.2, 0.2, 0.2, 0.9).into(),
-            border_radius: BorderRadius::all(Val::Px(6.0)),
-            ..default()
-        },
+                border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+            }, background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)), ..default() }),
         ViewportToggleButton(toggle_type),
         Tooltip(tooltip.to_string()),
     )).with_children(|btn| {
@@ -393,19 +363,14 @@ fn spawn_undo_redo_button(
     icon_font: &Handle<Font>,
 ) {
     let mut builder = parent.spawn((
-        ButtonBundle {
-            style: Node {
+        (Button, UiNode { node: Node {
                 width: Val::Px(36.0),
                 height: Val::Px(36.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 margin: UiRect::horizontal(Val::Px(2.0)),
-                ..default()
-            },
-            background_color: Color::srgba(0.2, 0.2, 0.2, 0.9).into(),
-            border_radius: BorderRadius::all(Val::Px(6.0)),
-            ..default()
-        },
+                border_radius: BorderRadius::all(Val::Px(6.0)), ..default()
+            }, background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)), ..default() }),
     ));
 
     if is_undo {

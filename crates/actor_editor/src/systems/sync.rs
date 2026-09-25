@@ -230,7 +230,7 @@ pub fn draw_slicing_contours_system(
         // Во время перетаскивания показываем ОБА контура:
         // 1. Черные - текущая (старая) позиция разреза
         for (contours, transform) in final_query.iter() {
-            let matrix = transform.compute_matrix();
+            let matrix = transform.to_matrix();
             for segment in &contours.segments {
                 let start = matrix.transform_point3(segment[0]);
                 let end = matrix.transform_point3(segment[1]);
@@ -240,7 +240,7 @@ pub fn draw_slicing_contours_system(
         
         // 2. Оранжевые - новая (preview) позиция разреза
         for (preview, transform) in preview_query.iter() {
-            let matrix = transform.compute_matrix();
+            let matrix = transform.to_matrix();
             for segment in &preview.segments {
                 let start = matrix.transform_point3(segment[0]);
                 let end = matrix.transform_point3(segment[1]);
@@ -250,7 +250,7 @@ pub fn draw_slicing_contours_system(
     } else {
         // Без перетаскивания - только финальные красные контуры
         for (contours, transform) in final_query.iter() {
-            let matrix = transform.compute_matrix();
+            let matrix = transform.to_matrix();
             for segment in &contours.segments {
                 let start = matrix.transform_point3(segment[0]);
                 let end = matrix.transform_point3(segment[1]);

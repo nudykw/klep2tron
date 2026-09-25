@@ -22,7 +22,7 @@ pub fn actor_save_system(
         let target_name = event.name.as_ref().unwrap_or(&current_project.name);
         
         if target_name.is_empty() {
-            toast_events.send(ToastEvent {
+            toast_events.write(ToastEvent {
                 message: "Cannot save: No active project. Import a model first.".to_string(),
                 toast_type: ToastType::Error,
             });
@@ -46,7 +46,7 @@ pub fn actor_save_system(
                     }
                 }
                 
-                modal_events.send(ConfirmationRequestEvent {
+                modal_events.write(ConfirmationRequestEvent {
                     title: "Project Already Exists".to_string(),
                     message: format!("A project named '{}' already exists on disk.\n\n{}\nDo you want to OVERWRITE it?", target_name, info_str),
                     action: EditorAction::OverwriteProject(target_name.clone()),
@@ -80,7 +80,7 @@ pub fn actor_save_system(
 
         // Ensure project directory exists before exporting meshes
         if let Err(e) = fs::create_dir_all(&project_dir) {
-            toast_events.send(ToastEvent {
+            toast_events.write(ToastEvent {
                 message: format!("Failed to create project directory: {}", e),
                 toast_type: ToastType::Error,
             });
@@ -111,13 +111,13 @@ pub fn actor_save_system(
         }
 
         if let Err(e) = fs::write(&actor_file, ron::ser::to_string_pretty(&project, ron::ser::PrettyConfig::default()).unwrap()) {
-            toast_events.send(ToastEvent {
+            toast_events.write(ToastEvent {
                 message: format!("Failed to save actor.ron: {}", e),
                 toast_type: ToastType::Error,
             });
         } else {
             current_project.is_saved = true;
-            toast_events.send(ToastEvent {
+            toast_events.write(ToastEvent {
                 message: format!("Project '{}' saved successfully", current_project.name),
                 toast_type: ToastType::Success,
             });

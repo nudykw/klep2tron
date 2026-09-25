@@ -13,7 +13,7 @@ pub fn ray_mesh_intersection(
     mesh: &Mesh,
     transform: &GlobalTransform,
 ) -> Option<RayHit> {
-    let matrix = transform.compute_matrix();
+    let matrix = transform.to_matrix();
     let inv_matrix = matrix.inverse();
     
     // Transform ray to local space

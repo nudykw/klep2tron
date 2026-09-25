@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::picking::prelude::*;
 use super::super::super::{ActorSocket, ui::inspector::SelectedSocket};
 use super::{GizmoAxisType, GizmoAction, SocketGizmo, SocketLink, GizmoAxis, ManualGizmoInteraction};
 
@@ -42,10 +43,10 @@ pub fn update_socket_gizmos_system(
                 info!("Spawning Gizmo for socket: {:?}", target);
                 // Spawn a new gizmo at root (decoupled)
                 commands.spawn((
-                    SpatialBundle::default(),
+                    (Transform::default(), Visibility::default()),
                     SocketGizmo,
                     SocketLink(target),
-                    bevy_mod_picking::prelude::Pickable::default(),
+                    Pickable::default(),
                     Name::new("SocketGizmo"),
                     crate::ActorEditorEntity,
                 )).with_children(|gizmo_root| {
@@ -95,7 +96,7 @@ pub fn spawn_axis(
                 GizmoAxis { axis, action },
                 ManualGizmoInteraction::default(),
                 SocketLink(target),
-                bevy_mod_picking::prelude::PickableBundle::default(),
+                Pickable::default(),
             )).with_children(|axis_p| {
                 // Cone tip
                 axis_p.spawn((
@@ -107,7 +108,7 @@ pub fn spawn_axis(
                     GizmoAxis { axis, action },
                     ManualGizmoInteraction::default(),
                     SocketLink(target),
-                    bevy_mod_picking::prelude::PickableBundle::default(),
+                    Pickable::default(),
                 ));
             });
         },
@@ -127,7 +128,7 @@ pub fn spawn_axis(
                 GizmoAxis { axis, action },
                 ManualGizmoInteraction::default(),
                 SocketLink(target),
-                bevy_mod_picking::prelude::PickableBundle::default(),
+                Pickable::default(),
             ));
         }
     }

@@ -90,18 +90,13 @@ pub fn setup_project_panel(
                         ..default()
                     }, ..default() }).with_children(|row| {
                     row.spawn((
-                        ButtonBundle {
-                            style: Node {
+                        (Button, UiNode { node: Node {
                                 width: Val::Px(30.0),
                                 height: Val::Px(30.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                            ..default()
-                        },
+                                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                         SocketAddModeButton,
                         Tooltip("Toggle Socket Placement Mode".to_string()),
                     )).with_children(|b| {
@@ -110,46 +105,26 @@ pub fn setup_project_panel(
 
                     row.spawn((
                         crate::widgets::TextInputBundle {
-                            button: ButtonBundle {
-                                style: Node {
+                            button: (Button, UiNode { node: Node {
                                     flex_grow: 1.0,
                                     height: Val::Px(30.0),
                                     padding: UiRect::horizontal(Val::Px(10.0)),
                                     align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                                border_radius: BorderRadius::all(Val::Px(4.0)),
-                                z_index: ZIndex::Global(100),
-                                ..default()
-                            },
+                                    border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), global_z_index: GlobalZIndex(100), ..default() }),
                             input: crate::widgets::TextInput {
                                 placeholder: "Search sockets...".to_string(),
                                 ..default()
                             },
                         },
                         SocketSearchInput,
-                        bevy_mod_picking::prelude::PickableBundle::default(),
+                        Pickable::default(),
                     )).with_children(|search| {
                         search.spawn((
-                            TextBundle {
-                                text: Text::from_section(
-                                    "\u{f002} ", // fa-search
-                                    TextStyle { font: icon_font.clone(), font_size: 14.0, color: Color::srgb(0.5, 0.5, 0.5) },
-                                ),
-                                focus_policy: bevy::ui::FocusPolicy::Pass,
-                                ..default()
-                            },
+                            ui_text("\u{f002} ", &icon_font.clone(), 14.0, Color::srgb(0.5, 0.5, 0.5)),
                         ));
                         search.spawn((
-                            TextBundle {
-                                text: Text::from_section(
-                                    "Search sockets...",
-                                    TextStyle { font: font.clone(), font_size: 14.0, color: Color::srgb(0.5, 0.5, 0.5) },
-                                ),
-                                focus_policy: bevy::ui::FocusPolicy::Pass,
-                                ..default()
-                            },
+                            ui_text("Search sockets...", &font.clone(), 14.0, Color::srgb(0.5, 0.5, 0.5)),
                             crate::widgets::TextInputContent,
                         ));
                     });
@@ -170,18 +145,13 @@ pub fn setup_project_panel(
                         (Some(ActorPart::Engine), "ENG"),
                     ] {
                         btns.spawn((
-                            ButtonBundle {
-                                style: Node {
+                            (Button, UiNode { node: Node {
                                     flex_grow: 1.0,
                                     height: Val::Px(20.0),
                                     justify_content: JustifyContent::Center,
                                     align_items: AlignItems::Center,
-                                    ..default()
-                                },
-                                background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                                border_radius: BorderRadius::all(Val::Px(2.0)),
-                                ..default()
-                            },
+                                    border_radius: BorderRadius::all(Val::Px(2.0)), ..default()
+                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                             SocketPartFilterButton(part),
                         )).with_children(|b| {
                             b.spawn(ui_text(label, &font.clone(), 9.0, Color::srgb(0.7, 0.7, 0.7)));
@@ -216,20 +186,15 @@ fn spawn_button(
     action: ProjectAction,
 ) {
     parent.spawn((
-        ButtonBundle {
-            style: Node {
+        (Button, UiNode { node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(45.0),
                 margin: UiRect::bottom(Val::Px(10.0)),
                 padding: UiRect::horizontal(Val::Px(15.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
-            background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-            border_radius: BorderRadius::all(Val::Px(8.0)),
-            ..default()
-        },
+                border_radius: BorderRadius::all(Val::Px(8.0)), ..default()
+            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
         action,
         Tooltip(tooltip.to_string()),
     )).with_children(|p| {
@@ -253,17 +218,13 @@ fn spawn_mode_tab(
     mode: super::EditorMode,
 ) {
     parent.spawn((
-        ButtonBundle {
-            style: Node {
+        (Button, UiNode { node: Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
-            },
-            background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-            ..default()
-        },
+            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
         ModeTab(mode),
     )).with_children(|p| {
         p.spawn(ui_text(text, &font.clone(), 14.0, Color::WHITE));
@@ -285,20 +246,15 @@ fn spawn_slicing_precision_ui(
         }, ..default() }).with_children(|row| {
         for (label, is_manual) in [("AUTO", false), ("MANUAL", true)] {
             row.spawn((
-                ButtonBundle {
-                    style: Node {
+                (Button, UiNode { node: Node {
                         flex_grow: 1.0,
                         height: Val::Percent(100.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                    border_radius: if is_manual { BorderRadius::right(Val::Px(4.0)) } else { BorderRadius::left(Val::Px(4.0)) },
-                    ..default()
-                },
+                        border_radius: if is_manual { BorderRadius::right(Val::Px(4.0)) } else { BorderRadius::left(Val::Px(4.0)) }, ..default()
+                    }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                 super::SlicingAutoManualToggle,
-                bevy_mod_picking::prelude::PickableBundle::default(),
+                Pickable::default(),
             )).insert(InteractionState { is_active: false }) // We'll use this for visual state
             .with_children(|b| {
                 b.spawn(ui_text(label, &font.clone(), 11.0, Color::WHITE));
@@ -328,18 +284,13 @@ fn spawn_slicing_precision_ui(
             
             row.spawn((
                 super::widgets::TextInputBundle {
-                    button: ButtonBundle {
-                        style: Node {
+                    button: (Button, UiNode { node: Node {
                             width: Val::Px(60.0),
                             height: Val::Px(28.0),
                             padding: UiRect::horizontal(Val::Px(8.0)),
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                     input: super::widgets::TextInput {
                         value: "1.000".to_string(),
                         placeholder: "1.000".to_string(),
@@ -367,18 +318,13 @@ fn spawn_slicing_precision_ui(
             
             row.spawn((
                 super::widgets::TextInputBundle {
-                    button: ButtonBundle {
-                        style: Node {
+                    button: (Button, UiNode { node: Node {
                             width: Val::Px(60.0),
                             height: Val::Px(28.0),
                             padding: UiRect::horizontal(Val::Px(8.0)),
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                     input: super::widgets::TextInput {
                         value: "0.000".to_string(),
                         placeholder: "0.000".to_string(),
@@ -472,23 +418,17 @@ fn spawn_slicing_precision_ui(
                     (ActorPart::Engine, "LEGS", "Move selected triangles to Legs part"),
                 ] {
                     row.spawn((
-                        ButtonBundle {
-                            style: Node {
+                        (Button, UiNode { node: Node {
                                 flex_grow: 1.0,
                                 height: Val::Percent(100.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                            border_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
-                            border_radius: BorderRadius::all(Val::Px(3.0)),
-                            ..default()
-                        },
+                                border_radius: BorderRadius::all(Val::Px(3.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), border_color: BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.1)), ..default() }),
                         super::TargetPartButton(part),
                         super::widgets::Tooltip(tooltip.to_string()),
-                        bevy_mod_picking::prelude::PickableBundle::default(),
+                        Pickable::default(),
                     )).with_children(|b| {
                         b.spawn(ui_text(label, &font.clone(), 10.0, Color::WHITE));
                     });

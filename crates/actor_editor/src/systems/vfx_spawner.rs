@@ -169,10 +169,7 @@ pub fn socket_vfx_spawner_system(
             let effect_handle = effects.add(effect_asset);
 
             let mut entity_cmd = commands.spawn((
-                ParticleEffectBundle {
-                    effect: ParticleEffect::new(effect_handle),
-                    ..default()
-                },
+                (ParticleEffect::new(effect_handle)),
                 SocketVfxInstance {
                     socket_entity,
                 },

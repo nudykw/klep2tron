@@ -72,7 +72,7 @@ pub fn actor_editor_input_system(
                 let target_camera = camera_query.single().ok();
                 super::super::widgets::spawn_save_modal(&mut commands, &font, &current_project.name, target_camera);
             } else {
-                events.save.send(ActorSaveEvent { name: None, force: false });
+                events.save.write(ActorSaveEvent { name: None, force: false });
             }
         }
     }
@@ -83,7 +83,7 @@ pub fn actor_editor_input_system(
             EditorMode::Slicing => EditorMode::Sockets,
             EditorMode::Sockets => EditorMode::Slicing,
         };
-        events.toast.send(ToastEvent {
+        events.toast.write(ToastEvent {
             message: format!("Mode: {:?}", *editor_mode),
             toast_type: ToastType::Info,
         });
@@ -91,7 +91,7 @@ pub fn actor_editor_input_system(
 
     if keyboard.just_pressed(KeyCode::KeyL) {
         slicing_settings.locked = !slicing_settings.locked;
-        events.toast.send(ToastEvent {
+        events.toast.write(ToastEvent {
             message: if slicing_settings.locked { "Slicer Locked" } else { "Slicer Unlocked" }.to_string(),
             toast_type: ToastType::Info,
         });
@@ -110,7 +110,7 @@ pub fn actor_editor_input_system(
     }
 
     if trigger_back {
-        events.modal.send(ConfirmationRequestEvent {
+        events.modal.write(ConfirmationRequestEvent {
             title: "Discard Changes?".to_string(),
             message: "Are you sure you want to return to menu? Any unsaved changes will be lost.".to_string(),
             action: EditorAction::BackToMenu,
@@ -122,13 +122,13 @@ pub fn actor_editor_input_system(
     if keyboard.just_pressed(KeyCode::KeyS) { viewport_settings.slices = !viewport_settings.slices; }
     if keyboard.just_pressed(KeyCode::KeyK) { viewport_settings.sockets = !viewport_settings.sockets; }
     if keyboard.just_pressed(KeyCode::KeyZ) { viewport_settings.gizmos = !viewport_settings.gizmos; }
-    if keyboard.just_pressed(KeyCode::KeyR) { events.reset.send(ResetCameraEvent); }
+    if keyboard.just_pressed(KeyCode::KeyR) { events.reset.write(ResetCameraEvent); }
 
     // Fast Socket Spawn Hotkey
     if keyboard.just_pressed(KeyCode::Equal) || keyboard.just_pressed(KeyCode::NumpadAdd) {
         *editor_mode = EditorMode::Sockets;
         socket_settings.is_adding = true;
-        events.toast.send(ToastEvent {
+        events.toast.write(ToastEvent {
             message: "Socket Placement Active".to_string(),
             toast_type: ToastType::Info,
         });

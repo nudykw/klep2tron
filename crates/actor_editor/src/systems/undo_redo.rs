@@ -255,22 +255,22 @@ pub fn undo_redo_shortcuts_system(
     
     if ctrl && keyboard.just_pressed(KeyCode::KeyZ) {
         if shift {
-            redo_events.send(RedoEvent);
+            redo_events.write(RedoEvent);
         } else {
-            undo_events.send(UndoEvent);
+            undo_events.write(UndoEvent);
         }
     }
     
     if ctrl && keyboard.just_pressed(KeyCode::KeyY) {
-        redo_events.send(RedoEvent);
+        redo_events.write(RedoEvent);
     }
 }
 
 
 // Let's refine undo_redo_system to avoid borrow issues with World
 pub fn handle_undo_redo(world: &mut World) {
-    let undo_triggered = world.resource_mut::<Events<UndoEvent>>().drain().next().is_some();
-    let redo_triggered = world.resource_mut::<Events<RedoEvent>>().drain().next().is_some();
+    let undo_triggered = world.resource_mut::<Messages<UndoEvent>>().drain().next().is_some();
+    let redo_triggered = world.resource_mut::<Messages<RedoEvent>>().drain().next().is_some();
     
     if undo_triggered {
         let cmd_opt = world.resource_mut::<ActionStack>().undo.pop();
@@ -308,12 +308,12 @@ pub fn undo_redo_ui_system(
 ) {
     for interaction in undo_btn_query.iter() {
         if *interaction == Interaction::Pressed && !action_stack.undo.is_empty() {
-            undo_events.send(UndoEvent);
+            undo_events.write(UndoEvent);
         }
     }
     for interaction in redo_btn_query.iter() {
         if *interaction == Interaction::Pressed && !action_stack.redo.is_empty() {
-            redo_events.send(RedoEvent);
+            redo_events.write(RedoEvent);
         }
     }
 }

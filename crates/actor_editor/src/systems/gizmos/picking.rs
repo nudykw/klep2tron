@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::picking::prelude::*;
 use super::{GizmoAxis, GizmoAxisType, GizmoAction, ManualGizmoInteraction, SocketGizmo};
 
 pub fn manual_gizmo_picking_system(
@@ -156,7 +157,7 @@ pub fn gizmo_highlight_system(
 
 pub fn actor_part_picking_priority_system(
     selected: Res<crate::ui::inspector::SelectedSocket>,
-    mut pickable_query: Query<(Entity, &mut bevy_mod_picking::prelude::Pickable, Option<&SocketGizmo>, Option<&GizmoAxis>)>,
+    mut pickable_query: Query<(Entity, &mut Pickable, Option<&SocketGizmo>, Option<&GizmoAxis>)>,
 ) {
     let has_selection = !selected.0.is_empty();
     

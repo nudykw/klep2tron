@@ -169,12 +169,12 @@ pub fn modal_manager_system(
                     if let Ok(input) = input_query.single() {
                         let name = input.value.trim();
                         if !name.is_empty() {
-                            save_events.send(ActorSaveEvent { name: Some(name.to_string()), force: false });
+                            save_events.write(ActorSaveEvent { name: Some(name.to_string()), force: false });
                         }
                     }
                 }
                 EditorAction::OverwriteProject(name) => {
-                    save_events.send(ActorSaveEvent { name: Some(name.clone()), force: true });
+                    save_events.write(ActorSaveEvent { name: Some(name.clone()), force: true });
                 }
             }
             for entity in overlay_query.iter() { commands.entity(entity).despawn(); }
@@ -209,7 +209,7 @@ pub fn color_picker_system(
                 if initial_color.is_none() {
                     *initial_color = Some(color_res.color);
                 }
-                let rect = node.size();
+                let rect = node.size;
                 let pos = transform.translation().truncate();
                 let local_x = cursor.x - (pos.x - rect.x / 2.0);
                 let hue = (local_x / rect.x).clamp(0.0, 1.0) * 360.0;
@@ -296,7 +296,7 @@ pub fn project_action_system(
                         let target_camera = camera_query.single().ok();
                         super::super::widgets::spawn_save_modal(&mut commands, &font, &current_project.name, target_camera);
                     } else {
-                        save_events.send(ActorSaveEvent { name: None, force: false });
+                        save_events.write(ActorSaveEvent { name: None, force: false });
                     }
                 }
                 super::super::ui_project::ProjectAction::Open => {
@@ -340,14 +340,14 @@ pub fn poll_file_dialog_tasks_system(
                 
                 match task_component.action {
                     FileDialogAction::Import => {
-                        import_events.send(ActorImportEvent(path, true));
+                        import_events.write(ActorImportEvent(path, true));
                     }
                     FileDialogAction::Open => {
                         let ron_path = path.join("actor.ron");
                         if ron_path.exists() {
-                            load_events.send(super::super::ActorLoadEvent(ron_path));
+                            load_events.write(super::super::ActorLoadEvent(ron_path));
                         } else {
-                            toast_events.send(ToastEvent {
+                            toast_events.write(ToastEvent {
                                 message: "Selected folder is not a valid project (actor.ron not found)".to_string(),
                                 toast_type: ToastType::Error,
                             });
@@ -390,7 +390,7 @@ pub fn actor_import_event_system(
         let relative_path = if let Ok(rel) = path.strip_prefix(&assets_dir) {
             rel.to_string_lossy().to_string()
         } else {
-            toast_events.send(ToastEvent {
+            toast_events.write(ToastEvent {
                 message: "Please select a file inside the project assets folder".to_string(),
                 toast_type: ToastType::Error,
             });
@@ -454,7 +454,7 @@ pub fn actor_import_processing_system(
             Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_secs() * 0.1).min(0.65); }
             Some(bevy::asset::LoadState::Failed(_)) => {
                 *status = EditorStatus::Ready; progress.0 = 0.0; pending.mesh_handle = None;
-                toast_events.send(ToastEvent { message: "Failed to load OBJ model".to_string(), toast_type: ToastType::Error });
+                toast_events.write(ToastEvent { message: "Failed to load OBJ model".to_string(), toast_type: ToastType::Error });
                 return;
             }
             _ => {}
@@ -465,7 +465,7 @@ pub fn actor_import_processing_system(
             Some(bevy::asset::LoadState::Loading) => { target_progress = (progress.0 + time.delta_secs() * 0.05).min(0.68); }
             Some(bevy::asset::LoadState::Failed(_)) => {
                 *status = EditorStatus::Ready; progress.0 = 0.0; pending.handle = None;
-                toast_events.send(ToastEvent { message: "Failed to load GLTF model".to_string(), toast_type: ToastType::Error });
+                toast_events.write(ToastEvent { message: "Failed to load GLTF model".to_string(), toast_type: ToastType::Error });
                 return;
             }
             _ => {}
@@ -483,13 +483,10 @@ pub fn actor_import_processing_system(
 
         if let Some(mesh_handle) = loaded_mesh {
             commands.spawn((
-                SpatialBundle {
-                    transform: Transform {
+                (Transform {
                         scale: pending.scale.unwrap_or(Vec3::ONE),
                         ..default()
-                    },
-                    ..default()
-                },
+                    }, Visibility::default()),
                 ActorEditorEntity, 
                 Actor3DRoot,
                 crate::AwaitingNormalization,
@@ -498,14 +495,10 @@ pub fn actor_import_processing_system(
             });
         } else if pending.handle.is_some() {
              commands.spawn(( 
-                 SceneBundle { 
-                     scene: pending.handle.clone().unwrap(), 
-                     transform: Transform {
+                 (SceneRoot(pending.handle.clone().unwrap()), Transform {
                          scale: pending.scale.unwrap_or(Vec3::ONE),
                          ..default()
-                     },
-                     ..default() 
-                 }, 
+                     }), 
                  ActorEditorEntity, 
                  Actor3DRoot, 
                  crate::AwaitingNormalization, 
@@ -561,7 +554,7 @@ pub fn mode_tab_interaction_system(
         if *interaction == Interaction::Pressed {
             if *editor_mode != tab.0 {
                 *editor_mode = tab.0;
-                toast_events.send(ToastEvent {
+                toast_events.write(ToastEvent {
                     message: format!("Mode: {:?}", *editor_mode),
                     toast_type: ToastType::Info,
                 });
@@ -605,8 +598,8 @@ pub fn inspector_section_sync_system(
     let Ok(sockets_p) = sockets_marker.single() else { return; };
     let Ok(parts_p) = parts_marker.single() else { return; };
 
-    let sockets_entity = sockets_p.get();
-    let parts_entity = parts_p.get();
+    let sockets_entity = sockets_p.0;
+    let parts_entity = parts_p.0;
 
     // 1. Sync from UI to Resource: Check if user manually opened a section
     let mut target_mode = *editor_mode;

@@ -48,7 +48,7 @@ pub struct ActorEditorPlugin;
 impl Plugin for ActorEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin)
-           .add_plugins(bevy_mod_picking::DefaultPickingPlugins)
+           .add_plugins(DefaultPickingPlugins)
            .add_plugins(bevy_hanabi::HanabiPlugin)
            .add_plugins(bevy::pbr::wireframe::WireframePlugin)
            .init_resource::<EditorMode>()
@@ -223,7 +223,7 @@ impl Plugin for ActorEditorPlugin {
                 systems::mesh_slicing_system,
                 systems::draw_slicing_contours_system,
                 systems::draw_actor_bounds_debug_system,
-            ).after(bevy::transform::TransformSystem::TransformPropagate)
+            ).after(bevy::transform::TransformSystems::TransformPropagate)
              .run_if(in_state(GameState::ActorEditor)))
            .add_systems(OnExit(GameState::ActorEditor), (ui::layout::cleanup_actor_editor, client_core::reset_ambient_light));
     }
@@ -628,7 +628,7 @@ pub struct ImportProgress(pub f32);
 #[derive(Resource, Default)]
 pub struct PendingSlices(pub std::collections::HashMap<ActorPart, Handle<Mesh>>);
 
-pub const GIZMO_LAYER: bevy::render::view::RenderLayers = bevy::render::view::RenderLayers::layer(1);
+pub const GIZMO_LAYER: bevy::camera::visibility::RenderLayers = bevy::camera::visibility::RenderLayers::layer(1);
 #[derive(Resource, Default)]
 pub struct GizmoBusy(pub bool);
 

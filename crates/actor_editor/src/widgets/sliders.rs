@@ -73,7 +73,7 @@ pub fn slider_system(
     for (interaction, node, transform, mut slider, children) in interaction_query.iter_mut() {
         if *interaction == Interaction::Pressed || *interaction == Interaction::Hovered {
             if *interaction == Interaction::Pressed {
-                let rect = node.size();
+                let rect = node.size;
                 let pos = transform.translation().truncate();
                 let local_x = cursor_position.x - (pos.x - rect.x / 2.0);
                 let pct = (local_x / rect.x).clamp(0.0, 1.0);
@@ -222,15 +222,7 @@ fn spawn_range_slider_internal(
 
 
 
-                btn.spawn(TextBundle {
-                    text: Text::from_section(if vertical { "\u{f0d8}" } else { "\u{f0da}" }, TextStyle { 
-                        font: icon_font.clone(), 
-                        font_size: thumb_size, 
-                        color: Color::srgb(1.0, 0.6, 0.2) 
-                    }),
-                    focus_policy: bevy::ui::FocusPolicy::Pass,
-                    ..default()
-                });
+                btn.spawn(ui_text(if vertical { "\u{f0d8}" } else { "\u{f0da}" }, &icon_font.clone(), thumb_size, Color::srgb(1.0, 0.6, 0.2)));
 
 
             });
@@ -272,15 +264,7 @@ fn spawn_range_slider_internal(
 
 
 
-                btn.spawn(TextBundle {
-                    text: Text::from_section(if vertical { "\u{f0d7}" } else { "\u{f0d9}" }, TextStyle { 
-                        font: icon_font.clone(), 
-                        font_size: thumb_size, 
-                        color: Color::srgb(0.3, 0.6, 1.0) 
-                    }),
-                    focus_policy: bevy::ui::FocusPolicy::Pass,
-                    ..default()
-                });
+                btn.spawn(ui_text(if vertical { "\u{f0d7}" } else { "\u{f0d9}" }, &icon_font.clone(), thumb_size, Color::srgb(0.3, 0.6, 1.0)));
 
 
             });
@@ -353,7 +337,7 @@ pub fn range_slider_system(
                                 
                                 if is_dragging || is_pending {
                                     *vis = Visibility::Visible;
-                                    if circle_rel_pos.mouse_over() {
+                                    if circle_rel_pos.cursor_over() {
                                         *bg = Color::srgba(1.0, 1.0, 1.0, 0.2).into();
                                     } else {
                                         *bg = Color::srgba(0.5, 0.5, 0.5, 0.4).into();
@@ -418,12 +402,12 @@ pub fn range_slider_system(
                     for &child in track_children.iter() {
                         if let Ok((_ti, _st, thumb_type, _tt, thumb_children, _tr, thumb_rel_pos)) = thumb_query.get(child) {
                             if *thumb_type == target {
-                                if thumb_rel_pos.mouse_over() {
+                                if thumb_rel_pos.cursor_over() {
                                     released_inside = true;
                                 }
                                 for &circle_entity in thumb_children.iter() {
                                     if let Ok((_c, _v, _b, _i, circle_rel_pos)) = circle_query.get(circle_entity) {
-                                        if circle_rel_pos.mouse_over() {
+                                        if circle_rel_pos.cursor_over() {
                                             released_inside = true;
                                         }
                                     }

@@ -11,7 +11,7 @@ pub struct TooltipRoot;
 
 pub fn spawn_tooltip_root(commands: &mut Commands, font: &Handle<Font>, target_camera: Option<Entity>) {
     let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, padding: UiRect::all(Val::Px(10.0)), display: Display::None, width: Val::Auto, height: Val::Auto, ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.95)), border_radius: BorderRadius::all(Val::Px(6.0)), global_z_index: GlobalZIndex(100), ..default() }, TooltipRoot, ActorEditorEntity, ));
-    if let Some(camera) = target_camera { cmd.insert(bevy::ui::TargetCamera(camera)); }
+    if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| { p.spawn(ui_text("", &font.clone(), 14.0, Color::WHITE)); });
 }
 
@@ -44,15 +44,23 @@ pub fn spawn_status_bar(parent: &mut ChildSpawnerCommands, font: &Handle<Font>, 
             left.spawn((ui_text("READY", &font.clone(), 12.0, Color::srgb(0.7, 0.7, 0.7)), StatusText));
         });
         p.spawn((UiNode { node: Node { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Keyboard Shortcuts & Gizmo Legend".to_string()), )).with_children(|mid| {
-            mid.spawn((TextBundle::from_sections(vec![
-                TextSection::new("TAB: Mode | G: Grid | R: Reset | ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-                TextSection::new("X", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(1.0, 0.3, 0.3) }),
-                TextSection::new(":R ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-                TextSection::new("Y", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.3, 1.0, 0.3) }),
-                TextSection::new(":G ", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-                TextSection::new("Z", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.4, 0.4, 1.0) }),
-                TextSection::new(":B", TextStyle { font: font.clone(), font_size: 12.0, color: Color::srgb(0.5, 0.5, 0.5) }),
-            ]), KeyHintText));
+            // Multi-colour text is now a parent `Text` with child `TextSpan`s.
+            mid.spawn((Text::default(), KeyHintText)).with_children(|t| {
+                let span = |t: &mut ChildSpawnerCommands, s: &str, c: Color| {
+                    t.spawn((
+                        TextSpan::new(s),
+                        TextFont { font: font.clone().into(), font_size: 12.0.into(), ..default() },
+                        TextColor(c),
+                    ));
+                };
+                span(t, "TAB: Mode | G: Grid | R: Reset | ", Color::srgb(0.5, 0.5, 0.5));
+                span(t, "X", Color::srgb(1.0, 0.3, 0.3));
+                span(t, ":R ", Color::srgb(0.5, 0.5, 0.5));
+                span(t, "Y", Color::srgb(0.3, 1.0, 0.3));
+                span(t, ":G ", Color::srgb(0.5, 0.5, 0.5));
+                span(t, "Z", Color::srgb(0.4, 0.4, 1.0));
+                span(t, ":B", Color::srgb(0.5, 0.5, 0.5));
+            });
         });
         p.spawn((UiNode { node: Node { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, ..default() }, ..default() }, Interaction::default(), Tooltip("Total Scene Complexity".to_string()), )).with_children(|right| {
             right.spawn(ui_text("\u{f1b2} ", &icon_font.clone(), 14.0, Color::srgb(0.7, 0.7, 0.7)));
@@ -97,7 +105,7 @@ pub fn viewport_button_system(
                     }
                 }
                 ViewportToggleType::Reset => {
-                    reset_events.send(super::super::ResetCameraEvent);
+                    reset_events.write(super::super::ResetCameraEvent);
                 }
             }
         }
@@ -134,19 +142,14 @@ pub fn spawn_viewport_slicer(parent: &mut ChildSpawnerCommands, icon_font: &Hand
             padding: UiRect::vertical(Val::Px(10.0)), 
             ..default() 
         }, background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.6)), border_radius: BorderRadius::all(Val::Px(8.0)), ..default() }, SlicerContainer, )).with_children(|p| {
-        p.spawn((ButtonBundle { 
-            style: Node { 
+        p.spawn(((Button, UiNode { node: Node { 
                 width: Val::Px(30.0), 
                 height: Val::Px(30.0), 
                 justify_content: JustifyContent::Center, 
                 align_items: AlignItems::Center, 
                 margin: UiRect::bottom(Val::Px(10.0)), 
-                ..default() 
-            }, 
-            background_color: Color::srgba(0.2, 0.2, 0.2, 0.9).into(), 
-            border_radius: BorderRadius::all(Val::Px(6.0)), 
-            ..default() 
-        }, SlicerLockButton, Tooltip("Lock/Unlock Slicer (L)".to_string()), )).with_children(|btn| {
+                border_radius: BorderRadius::all(Val::Px(6.0)), ..default() 
+            }, background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)), ..default() }), SlicerLockButton, Tooltip("Lock/Unlock Slicer (L)".to_string()), )).with_children(|btn| {
             btn.spawn(ui_text("\u{f023}", &icon_font.clone(), 16.0, Color::WHITE));
         });
         spawn_vertical_range_slider(p, icon_font, initial_min, initial_max);

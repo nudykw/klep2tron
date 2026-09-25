@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::picking::prelude::*;
 use super::super::{SlicingSettings, ActorBounds, OriginalMeshComponent, SlicingContours, ActorPart, geometry, ImportProgress, EditorStatus, EditorHelper, systems::optimization::OptimizedMeshComponent, CapTriangleRange};
 
 #[derive(Resource, Default)]
@@ -46,14 +47,14 @@ pub fn mesh_slicing_system(
                                 }))),
                             EditorHelper,
                             part_type,
-                            bevy_mod_picking::prelude::Pickable {
+                            Pickable {
                                 should_block_lower: false,
                                 is_hoverable: true,
                             },
                             Name::new(name.to_string()),
                             crate::SelectedTriangles::default(),
                             CapTriangleRange { cap_start_tri: cap_start },
-                        )).set_parent(root_entity);
+                        )).insert(ChildOf(root_entity));
                     };
 
                     if let Some(h) = pending_slices.0.get(&ActorPart::Head) {
@@ -118,14 +119,14 @@ pub fn mesh_slicing_system(
                                 }))),
                             EditorHelper,
                             part_type,
-                            bevy_mod_picking::prelude::Pickable {
+                            Pickable {
                                 should_block_lower: false,
                                 is_hoverable: true,
                             },
                             Name::new(name.to_string()),
                             crate::SelectedTriangles::default(),
                             CapTriangleRange { cap_start_tri: cap_start },
-                        )).set_parent(parent_entity);
+                        )).insert(ChildOf(parent_entity));
                     }
                 };
 
@@ -246,7 +247,7 @@ pub fn mesh_slicing_system(
         if let Some(mesh) = meshes.get(mesh_handle) {
             // Collect data if we have an explicit trigger, initial slice, or if values changed
             if trigger || needs_initial_slice || values_changed {
-                let local_matrix = transform.compute_matrix();
+                let local_matrix = transform.to_matrix();
                 mesh_data.push((entity, mesh.clone(), local_matrix.inverse()));
             }
         }
@@ -259,7 +260,7 @@ pub fn mesh_slicing_system(
 
     let thread_pool = bevy::tasks::AsyncComputeTaskPool::get();
 
-    let root_matrix = root_global.compute_matrix();
+    let root_matrix = root_global.to_matrix();
     let task = thread_pool.spawn(async move {
         let mut results = Vec::new();
         for (entity, mesh, inv_local) in mesh_data {

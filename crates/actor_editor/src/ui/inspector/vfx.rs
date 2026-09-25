@@ -124,7 +124,7 @@ pub fn socket_vfx_interaction_system(
             if let Ok(name_input) = name_input_query.single() {
                 let name = name_input.value.trim();
                 if name.is_empty() {
-                    toast_events.send(crate::ToastEvent {
+                    toast_events.write(crate::ToastEvent {
                         message: "Please enter a preset name".to_string(),
                         toast_type: crate::ToastType::Error,
                     });
@@ -139,7 +139,7 @@ pub fn socket_vfx_interaction_system(
                             
                             crate::vfx_assets::save_vfx_presets(&vfx_presets);
                             
-                            toast_events.send(crate::ToastEvent {
+                            toast_events.write(crate::ToastEvent {
                                 message: format!("Preset '{}' saved", name),
                                 toast_type: crate::ToastType::Success,
                             });
@@ -151,7 +151,7 @@ pub fn socket_vfx_interaction_system(
                                 }
                             }
                         } else {
-                            toast_events.send(crate::ToastEvent {
+                            toast_events.write(crate::ToastEvent {
                                 message: "No VFX enabled on this socket to save".to_string(),
                                 toast_type: crate::ToastType::Error,
                             });
@@ -169,7 +169,7 @@ pub fn socket_vfx_interaction_system(
                     socket.definition.effect_preset = None;
                 }
             }
-            toast_events.send(crate::ToastEvent {
+            toast_events.write(crate::ToastEvent {
                 message: "Detached from preset".to_string(),
                 toast_type: crate::ToastType::Info,
             });

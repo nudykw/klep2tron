@@ -47,18 +47,14 @@ pub fn spawn_collapsible_section_ext<T: Bundle>(
         CollapsibleSection { is_open },
     )).with_children(|p| {
         p.spawn((
-            ButtonBundle {
-                style: Node {
+            (Button, UiNode { node: Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(30.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
                     padding: UiRect::horizontal(Val::Px(10.0)),
                     ..default()
-                },
-                background_color: Color::srgba(1.0, 1.0, 1.0, 0.1).into(),
-                ..default()
-            },
+                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.1)), ..default() }),
             CollapsibleHeader,
         )).with_children(|h| {
             h.spawn(UiNode { node: Node {
@@ -104,7 +100,7 @@ pub fn collapsible_system(
     // 1. Handle manual clicks
     for (interaction, parent) in interaction_query.iter_mut() {
         if *interaction == Interaction::Pressed {
-            if let Ok((_, mut section)) = section_query.get_mut(parent.get()) {
+            if let Ok((_, mut section)) = section_query.get_mut(parent.0) {
                 section.is_open = !section.is_open;
             }
         }
@@ -114,7 +110,7 @@ pub fn collapsible_system(
     for (section_entity, section) in section_query.iter() {
         // Update content visibility
         for (mut style, parent) in content_query.iter_mut() {
-            if parent.get() == section_entity {
+            if parent.0 == section_entity {
                 let target_display = if section.is_open { Display::Flex } else { Display::None };
                 if style.display != target_display {
                     style.display = target_display;
@@ -124,7 +120,7 @@ pub fn collapsible_system(
 
         // Update header icon
         for (header_children, header_parent) in header_query.iter() {
-            if header_parent.get() == section_entity {
+            if header_parent.0 == section_entity {
                     let target_icon = if section.is_open { "\u{f078} ".to_string() } else { "\u{f054} ".to_string() };
                     
                     // Try old hierarchy first (header_children[0] is Text)
@@ -162,8 +158,8 @@ pub struct ScrollbarHandle {
 
 pub fn scroll_system(
     mut mouse_wheel_events: MessageReader<bevy::input::mouse::MouseWheel>,
-    mut query: Query<(&mut ScrollingList, &mut Node, &ChildOf, &Node)>,
-    parent_node_query: Query<(&Node, &GlobalTransform)>,
+    mut query: Query<(&mut ScrollingList, &mut Node, &ChildOf, &ComputedNode)>,
+    parent_node_query: Query<(&ComputedNode, &GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     let Ok(window) = window_query.single() else { return; };
@@ -171,10 +167,10 @@ pub fn scroll_system(
 
     for event in mouse_wheel_events.read() {
         for (mut scrolling_list, _style, parent, node) in query.iter_mut() {
-            let Ok((parent_node, parent_transform)) = parent_node_query.get(parent.get()) else { continue; };
+            let Ok((parent_node, parent_transform)) = parent_node_query.get(parent.0) else { continue; };
             
             // Check if cursor is within parent rect
-            let parent_size = parent_node.size();
+            let parent_size = parent_node.size;
             let parent_pos = parent_transform.translation().truncate();
             let half_size = parent_size / 2.0;
             let min = parent_pos - half_size;
@@ -185,8 +181,8 @@ pub fn scroll_system(
                 continue;
             }
 
-            let container_height = parent_node.size().y;
-            let content_height = node.size().y;
+            let container_height = parent_node.size.y;
+            let content_height = node.size.y;
             let max_scroll = (content_height - container_height).max(0.0);
             
             // Allow small buffer to prevent flickering
@@ -211,12 +207,12 @@ pub fn scrolling_list_sync_system(
 pub fn scrollbar_sync_system(
     scrolling_list_query: Query<(Entity, &ScrollingList, &Node, &ChildOf)>,
     mut scrollbar_query: Query<(&mut Node, &ScrollbarHandle)>,
-    parent_node_query: Query<&Node>,
+    parent_node_query: Query<&ComputedNode>,
 ) {
     for (list_entity, scrolling_list, node, parent) in scrolling_list_query.iter() {
-        let Ok(parent_node) = parent_node_query.get(parent.get()) else { continue; };
-        let content_height = node.size().y;
-        let container_height = parent_node.size().y;
+        let Ok(parent_node) = parent_node_query.get(parent.0) else { continue; };
+        let content_height = node.size.y;
+        let container_height = parent_node.size.y;
         
         for (mut style, handle) in scrollbar_query.iter_mut() {
             if handle.target == list_entity {
@@ -239,12 +235,12 @@ pub fn scrollbar_sync_system(
 pub fn scrollbar_sync_visibility_system(
     scrolling_list_query: Query<(Entity, &Node, &ChildOf), With<ScrollingList>>,
     mut track_query: Query<(&mut Node, &ScrollbarTrack)>,
-    parent_node_query: Query<&Node>,
+    parent_node_query: Query<&ComputedNode>,
 ) {
     for (list_entity, node, parent) in scrolling_list_query.iter() {
-        let Ok(parent_node) = parent_node_query.get(parent.get()) else { continue; };
-        let content_height = node.size().y;
-        let container_height = parent_node.size().y;
+        let Ok(parent_node) = parent_node_query.get(parent.0) else { continue; };
+        let content_height = node.size.y;
+        let container_height = parent_node.size.y;
         
         //bevy::log::info!("Scroll debug: content_height={}, container_height={}", content_height, container_height);
         
@@ -263,7 +259,7 @@ pub fn scrollbar_sync_visibility_system(
 pub fn scrollbar_drag_system(
     interaction_query: Query<(&Interaction, &ScrollbarHandle), Changed<Interaction>>,
     mut scrolling_list_query: Query<(&mut ScrollingList, &Node, &ChildOf)>,
-    parent_node_query: Query<(&Node, &GlobalTransform)>,
+    parent_node_query: Query<(&ComputedNode, &GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut dragging: Local<Option<Entity>>,
@@ -283,15 +279,15 @@ pub fn scrollbar_drag_system(
 
     if let Some(target_list_entity) = *dragging {
         if let Ok((mut scrolling_list, node, parent)) = scrolling_list_query.get_mut(target_list_entity) {
-            let Ok((parent_node, parent_transform)) = parent_node_query.get(parent.get()) else { return; };
-            let parent_size = parent_node.size();
+            let Ok((parent_node, parent_transform)) = parent_node_query.get(parent.0) else { return; };
+            let parent_size = parent_node.size;
             let parent_pos = parent_transform.translation().truncate();
             let half_size = parent_size / 2.0;
             
             let relative_y = cursor_position.y - (parent_pos.y - half_size.y);
             let scroll_ratio = (relative_y / parent_size.y).clamp(0.0, 1.0);
 
-            let content_height = node.size().y;
+            let content_height = node.size.y;
             let container_height = parent_size.y;
             if content_height > container_height {
                 let max_scroll = content_height - container_height;

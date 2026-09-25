@@ -35,10 +35,10 @@ pub fn preview_contours_system(
         if let Some(mesh) = meshes.get(&original.0) {
             let start_time = std::time::Instant::now();
             
-            let world_top = root_global.compute_matrix().transform_point3(Vec3::new(0.0, plane_top_local, 0.0));
-            let world_bottom = root_global.compute_matrix().transform_point3(Vec3::new(0.0, plane_bottom_local, 0.0));
+            let world_top = root_global.to_matrix().transform_point3(Vec3::new(0.0, plane_top_local, 0.0));
+            let world_bottom = root_global.to_matrix().transform_point3(Vec3::new(0.0, plane_bottom_local, 0.0));
             
-            let local_matrix = transform.compute_matrix();
+            let local_matrix = transform.to_matrix();
             let inv_local = local_matrix.inverse();
             
             let mesh_local_top = inv_local.transform_point3(world_top).y;

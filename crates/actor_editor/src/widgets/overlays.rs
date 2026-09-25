@@ -10,7 +10,7 @@ pub struct ToastTimer(pub Timer);
 
 pub fn spawn_toast_container(commands: &mut Commands, target_camera: Option<Entity>) -> Entity {
     let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, bottom: Val::Px(40.0), right: Val::Px(20.0), flex_direction: FlexDirection::ColumnReverse, align_items: AlignItems::End, ..default() }, global_z_index: GlobalZIndex(110), ..default() }, ToastContainer, ActorEditorEntity, ));
-    if let Some(camera) = target_camera { cmd.insert(bevy::ui::TargetCamera(camera)); }
+    if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.id()
 }
 
@@ -33,14 +33,14 @@ pub struct CancelModalButton;
 
 pub fn spawn_confirmation_modal(commands: &mut Commands, font: &Handle<Font>, _icon_font: &Handle<Font>, title: &str, message: &str, action: EditorAction, target_camera: Option<Entity>) {
     let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), align_items: AlignItems::Center, justify_content: JustifyContent::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)), global_z_index: GlobalZIndex(200), ..default() }, ModalOverlay, ActorEditorEntity, ));
-    if let Some(camera) = target_camera { cmd.insert(bevy::ui::TargetCamera(camera)); }
+    if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| {
         p.spawn(UiNode { node: Node { width: Val::Px(400.0), padding: UiRect::all(Val::Px(25.0)), flex_direction: FlexDirection::Column, ..default() }, background_color: BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 1.0)), border_radius: BorderRadius::all(Val::Px(12.0)), ..default() }).with_children(|modal| {
             modal.spawn(ui_text(title.to_uppercase(), &font.clone(), 20.0, Color::WHITE));
             modal.spawn(UiNode { node: Node { margin: UiRect::vertical(Val::Px(20.0)), ..default() }, ..default() }).with_children(|m| { m.spawn(ui_text(message, &font.clone(), 15.0, Color::srgb(0.8, 0.8, 0.8))); });
             modal.spawn(UiNode { node: Node { flex_direction: FlexDirection::Row, justify_content: JustifyContent::End, ..default() }, ..default() }).with_children(|btns| {
-                btns.spawn((ButtonBundle { style: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, margin: UiRect::right(Val::Px(10.0)), ..default() }, background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, CancelModalButton, )).with_children(|btn| { btn.spawn(ui_text("CANCEL", &font.clone(), 14.0, Color::WHITE)); });
-                btns.spawn((ButtonBundle { style: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() }, background_color: Color::srgba(0.8, 0.2, 0.2, 0.8).into(), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, ConfirmModalButton(action), )).with_children(|btn| { btn.spawn(ui_text("CONFIRM", &font.clone(), 14.0, Color::WHITE)); });
+                btns.spawn(((Button, UiNode { node: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, margin: UiRect::right(Val::Px(10.0)), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }), CancelModalButton, )).with_children(|btn| { btn.spawn(ui_text("CANCEL", &font.clone(), 14.0, Color::WHITE)); });
+                btns.spawn(((Button, UiNode { node: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.8, 0.2, 0.2, 0.8)), ..default() }), ConfirmModalButton(action), )).with_children(|btn| { btn.spawn(ui_text("CONFIRM", &font.clone(), 14.0, Color::WHITE)); });
             });
         });
     });
@@ -48,7 +48,7 @@ pub fn spawn_confirmation_modal(commands: &mut Commands, font: &Handle<Font>, _i
 
 pub fn spawn_save_modal(commands: &mut Commands, font: &Handle<Font>, initial_name: &str, target_camera: Option<Entity>) {
     let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), align_items: AlignItems::Center, justify_content: JustifyContent::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)), global_z_index: GlobalZIndex(200), ..default() }, ModalOverlay, ActorEditorEntity, ));
-    if let Some(camera) = target_camera { cmd.insert(bevy::ui::TargetCamera(camera)); }
+    if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| {
         p.spawn(UiNode { node: Node { width: Val::Px(400.0), padding: UiRect::all(Val::Px(25.0)), flex_direction: FlexDirection::Column, ..default() }, background_color: BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 1.0)), border_radius: BorderRadius::all(Val::Px(12.0)), ..default() }).with_children(|modal| {
             modal.spawn(ui_text("SAVE PROJECT", &font.clone(), 20.0, Color::WHITE));
@@ -58,19 +58,14 @@ pub fn spawn_save_modal(commands: &mut Commands, font: &Handle<Font>, initial_na
                 
                 m.spawn((
                     super::text_input::TextInputBundle {
-                        button: ButtonBundle {
-                            style: Node {
+                        button: (Button, UiNode { node: Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(28.0),
                                 padding: UiRect::horizontal(Val::Px(8.0)),
                                 align_items: AlignItems::Center,
                                 margin: UiRect::top(Val::Px(5.0)),
-                                ..default()
-                            },
-                            background_color: Color::srgba(0.0, 0.0, 0.0, 0.3).into(),
-                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                            ..default()
-                        },
+                                border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)), ..default() }),
                         input: super::text_input::TextInput {
                             value: initial_name.to_string(),
                             placeholder: "Enter model name...".to_string(),
@@ -92,8 +87,8 @@ pub fn spawn_save_modal(commands: &mut Commands, font: &Handle<Font>, initial_na
             // I'll manually spawn it to have more control if needed, but let's try to wrap it.
             
             modal.spawn(UiNode { node: Node { flex_direction: FlexDirection::Row, justify_content: JustifyContent::End, margin: UiRect::top(Val::Px(10.0)), ..default() }, ..default() }).with_children(|btns| {
-                btns.spawn((ButtonBundle { style: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, margin: UiRect::right(Val::Px(10.0)), ..default() }, background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, CancelModalButton, )).with_children(|btn| { btn.spawn(ui_text("CANCEL", &font.clone(), 14.0, Color::WHITE)); });
-                btns.spawn((ButtonBundle { style: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() }, background_color: Color::srgba(0.3, 0.6, 1.0, 0.8).into(), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, ConfirmModalButton(EditorAction::SaveProject(initial_name.to_string())), )).with_children(|btn| { btn.spawn(ui_text("SAVE", &font.clone(), 14.0, Color::WHITE)); });
+                btns.spawn(((Button, UiNode { node: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, margin: UiRect::right(Val::Px(10.0)), border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }), CancelModalButton, )).with_children(|btn| { btn.spawn(ui_text("CANCEL", &font.clone(), 14.0, Color::WHITE)); });
+                btns.spawn(((Button, UiNode { node: Node { padding: UiRect::horizontal(Val::Px(20.0)), height: Val::Px(35.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.3, 0.6, 1.0, 0.8)), ..default() }), ConfirmModalButton(EditorAction::SaveProject(initial_name.to_string())), )).with_children(|btn| { btn.spawn(ui_text("SAVE", &font.clone(), 14.0, Color::WHITE)); });
             });
         });
     });
@@ -119,7 +114,7 @@ pub fn spawn_progress_bar(parent: &mut ChildSpawnerCommands, font: &Handle<Font>
 
 pub fn spawn_loading_overlay(commands: &mut Commands, font: &Handle<Font>, target_camera: Option<Entity>) {
     let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), display: Display::None, align_items: AlignItems::Center, justify_content: JustifyContent::Center, flex_direction: FlexDirection::Column, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85)), global_z_index: GlobalZIndex(300), ..default() }, LoadingOverlay, ActorEditorEntity, ));
-    if let Some(camera) = target_camera { cmd.insert(bevy::ui::TargetCamera(camera)); }
+    if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| {
         p.spawn((ui_text("IMPORTING MODEL", &font.clone(), 24.0, Color::WHITE), Node { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));
         spawn_progress_bar(p, font);

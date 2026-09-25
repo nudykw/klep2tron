@@ -3,7 +3,7 @@ pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileTy
 use bevy::asset::AssetMetaCheck;
 use bevy::render::render_resource::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 use bevy::render::camera::RenderTarget;
-use bevy::render::view::RenderLayers;
+use bevy::camera::visibility::RenderLayers;
 
 pub mod camera;
 pub mod ui;
@@ -278,26 +278,12 @@ pub fn setup_editor(
                 TileType::WedgeW => "Wedge W",
                 _ => "Tile",
             };
-            p.spawn((ButtonBundle {
-                style: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
-                background_color: Color::srgb(0.2, 0.2, 0.2).into(),
-                border_color: Color::srgb(0.4, 0.4, 0.4).into(),
-                ..default()
-            }, TileTypeButton(*tt), TooltipText(label.to_string()))).with_children(|p| {
-                p.spawn(ImageBundle {
-                    image: UiImage::new(preview_handles[idx].clone()),
-                    style: Node { width: Val::Px(60.0), height: Val::Px(60.0), ..default() },
-                    ..default()
-                });
+            p.spawn(((Button, UiNode { node: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() }, background_color: BackgroundColor(Color::srgb(0.2, 0.2, 0.2)), border_color: BorderColor::all(Color::srgb(0.4, 0.4, 0.4)), ..default() }), TileTypeButton(*tt), TooltipText(label.to_string()))).with_children(|p| {
+                p.spawn((ImageNode::new(preview_handles[idx].clone()), UiNode { node: Node { width: Val::Px(60.0), height: Val::Px(60.0), ..default() }, ..default() }));
             });
         }
         
-        p.spawn((ButtonBundle {
-            style: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
-            background_color: Color::srgb(0.1, 0.3, 0.3).into(),
-            border_color: Color::srgb(0.0, 0.8, 0.8).into(),
-            ..default()
-        }, HelpButton, TooltipText("Help (F1)".to_string()))).with_children(|p| {
+        p.spawn(((Button, UiNode { node: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() }, background_color: BackgroundColor(Color::srgb(0.1, 0.3, 0.3)), border_color: BorderColor::all(Color::srgb(0.0, 0.8, 0.8)), ..default() }), HelpButton, TooltipText("Help (F1)".to_string()))).with_children(|p| {
             p.spawn(TextBundle::from_section("?", TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE }));
         });
     });

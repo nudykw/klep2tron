@@ -107,7 +107,7 @@ pub fn socket_validation_feedback_system(
 ) {
     for input in name_input_query.iter() {
         if !input.is_focused && !input.is_valid && !input.value.is_empty() {
-             toast_events.send(ToastEvent {
+             toast_events.write(ToastEvent {
                 message: format!("Duplicate name: '{}'", input.value),
                 toast_type: ToastType::Error,
             });
@@ -138,7 +138,7 @@ pub fn socket_color_picker_system(
         for (interaction, node, transform) in hue_query.iter() {
             if *interaction == Interaction::Pressed || *interaction == Interaction::Hovered {
                 if *interaction == Interaction::Pressed {
-                    let rect = node.size();
+                    let rect = node.size;
                     let pos = transform.translation().truncate();
                     let local_x = cursor.x - (pos.x - rect.x / 2.0);
                     let hue = (local_x / rect.x).clamp(0.0, 1.0) * 360.0;

@@ -25,7 +25,7 @@ pub fn actor_load_system(
         let content = match fs::read_to_string(path) {
             Ok(c) => c,
             Err(e) => {
-                toast_events.send(ToastEvent {
+                toast_events.write(ToastEvent {
                     message: format!("Failed to read project file: {}", e),
                     toast_type: ToastType::Error,
                 });
@@ -36,7 +36,7 @@ pub fn actor_load_system(
         let project: ActorProject = match ron::from_str(&content) {
             Ok(p) => p,
             Err(e) => {
-                toast_events.send(ToastEvent {
+                toast_events.write(ToastEvent {
                     message: format!("Failed to parse project file: {}", e),
                     toast_type: ToastType::Error,
                 });
@@ -59,7 +59,7 @@ pub fn actor_load_system(
         slicing_settings.trigger_slice = false; 
         slicing_settings.suppress_undo = true; // Don't record the load as an undoable action
 
-        toast_events.send(ToastEvent {
+        toast_events.write(ToastEvent {
             message: format!("Manual Mode Loaded: {}", project.manual_mode),
             toast_type: ToastType::Info,
         });
@@ -108,16 +108,16 @@ pub fn actor_load_system(
         let full_path = current_dir.join("assets").join(&source_path);
         
         if !full_path.exists() {
-             toast_events.send(ToastEvent {
+             toast_events.write(ToastEvent {
                 message: format!("Source model not found: assets/{}", project.source_path),
                 toast_type: ToastType::Error,
             });
             // We still set metadata, but import will fail
         }
 
-        import_events.send(ActorImportEvent(full_path, false));
+        import_events.write(ActorImportEvent(full_path, false));
         
-        toast_events.send(ToastEvent {
+        toast_events.write(ToastEvent {
             message: format!("Project '{}' loaded. Importing model...", current_project.name),
             toast_type: ToastType::Info,
         });

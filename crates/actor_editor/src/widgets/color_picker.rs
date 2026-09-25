@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::picking::prelude::*;
 use client_core::ui::widgets::*;
 use super::common::Tooltip;
 
@@ -36,17 +37,12 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
 {
     let display = if is_open { Display::Flex } else { Display::None };
     parent.spawn((
-        ButtonBundle { 
-            style: Node { 
+        (Button, UiNode { node: Node { 
                 width: Val::Percent(100.0), 
                 height: Val::Px(32.0), 
                 margin: UiRect::bottom(Val::Px(10.0)), 
-                ..default() 
-            }, 
-            background_color: initial_color.into(), 
-            border_radius: BorderRadius::all(Val::Px(4.0)), 
-            ..default() 
-        }, 
+                border_radius: BorderRadius::all(Val::Px(4.0)), ..default() 
+            }, background_color: BackgroundColor(initial_color), ..default() }), 
         B::default(), 
         Tooltip("Click to toggle Color Picker".to_string()), 
     ));
@@ -89,12 +85,7 @@ pub fn spawn_color_picker_ext<B, C, H, P>(
             ];
             for color in presets { 
                 grid.spawn((
-                    ButtonBundle { 
-                        style: Node { width: Val::Px(24.0), height: Val::Px(24.0), ..default() }, 
-                        background_color: color.into(), 
-                        border_radius: BorderRadius::all(Val::Px(4.0)), 
-                        ..default() 
-                    }, 
+                    (Button, UiNode { node: Node { width: Val::Px(24.0), height: Val::Px(24.0), border_radius: BorderRadius::all(Val::Px(4.0)), ..default() }, background_color: BackgroundColor(color), ..default() }), 
                     P::from(color), 
                 )); 
             }

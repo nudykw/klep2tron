@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::picking::prelude::*;
 use super::super::{SocketSettings, ActorPart, geometry::raycast, MainEditorCamera, ActorSocket, SocketDefinition, HoveredSocketData};
 use super::super::ui::inspector::SocketAddModeButton;
 use super::super::ui::inspector::types::{SelectedSocket, MultiSelectionState};
@@ -77,7 +78,7 @@ pub fn socket_spawn_system(
             let offset_point = data.point + data.normal * 0.01;
             
             // Calculate local transform relative to the actor root
-            let inv_matrix = root_transform.compute_matrix().inverse();
+            let inv_matrix = root_transform.to_matrix().inverse();
             let local_point = inv_matrix.transform_point3(offset_point);
             let local_rotation = root_transform.to_scale_rotation_translation().1.inverse() * world_rotation;
 
@@ -104,7 +105,7 @@ pub fn socket_spawn_system(
                         effect_preset: None,
                     }
                 },
-                bevy_mod_picking::PickableBundle::default(),
+                Pickable::default(),
                 Name::new("ActorSocket"),
                 crate::ActorEditorEntity, // Mark as editor entity so it's not cleaned up accidentally
             )).with_children(|parent| {
@@ -201,7 +202,7 @@ pub fn socket_3d_selection_system(
     mut selected: ResMut<SelectedSocket>,
     mut multi_state: ResMut<MultiSelectionState>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut events: MessageReader<bevy_mod_picking::prelude::Pointer<bevy_mod_picking::prelude::Click>>,
+    mut events: MessageReader<Pointer<Click>>,
     socket_query: Query<Entity, With<super::super::ActorSocket>>,
 ) {
     for event in events.read() {
@@ -300,7 +301,7 @@ pub fn socket_restoration_system(
                     ..default()
                 })), Transform::from_translation(def.position).with_rotation(def.rotation)),
             super::super::ActorSocket { definition: def.clone() },
-            bevy_mod_picking::PickableBundle::default(),
+            Pickable::default(),
             Name::new("ActorSocket"),
             crate::ActorEditorEntity,
         )).with_children(|parent| {

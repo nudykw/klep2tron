@@ -22,7 +22,7 @@ pub fn inspection_input_system(
         settings.isolated_part = next;
         
         if let Some(part) = next {
-            focus_events.send(InspectionFocusEvent(part));
+            focus_events.write(InspectionFocusEvent(part));
         }
     }
 }
@@ -209,7 +209,7 @@ pub fn inspection_ui_logic_system(
     for (interaction, focus_btn) in focus_query.iter() {
         if *interaction == Interaction::Pressed {
             settings.is_active = true;
-            focus_events.send(InspectionFocusEvent(focus_btn.0));
+            focus_events.write(InspectionFocusEvent(focus_btn.0));
         }
     }
 
@@ -278,7 +278,7 @@ pub fn inspection_ui_sync_system(
     mut section_query: Query<&mut CollapsibleSection>,
 ) {
     let Ok(parent) = marker_query.single() else { return; };
-    let Ok(mut section) = section_query.get_mut(parent.get()) else { return; };
+    let Ok(mut section) = section_query.get_mut(parent.0) else { return; };
 
     let current_active = settings.is_active;
     let current_open = section.is_open;

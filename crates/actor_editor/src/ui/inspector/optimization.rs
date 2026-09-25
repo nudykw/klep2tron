@@ -68,7 +68,7 @@ pub fn spawn_optimization_section_v2(
                 row.spawn(ui_text("Target Budget:", &font.clone(), 13.0, Color::srgb(0.8, 0.8, 0.8)));
                 
                 let input_id = spawn_text_input(row, font, "15000", "15000", Val::Px(80.0));
-                row.spawn(OptimizationTargetInputMarker).set_parent(input_id);
+                row.spawn(OptimizationTargetInputMarker).insert(ChildOf(input_id));
             });
 
             // Buttons Row
@@ -81,18 +81,13 @@ pub fn spawn_optimization_section_v2(
                 }, ..default() }).with_children(|row| {
                 // Optimize Button
                 row.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             flex_grow: 1.0,
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(0.2, 0.5, 0.2, 0.6).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(0.2, 0.5, 0.2, 0.6)), ..default() }),
                     OptimizeMeshButton,
                     crate::widgets::Tooltip("Perform mesh simplification".to_string()),
                 )).with_children(|b| {
@@ -101,18 +96,13 @@ pub fn spawn_optimization_section_v2(
 
                 // Original Toggle (A/B)
                 row.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                     OptimizationOriginalToggle,
                     crate::widgets::Tooltip("Show Original (Un-optimized) Mesh".to_string()),
                 )).with_children(|b| {
@@ -121,18 +111,13 @@ pub fn spawn_optimization_section_v2(
 
                 // Wireframe Toggle
                 row.spawn((
-                    ButtonBundle {
-                        style: Node {
+                    (Button, UiNode { node: Node {
                             width: Val::Px(40.0),
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::srgba(1.0, 1.0, 1.0, 0.05).into(),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                            border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
+                        }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }),
                     OptimizationWireframeToggle,
                     crate::widgets::Tooltip("Toggle Wireframe Overlay (W)".to_string()),
                 )).with_children(|b| {
@@ -184,12 +169,12 @@ pub fn mesh_optimization_system(
                 opt_settings.is_optimized = true;
                 slicing_settings.trigger_slice = true;
                 
-                toast_events.send(ToastEvent {
+                toast_events.write(ToastEvent {
                     message: "Mesh optimized successfully!".to_string(),
                     toast_type: ToastType::Success,
                 });
             } else {
-                toast_events.send(ToastEvent {
+                toast_events.write(ToastEvent {
                     message: "Optimization failed or already at budget.".to_string(),
                     toast_type: ToastType::Info,
                 });
@@ -203,7 +188,7 @@ pub fn mesh_optimization_system(
 
     // 2. Sync target triangles from input
     for parent in marker_query.iter() {
-        if let Ok(input) = input_query.get(parent.get()) {
+        if let Ok(input) = input_query.get(parent.0) {
             if let Ok(val) = input.value.parse::<usize>() {
                 opt_settings.target_triangles = val;
             }
