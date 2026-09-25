@@ -96,7 +96,7 @@ pub struct MapEntity;
 pub fn apply_graphics_quality_system(
     settings: Res<GraphicsSettings>,
     mut light_query: Query<&mut DirectionalLight>,
-    mut camera_query: Query<(Entity, Option<&Msaa>), With<Camera3d>>,
+    camera_query: Query<(Entity, Option<&Msaa>), With<Camera3d>>,
     fog_query: Query<Entity, With<DistanceFog>>,
     ssao_query: Query<Entity, With<ScreenSpaceAmbientOcclusion>>,
     mut commands: Commands,

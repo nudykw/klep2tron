@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::picking::prelude::*;
 use client_core::ui::widgets::*;
 use super::common::Tooltip;
 

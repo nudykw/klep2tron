@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::picking::prelude::*;
 use super::super::{LassoState, LassoSelectionMode, EditorMode, SlicingSettings, SelectedTriangles, ActorPart, MainEditorCamera};
 
 pub fn lasso_input_system(

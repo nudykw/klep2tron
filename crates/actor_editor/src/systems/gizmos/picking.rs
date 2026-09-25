@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::picking::prelude::*;
 use super::{GizmoAxis, GizmoAxisType, GizmoAction, ManualGizmoInteraction, SocketGizmo};
 
 pub fn manual_gizmo_picking_system(

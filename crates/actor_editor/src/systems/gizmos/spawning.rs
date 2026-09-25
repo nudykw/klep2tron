@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::picking::prelude::*;
 use super::super::super::{ActorSocket, ui::inspector::SelectedSocket};
 use super::{GizmoAxisType, GizmoAction, SocketGizmo, SocketLink, GizmoAxis, ManualGizmoInteraction};
 

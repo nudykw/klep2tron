@@ -107,7 +107,7 @@ pub fn mesh_slicing_system(
             for (parent_entity, parts) in result.mesh_parts {
                 let mut spawn_part = |cmds: &mut ChildSpawnerCommands, mesh_opt: Option<Mesh>, name: &str, part_type: ActorPart, color: Color, cap_start: usize| {
                     if let Some(m) = mesh_opt {
-                        let visibility = part_visibility.get(&part_type).cloned().unwrap_or(Visibility::Visible);
+                        let _visibility = part_visibility.get(&part_type).cloned().unwrap_or(Visibility::Visible);
                         
                         cmds.spawn((
                             (Mesh3d(meshes.add(m)), MeshMaterial3d(materials.add(StandardMaterial {

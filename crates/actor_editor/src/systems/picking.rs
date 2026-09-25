@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::picking::prelude::*;
 use super::super::{SocketSettings, ActorPart, geometry::raycast, MainEditorCamera, ActorSocket, SocketDefinition, HoveredSocketData};
 use super::super::ui::inspector::SocketAddModeButton;
 use super::super::ui::inspector::types::{SelectedSocket, MultiSelectionState};

@@ -131,7 +131,7 @@ pub fn socket_vfx_spawner_system(
             let mut texture_handle = None;
 
             if let Some(asset_path) = &effect_config.asset_path {
-                module.add_texture_slot("color");;
+                module.add_texture_slot("color");
                 // Handle legacy short paths or new full paths
                 let full_path = if !asset_path.contains('/') {
                     format!("vfx/kenney/{}", asset_path)
