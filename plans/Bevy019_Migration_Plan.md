@@ -1,7 +1,9 @@
 # 🛠 Миграция Klep2tron на Bevy 0.19
 
-> **Статус:** 📝 План (требует утверждения)
-> **Дата:** 2026-09-26
+> **Статус:** ✅ Выполнено (2026-09-26) — весь workspace компилируется под Bevy 0.19
+> (native + wasm), `client` и `editor_client` запускаются. Остался один визуальный
+> баг с RTT-превью: [Preview_RTT_Thumbnails_Bug.md](Preview_RTT_Thumbnails_Bug.md).
+> Дата: 2026-09-26
 > **Тип задачи:** Инфраструктурная миграция (не фича)
 > **Основание:** результаты spike `spike/bevy-0.19` (2026-09-26)
 > **Связанные документы:** [PROJECT_MAP.md](../docs/PROJECT_MAP.md), [GDD.md](../docs/design/GDD.md), [ENGINEERING_PROTOCOL.md](../docs/ENGINEERING_PROTOCOL.md), [Extraction_Plan.md](./ActorEditor/Extraction_Plan.md)

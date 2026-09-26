@@ -99,6 +99,18 @@ curl -s http://127.0.0.1:15703/state
 `/mouse` and select the tile type in the top panel, or use keyboard shortcuts
 (`Q`/`A` change height, arrow keys move the selection).
 
+## Checking the editor preview thumbnails
+
+`scripts/preview_check.py` reports which of the five tile-type thumbnails in
+the editor's top panel actually rendered:
+
+```bash
+python3 -m venv /tmp/imgvenv && /tmp/imgvenv/bin/pip install pillow
+curl -s -o /tmp/shot.png http://127.0.0.1:15703/screenshot
+/tmp/imgvenv/bin/python scripts/preview_check.py /tmp/shot.png
+# e.g. [5-555]  -> Cube, WedgeW, WedgeN, WedgeE visible; WedgeS blank
+```
+
 ## Notes
 
 - Screenshots are captured by the engine itself, so no OS screen-recording

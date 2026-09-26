@@ -1,6 +1,12 @@
 # 🛠 Control Server — агент-управляемая среда (HTTP API + Skill)
 
-> **Статус:** 📝 План (требует утверждения)
+> **Статус:** ✅ Фаза 1 реализована (2026-09-26); Фазы 2–3 в бэклоге
+>
+> Реализовано: `client_core::control` (HTTP на 127.0.0.1:15703, вкл. в debug/
+> флагом в release), `/state`, `/screenshot`, `/key`, `/mouse`, `/ui_click`,
+> `/ui_hover`; скил `.agents/skills/klep2tron-control/` (+ `scripts/preview_check.py`).
+> Подробности и известное ограничение RTT-превью — в
+> [Preview_RTT_Thumbnails_Bug.md](Preview_RTT_Thumbnails_Bug.md).
 > **Дата:** 2026-09-26
 > **Тип задачи:** Инфраструктура отладки/автоматизации
 > **Связанные документы:** [ENGINEERING_PROTOCOL.md](../docs/ENGINEERING_PROTOCOL.md), [PROJECT_MAP.md](../docs/PROJECT_MAP.md)
