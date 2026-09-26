@@ -86,6 +86,13 @@ pub fn install_panic_hook() {
     });
 }
 
+/// Build the `GET /logs` response.
+pub(super) fn respond(since: Option<u64>, tail: usize, min_level: Option<&str>) -> super::http::Response {
+    let (entries, last_seq) = snapshot(since, tail, min_level);
+    let body = serde_json::json!({ "entries": entries, "last_seq": last_seq });
+    super::http::Response::json(body.to_string())
+}
+
 /// Newest entries.
 ///
 /// With `since` set, returns everything newer than that sequence (ignoring

@@ -47,6 +47,7 @@ pub(super) enum Req {
     MeshInfo { id: u32 },
     MaterialInfo { id: u32 },
     Key { key: String, action: String },
+    Text { text: String },
     MouseMove { x: f32, y: f32 },
     MouseButton { button: String, action: String },
     /// `action`: `click` (one frame), `hover` (held), `unhover`.
@@ -260,6 +261,9 @@ pub(super) fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
         ("POST", "/key") => Req::Key {
             key: json.get("key").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
             action: json.get("action").and_then(|v| v.as_str()).unwrap_or("tap").to_string(),
+        },
+        ("POST", "/text") => Req::Text {
+            text: json.get("text").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
         },
         ("POST", "/ui_click") | ("POST", "/ui_hover") => Req::UiClick {
             label: label_param.unwrap_or_default(),

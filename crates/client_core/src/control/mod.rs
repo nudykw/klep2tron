@@ -11,6 +11,7 @@
 
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::ecs::system::SystemParam;
+use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy::ui::{ComputedNode, UiGlobalTransform};
 use std::sync::mpsc::{Receiver, Sender};
@@ -27,6 +28,7 @@ pub mod logs;
 mod mutate;
 mod scene;
 mod state;
+mod text;
 
 use config::ControlConfig;
 use http::{detect_binary, start_server, Envelope, Req, Response};
@@ -210,11 +212,12 @@ fn control_process_system(
     rx: Option<Res<ControlRx>>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut mouse_buttons: ResMut<ButtonInput<MouseButton>>,
-    mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
+    mut windows: Query<(Entity, &mut Window), With<bevy::window::PrimaryWindow>>,
     mut commands: Commands,
     mut state: ResMut<ControlState>,
     mut virtual_time: ResMut<Time<bevy::time::Virtual>>,
     mut actions: MessageWriter<ControlAction>,
+    mut keyboard: MessageWriter<KeyboardInput>,
     world: KtrlWorld,
     scene: ControlScene,
 ) {
@@ -297,11 +300,7 @@ fn control_process_system(
                 let _ = resp.send(Response::json(body));
             }
             Req::Version => {
-                let body = format!(
-                    "{{\"name\":\"KTRL\",\"server\":\"ktrls\",\"api\":1,\"binary\":\"{}\",\"port\":{},\"frame\":{}}}",
-                    state.binary, state.port, state.frame
-                );
-                let _ = resp.send(Response::json(body));
+                let _ = resp.send(Response::json(state::version_body(&state)));
             }
             Req::Pause { on } => {
                 state.paused = on;
@@ -347,9 +346,11 @@ fn control_process_system(
                 let _ = resp.send(Response::json(build_ui_query(&label, &ui_nodes, &current)));
             }
             Req::Logs { since, tail, level } => {
-                let (entries, last_seq) = logs::snapshot(since, tail, level.as_deref());
-                let body = serde_json::json!({ "entries": entries, "last_seq": last_seq });
-                let _ = resp.send(Response::json(body.to_string()));
+                let _ = resp.send(logs::respond(since, tail, level.as_deref()));
+            }
+            Req::Text { text } => {
+                let window = windows.iter().next().map(|(entity, _)| entity);
+                let _ = resp.send(text::respond(&text, window, &mut keyboard));
             }
             Req::Screenshot { view } => {
                 scene.capture(&mut commands, &view, resp);
@@ -408,7 +409,7 @@ fn control_process_system(
                 }
             }
             Req::MouseMove { x, y } => {
-                if let Ok(mut window) = windows.single_mut() {
+                if let Ok((_, mut window)) = windows.single_mut() {
                     window.set_cursor_position(Some(Vec2::new(x, y)));
                 }
                 let _ = resp.send(Response::json("{\"ok\":true}".into()));

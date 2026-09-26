@@ -117,6 +117,18 @@ pub(super) fn build_state(
     root.to_string()
 }
 
+pub(super) fn version_body(control: &ControlState) -> String {
+    serde_json::json!({
+        "name": "KTRL",
+        "server": "ktrls",
+        "api": 1,
+        "binary": control.binary,
+        "port": control.port,
+        "frame": control.frame,
+    })
+    .to_string()
+}
+
 /// Broadcast state changes to SSE subscribers (`GET /events`).
 pub(super) fn publish_state_changes(
     game_state: Res<State<GameState>>,

@@ -316,6 +316,13 @@ impl Client {
         self.post("/key", &body)
     }
 
+    /// Type `text` into the focused text field (one synthesized key event per
+    /// character; `\n`, `\t` and `\u{8}` map to Enter/Tab/Backspace).
+    pub fn text(&self, text: &str) -> Result<String> {
+        let body = serde_json::json!({ "text": text }).to_string();
+        self.post("/text", &body)
+    }
+
     pub fn ui_click(&self, label: &str, action: &str) -> Result<String> {
         let body = serde_json::json!({ "label": label, "action": action }).to_string();
         self.post("/ui_click", &body)

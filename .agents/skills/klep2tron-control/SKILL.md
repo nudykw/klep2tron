@@ -50,6 +50,7 @@ $K shot -o /tmp/shot.png              # primary window
 $K shot --view camera:529 -o /tmp/rtt.png
 $K scenario /tmp/scenario.json --verbose
 $K record --out /tmp/frames --frames 120 --every 2
+$K text 'Actor Name'
 $K step --frames 10 && $K pause --off
 ```
 
@@ -270,6 +271,19 @@ curl -s -X POST http://127.0.0.1:15703/key -d '{"key":"Enter"}'
 Recognised names: arrows, `Enter`, `Space`, `Escape`, `Tab`, `Backspace`,
 `Delete`, `ShiftLeft`, `ControlLeft`, `AltLeft`, `F1..F5`, `KeyA..KeyZ`,
 `Digit0..Digit9`, or a single letter/digit.
+
+### `POST /text` — type into a focused field
+
+Synthesizes one `KeyboardInput` per character, so focused text fields (e.g. the
+actor editor's name field) receive it:
+
+```bash
+curl -s -X POST http://127.0.0.1:15703/text -d '{"text":"Actor Name"}'
+# {"ok":true,"chars":10}
+```
+
+`\n`, `\t` and `\u{8}` map to Enter, Tab and Backspace (Enter/Escape also blur
+a field). Focus a field first (via `/ui_click` or `/mouse`).
 
 ### `POST /mouse`
 ```bash

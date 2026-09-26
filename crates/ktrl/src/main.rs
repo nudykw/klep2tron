@@ -131,6 +131,8 @@ enum Cmd {
         #[arg(long, default_value = "tap")]
         action: String,
     },
+    /// Type text into the focused field (`\n`, `\t`, `\u{8}` for Enter/Tab/Backspace).
+    Text { text: String },
     /// Click a UI button by label.
     Click { label: String },
     /// Hold a UI button hovered.
@@ -278,6 +280,7 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
             println!("{}", client.set_transform(id, serde_json::Value::Object(args))?);
         }
         Cmd::Key { key, action } => println!("{}", client.key(&key, &action)?),
+        Cmd::Text { text } => println!("{}", client.text(&text)?),
         Cmd::Click { label } => println!("{}", client.ui_click(&label, "click")?),
         Cmd::Hover { label } => println!("{}", client.ui_click(&label, "hover")?),
         Cmd::Unhover => println!("{}", client.ui_click("", "unhover")?),

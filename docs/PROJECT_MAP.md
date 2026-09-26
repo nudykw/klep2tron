@@ -49,7 +49,7 @@ control API, in debug builds (and in release when `settings.json` has
 - Endpoints: `GET /state`, `GET /screenshot[?view=]`, `GET /version`,
   `GET /ui_query`, `GET /logs`, `GET /events` (SSE), `GET /scene_tree`,
   `GET /entity/{id}`, `GET /mesh/{id}`, `GET /material/{id}`, `POST /key`,
-  `POST /mouse`, `POST /ui_click`, `POST /ui_hover`, `POST /pause`,
+  `POST /text`, `POST /mouse`, `POST /ui_click`, `POST /ui_hover`, `POST /pause`,
   `POST /step`, `POST /action`.
 - Logs: both binaries buffer the last 1000 `tracing` events (custom layer in
   `LogPlugin`), read back via `GET /logs[?since=&tail=&level=]`.
