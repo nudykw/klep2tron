@@ -50,7 +50,10 @@ control API, in debug builds (and in release when `settings.json` has
   `GET /ui_query`, `GET /logs`, `GET /events` (SSE), `GET /scene_tree`,
   `GET /entity/{id}`, `GET /mesh/{id}`, `GET /material/{id}`, `POST /key`,
   `POST /text`, `POST /mouse`, `POST /ui_click`, `POST /ui_hover`, `POST /pause`,
-  `POST /step`, `POST /action`.
+  `POST /step`, `POST /action`, `POST /batch`.
+- Request dispatch lives in `control/dispatch.rs` (`ControlCtx::handle`);
+  `POST /batch` runs a same-frame list of steps through it (`control/batch.rs`
+  parses the steps).
 - Logs: both binaries buffer the last 1000 `tracing` events (custom layer in
   `LogPlugin`), read back via `GET /logs[?since=&tail=&level=]`.
 - Events: `GET /events` streams `log`/`state`/`panic` over SSE (fan-out in

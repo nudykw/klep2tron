@@ -303,6 +303,13 @@ impl Client {
         self.action("SetTransform", Some(serde_json::Value::Object(map)))
     }
 
+    /// Run a same-frame batch of steps; `steps` is the JSON array from `POST /batch`.
+    pub fn batch(&self, steps: serde_json::Value) -> Result<serde_json::Value> {
+        let body = serde_json::json!({ "steps": steps }).to_string();
+        let text = self.post("/batch", &body)?;
+        Ok(serde_json::from_str(&text)?)
+    }
+
     pub fn pause(&self, on: bool) -> Result<String> {
         self.post("/pause", &format!("{{\"on\":{on}}}"))
     }

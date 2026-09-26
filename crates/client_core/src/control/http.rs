@@ -10,6 +10,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::batch::{mouse_request, parse_batch_step};
 use super::events;
 use super::{BODY_LIMIT, MAX_STEP_FRAMES, RESPONSE_TIMEOUT};
 
@@ -48,6 +49,8 @@ pub(super) enum Req {
     MaterialInfo { id: u32 },
     Key { key: String, action: String },
     Text { text: String },
+    /// Same-frame sequence of requests (see `batch::parse_batch_step`).
+    Batch { steps: Vec<Req> },
     MouseMove { x: f32, y: f32 },
     MouseButton { button: String, action: String },
     /// `action`: `click` (one frame), `hover` (held), `unhover`.
@@ -258,6 +261,13 @@ pub(super) fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
             name: json.get("action").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
             args: json.clone(),
         },
+        ("POST", "/batch") => Req::Batch {
+            steps: json
+                .get("steps")
+                .and_then(|v| v.as_array())
+                .map(|steps| steps.iter().map(parse_batch_step).collect())
+                .unwrap_or_default(),
+        },
         ("POST", "/key") => Req::Key {
             key: json.get("key").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
             action: json.get("action").and_then(|v| v.as_str()).unwrap_or("tap").to_string(),
@@ -273,19 +283,7 @@ pub(super) fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
                 .unwrap_or(if path == "/ui_hover" { "hover" } else { "click" })
                 .to_string(),
         },
-        ("POST", "/mouse") => {
-            if json.get("button").is_some() {
-                Req::MouseButton {
-                    button: json.get("button").and_then(|v| v.as_str()).unwrap_or("left").to_string(),
-                    action: json.get("action").and_then(|v| v.as_str()).unwrap_or("click").to_string(),
-                }
-            } else {
-                Req::MouseMove {
-                    x: json.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-                    y: json.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-                }
-            }
-        }
+        ("POST", "/mouse") => mouse_request(&json),
         _ => Req::Unknown(format!("{} {}", method, path)),
     }
 }
@@ -436,5 +434,25 @@ mod tests {
         assert!(!authorized("abc", Some("Bearer xyz")));
         assert!(!authorized("abc", Some("abc")));
         assert!(!authorized("abc", None));
+    }
+
+    #[test]
+    fn parses_batch_steps() {
+        let body = br#"{"steps":[
+            {"op":"action","name":"Undo"},
+            {"op":"key","key":"Enter"},
+            {"op":"pause","on":false},
+            {"op":"ui_click","label":"Cube"},
+            {"op":"state"}
+        ]}"#;
+        let Req::Batch { steps } = parse_request("POST", "/batch", body) else {
+            panic!("expected a batch");
+        };
+        assert_eq!(steps.len(), 5);
+        assert!(matches!(steps[0], Req::Action { ref name, .. } if name == "Undo"));
+        assert!(matches!(steps[1], Req::Key { ref key, .. } if key == "Enter"));
+        assert!(matches!(steps[2], Req::Pause { on: false }));
+        assert!(matches!(steps[3], Req::UiClick { ref label, .. } if label == "Cube"));
+        assert!(matches!(steps[4], Req::State));
     }
 }

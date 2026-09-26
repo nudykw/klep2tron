@@ -36,6 +36,7 @@ $K --url http://127.0.0.1:15703 --token <tok> state
 $K version
 $K action StartEditor && $K step --frames 40
 $K set-tile 3 4 --h 2 --type WedgeN
+$K batch --json '[{"op":"action","name":"Undo"},{"op":"state"}]'
 $K spawn --mesh cube --name probe --pos 5,1,5 --color 0,1,0
 $K move <id> --pos 1,0,0 --relative
 $K despawn <id>
@@ -162,6 +163,30 @@ curl -s -X POST http://127.0.0.1:15703/action -d '{"action":"DespawnEntity","id"
 `rotation_euler_deg` (`[x,y,z]`) and `relative` (delta for translation/scale).
 `SpawnEntity` takes `mesh` (`cube`|`wedge`), `name`, `translation`, `scale`,
 `rotation_euler_deg`, `material` (`highlight`) or `color`.
+
+### `POST /batch` — several steps, one request
+
+Runs synchronous steps in order **within a single frame** and returns one
+`{status, body}` per step:
+
+```bash
+curl -s -X POST http://127.0.0.1:15703/batch -d '{"steps":[
+  {"op":"action","name":"SetTile","set":{"x":2,"z":2,"h":1,"tt":"Cube"}},
+  {"op":"key","key":"Enter"},
+  {"op":"ui_click","label":"Cube"},
+  {"op":"state"}
+]}'
+# {"results":[{"status":200,"body":"{…}"}, …]}
+```
+
+Ops: `action` (`name` + optional `set`), `pause`, `key`, `text`, `mouse`,
+`ui_click`, `ui_hover`, `unhover`, `state`, `version`, `ui_query`, `logs`,
+`tree`/`scene_tree`, `entity`, `mesh`, `material`. `step`/`frames` and
+`shot`/`screenshot` are **rejected** (`400`) — `/batch` cannot block or go async.
+
+> Same-frame ordering: a `state` step does not see effects that run in other
+> schedules (button actions run in `Update`, map edits land next frame). When
+> order across frames matters, use `ktrl scenario` with `/step` barriers.
 
 ### `GET /ui_query` — list widgets
 

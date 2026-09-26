@@ -1,17 +1,17 @@
 //! KTRL — Klep2tron Control Server: local HTTP control API for agents
-//! (screenshots, input, state, actions).
+//! (screenshots, input, state, actions, events).
 //!
 //! Enabled by default in debug builds and via `settings.json`
 //! (`"control": { "enabled": true, "port": 15703 }`) in release.
 //! Binds to 127.0.0.1 only. API version: `ktrls/1`.
 //! Roadmap: `plans/KTRL_Control_Server_Plan.md`.
 //!
-//! Layout: [`http`] is the transport/parser, [`state`] the serialization and
-//! host-facing types, this module the ECS system that services requests.
+//! Layout: [`http`] is the transport/parser, [`dispatch`] turns requests into
+//! responses, [`scene`]/[`state`] serialize the world, and this module owns the
+//! ECS system that services requests.
 
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::ecs::system::SystemParam;
-use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy::ui::{ComputedNode, UiGlobalTransform};
 use std::sync::mpsc::{Receiver, Sender};
@@ -20,7 +20,9 @@ use std::time::Duration;
 
 use crate::{EditorMode, GameState, Project, Selection};
 
+mod batch;
 mod config;
+mod dispatch;
 mod events;
 mod http;
 mod keys;
@@ -31,11 +33,12 @@ mod state;
 mod text;
 
 use config::ControlConfig;
+use dispatch::{ControlCtx, Outcome};
 use http::{detect_binary, start_server, Envelope, Req, Response};
 use keys::key_from_name;
 use scene::ControlScene;
 pub use state::{ControlAction, ControlExtras};
-use state::{build_state, build_ui_query, publish_state_changes};
+use state::publish_state_changes;
 
 const BODY_LIMIT: usize = 1 << 20;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -210,68 +213,48 @@ struct KtrlWorld<'w, 's> {
 
 fn control_process_system(
     rx: Option<Res<ControlRx>>,
-    mut keys: ResMut<ButtonInput<KeyCode>>,
-    mut mouse_buttons: ResMut<ButtonInput<MouseButton>>,
-    mut windows: Query<(Entity, &mut Window), With<bevy::window::PrimaryWindow>>,
-    mut commands: Commands,
-    mut state: ResMut<ControlState>,
-    mut virtual_time: ResMut<Time<bevy::time::Virtual>>,
-    mut actions: MessageWriter<ControlAction>,
-    mut keyboard: MessageWriter<KeyboardInput>,
-    world: KtrlWorld,
+    mut ctx: ControlCtx,
+    mut world: KtrlWorld,
     scene: ControlScene,
 ) {
-    let KtrlWorld {
-        game_state,
-        selection,
-        project,
-        editor_mode,
-        transforms,
-        ui_nodes,
-        texts,
-        names,
-        parents,
-        mut interactions,
-        diagnostics,
-        extras,
-    } = world;
-
     // Re-apply keys that the controller is holding down.
-    for code in state.held.clone() {
-        keys.press(code);
+    for code in ctx.state.held.clone() {
+        ctx.keys.press(code);
     }
 
     // Re-apply the forced UI hover (overrides the pointer-based value).
-    if let Some(entity) = state.forced_hover {
-        if let Ok((_, mut interaction)) = interactions.get_mut(entity) {
+    if let Some(entity) = ctx.state.forced_hover {
+        if let Ok((_, mut interaction)) = world.interactions.get_mut(entity) {
             *interaction = Interaction::Hovered;
         }
     }
 
     // Release keys whose hold expired.
-    state.releases.retain_mut(|(code, frames)| {
-        if *frames == 0 {
-            keys.release(*code);
-            false
+    let mut index = 0;
+    while index < ctx.state.releases.len() {
+        if ctx.state.releases[index].1 == 0 {
+            let code = ctx.state.releases[index].0;
+            ctx.keys.release(code);
+            ctx.state.releases.remove(index);
         } else {
-            *frames -= 1;
-            true
+            ctx.state.releases[index].1 -= 1;
+            index += 1;
         }
-    });
+    }
 
     // KTRL frame clock: counts every frame, even while virtual time is paused.
-    state.frame = state.frame.wrapping_add(1);
+    ctx.state.frame = ctx.state.frame.wrapping_add(1);
 
     // Finish a pending `/step`: re-pause and release the held-back response.
-    if state.step_until.is_some_and(|target| state.frame >= target) {
-        state.step_until = None;
-        if state.paused {
-            virtual_time.pause();
+    if ctx.state.step_until.is_some_and(|target| ctx.state.frame >= target) {
+        ctx.state.step_until = None;
+        if ctx.state.paused {
+            ctx.virtual_time.pause();
         }
-        if let Some(resp) = state.step_resp.take() {
+        if let Some(resp) = ctx.state.step_resp.take() {
             let body = format!(
                 "{{\"ok\":true,\"frame\":{},\"paused\":{}}}",
-                state.frame, state.paused
+                ctx.state.frame, ctx.state.paused
             );
             let _ = resp.send(Response::json(body));
         }
@@ -285,216 +268,41 @@ fn control_process_system(
     };
 
     for Envelope { req, resp } in requests {
-        match req {
-            Req::State => {
-                let body = build_state(
-                    &game_state,
-                    &selection,
-                    &project,
-                    &editor_mode,
-                    &state,
-                    &diagnostics,
-                    &extras,
-                    &transforms,
-                );
-                let _ = resp.send(Response::json(body));
+        // `/batch` runs its steps in order within this frame. `step`/`shot` are
+        // rejected (the caller cannot block / go async mid-batch).
+        if let Req::Batch { steps } = req {
+            let mut results = Vec::with_capacity(steps.len());
+            for step in steps {
+                results.push(match ctx.handle(step, &mut world, &scene) {
+                    Outcome::Reply(response) => serde_json::json!({
+                        "status": response.status,
+                        "body": String::from_utf8_lossy(&response.body),
+                    }),
+                    Outcome::Step { .. } | Outcome::Screenshot { .. } => serde_json::json!({
+                        "status": 400,
+                        "body": "step/screenshot are not supported in /batch",
+                    }),
+                });
             }
-            Req::Version => {
-                let _ = resp.send(Response::json(state::version_body(&state)));
+            let body = serde_json::json!({ "results": results });
+            let _ = resp.send(Response::json(body.to_string()));
+            continue;
+        }
+
+        match ctx.handle(req, &mut world, &scene) {
+            Outcome::Reply(response) => {
+                let _ = resp.send(response);
             }
-            Req::Pause { on } => {
-                state.paused = on;
-                state.step_until = None;
-                state.step_resp = None;
-                if on {
-                    virtual_time.pause();
-                } else {
-                    virtual_time.unpause();
-                }
-                let body = format!(
-                    "{{\"ok\":true,\"paused\":{},\"frame\":{}}}",
-                    on, state.frame
-                );
-                let _ = resp.send(Response::json(body));
-            }
-            Req::Step { frames } => {
-                if state.step_resp.is_some() {
+            Outcome::Screenshot { view } => scene.capture(&mut ctx.commands, &view, resp),
+            Outcome::Step { frames } => {
+                if ctx.state.step_resp.is_some() {
                     let _ = resp.send(Response::text(409, "a step is already in progress".into()));
                 } else {
-                    virtual_time.unpause();
-                    state.step_until = Some(state.frame.saturating_add(frames as u64));
-                    state.step_resp = Some(resp);
+                    ctx.virtual_time.unpause();
+                    ctx.state.step_until = Some(ctx.state.frame.saturating_add(frames as u64));
+                    ctx.state.step_resp = Some(resp);
                 }
-            }
-            Req::Action { name, args } => {
-                if is_known_action(&name) {
-                    actions.write(ControlAction { name: name.clone(), args });
-                    let body = format!(
-                        "{{\"ok\":true,\"action\":\"{}\",\"frame\":{}}}",
-                        name, state.frame
-                    );
-                    let _ = resp.send(Response::json(body));
-                } else {
-                    let _ = resp.send(Response::text(400, format!("unknown action: {name}")));
-                }
-            }
-            Req::UiQuery { label } => {
-                let mut current = std::collections::HashMap::new();
-                for (entity, interaction) in interactions.iter() {
-                    current.insert(entity, *interaction);
-                }
-                let _ = resp.send(Response::json(build_ui_query(&label, &ui_nodes, &current)));
-            }
-            Req::Logs { since, tail, level } => {
-                let _ = resp.send(logs::respond(since, tail, level.as_deref()));
-            }
-            Req::Text { text } => {
-                let window = windows.iter().next().map(|(entity, _)| entity);
-                let _ = resp.send(text::respond(&text, window, &mut keyboard));
-            }
-            Req::Screenshot { view } => {
-                scene.capture(&mut commands, &view, resp);
-            }
-            Req::SceneTree { root, depth } => {
-                let _ = resp.send(Response::json(scene.tree(root, depth)));
-            }
-            Req::EntityDetail { id } => match scene.entity(id) {
-                Ok(body) => {
-                    let _ = resp.send(Response::json(body));
-                }
-                Err(msg) => {
-                    let _ = resp.send(Response::text(404, msg));
-                }
-            },
-            Req::MeshInfo { id } => match scene.mesh(id) {
-                Ok(body) => {
-                    let _ = resp.send(Response::json(body));
-                }
-                Err(msg) => {
-                    let _ = resp.send(Response::text(404, msg));
-                }
-            },
-            Req::MaterialInfo { id } => match scene.material(id) {
-                Ok(body) => {
-                    let _ = resp.send(Response::json(body));
-                }
-                Err(msg) => {
-                    let _ = resp.send(Response::text(404, msg));
-                }
-            },
-            Req::Key { key, action } => {
-                match key_from_name(&key) {
-                    Some(code) => {
-                        match action.as_str() {
-                            "press" => {
-                                if !state.held.contains(&code) {
-                                    state.held.push(code);
-                                }
-                                keys.press(code);
-                            }
-                            "release" => {
-                                state.held.retain(|c| *c != code);
-                                keys.release(code);
-                            }
-                            _ => {
-                                keys.press(code);
-                                state.releases.push((code, 2));
-                            }
-                        }
-                        let _ = resp.send(Response::json(format!("{{\"ok\":true,\"key\":\"{}\"}}", key)));
-                    }
-                    None => {
-                        let _ = resp.send(Response::text(400, format!("unknown key: {key}")));
-                    }
-                }
-            }
-            Req::MouseMove { x, y } => {
-                if let Ok((_, mut window)) = windows.single_mut() {
-                    window.set_cursor_position(Some(Vec2::new(x, y)));
-                }
-                let _ = resp.send(Response::json("{\"ok\":true}".into()));
-            }
-            Req::UiClick { label, action } => {
-                match action.as_str() {
-                    "unhover" => {
-                        state.forced_hover = None;
-                        let _ = resp.send(Response::json("{\"ok\":true}".into()));
-                    }
-                    _ => {
-                        let mut found = None;
-                        for (entity, name) in names.iter() {
-                            if name.as_str().trim().eq_ignore_ascii_case(label.trim()) {
-                                found = Some(entity);
-                                break;
-                            }
-                        }
-                        if found.is_none() {
-                            for (entity, text) in texts.iter() {
-                                if text.0.trim().eq_ignore_ascii_case(label.trim()) {
-                                    found = Some(entity);
-                                    break;
-                                }
-                            }
-                        }
-                        let mut target = None;
-                        if let Some(mut current) = found {
-                            for _ in 0..10 {
-                                if interactions.get_mut(current).is_ok() {
-                                    target = Some(current);
-                                    break;
-                                }
-                                match parents.get(current) {
-                                    Ok(parent) => current = parent.0,
-                                    Err(_) => break,
-                                }
-                            }
-                        }
-                        match target {
-                            Some(entity) => {
-                                if let Ok((_, mut interaction)) = interactions.get_mut(entity) {
-                                    if action == "hover" {
-                                        state.forced_hover = Some(entity);
-                                        *interaction = Interaction::Hovered;
-                                    } else {
-                                        *interaction = Interaction::Pressed;
-                                    }
-                                }
-                                let _ = resp.send(Response::json(format!(
-                                    "{{\"ok\":true,\"entity\":{},\"action\":\"{}\"}}",
-                                    entity.index().index(),
-                                    action
-                                )));
-                            }
-                            None => {
-                                let _ = resp.send(Response::text(
-                                    404,
-                                    format!("no button with label: {label}"),
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-            Req::MouseButton { button, action } => {
-                let code = match button.as_str() {
-                    "right" => MouseButton::Right,
-                    "middle" => MouseButton::Middle,
-                    _ => MouseButton::Left,
-                };
-                match action.as_str() {
-                    "press" => mouse_buttons.press(code),
-                    "release" => mouse_buttons.release(code),
-                    _ => {
-                        mouse_buttons.press(code);
-                        mouse_buttons.release(code);
-                    }
-                }
-                let _ = resp.send(Response::json("{\"ok\":true}".into()));
-            }
-            Req::Unknown(path) => {
-                let _ = resp.send(Response::text(404, format!("no such endpoint: {path}")));
             }
         }
     }
 }
-

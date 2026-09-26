@@ -155,6 +155,14 @@ enum Cmd {
         #[arg(long)]
         verbose: bool,
     },
+    /// Run a same-frame batch: `--json '[{"op":"action","name":"Undo"}]'`
+    /// or `--file steps.json` (the file may be a `{"steps":[…]}` object).
+    Batch {
+        #[arg(long)]
+        json: Option<String>,
+        #[arg(long)]
+        file: Option<PathBuf>,
+    },
     /// Record a PNG sequence by stepping frame by frame.
     Record {
         #[arg(long)]
@@ -293,6 +301,21 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
             }
             let steps = ktrl::scenario::run(client, &scenario, verbose)?;
             eprintln!("scenario ok ({steps} steps)");
+        }
+        Cmd::Batch { json, file } => {
+            let steps = if let Some(file) = file {
+                let value: serde_json::Value =
+                    serde_json::from_str(&std::fs::read_to_string(&file)?)?;
+                value.get("steps").cloned().unwrap_or(value)
+            } else if let Some(json) = json {
+                let value: serde_json::Value = serde_json::from_str(&json)?;
+                value.get("steps").cloned().unwrap_or(value)
+            } else {
+                return Err(ktrl::Error::Scenario(
+                    "batch needs --json '<steps>' or --file <path>".into(),
+                ));
+            };
+            println!("{}", pretty(&client.batch(steps)?));
         }
         Cmd::Record { out, frames, every, view, prefix } => {
             let files = ktrl::scenario::record(
