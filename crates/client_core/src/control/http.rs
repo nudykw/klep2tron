@@ -6,10 +6,11 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::events;
 use super::{BODY_LIMIT, MAX_STEP_FRAMES, RESPONSE_TIMEOUT};
 
 // --- Wire types -------------------------------------------------------------
@@ -96,6 +97,10 @@ fn handle_connection(
         if !authorized(token, auth.as_deref()) {
             return write_response(&mut stream, &Response::text(401, "unauthorized".into()));
         }
+    }
+    // `/events` is a stream, not a request/response call: keep the connection open.
+    if path.split('?').next() == Some("/events") {
+        return stream_events(stream);
     }
     let req = parse_request(&method, &path, &body);
 
@@ -310,6 +315,39 @@ fn write_response(stream: &mut TcpStream, resp: &Response) -> std::io::Result<()
     stream.write_all(head.as_bytes())?;
     stream.write_all(&resp.body)?;
     stream.flush()
+}
+
+// --- Server-Sent Events -----------------------------------------------------
+
+/// Stream `/events` to this client until it disconnects.
+fn stream_events(mut stream: TcpStream) -> std::io::Result<()> {
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+    let head = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+                Cache-Control: no-cache\r\nConnection: keep-alive\r\n\
+                Access-Control-Allow-Origin: *\r\nX-Accel-Buffering: no\r\n\r\n";
+    stream.write_all(head.as_bytes())?;
+    stream.write_all(b": connected\n\n")?;
+    stream.flush()?;
+
+    let rx = events::subscribe();
+    loop {
+        match rx.recv_timeout(Duration::from_secs(15)) {
+            Ok(event) => {
+                let frame = format!("event: {}\ndata: {}\n\n", event.kind, event.data);
+                if stream.write_all(frame.as_bytes()).is_err() || stream.flush().is_err() {
+                    break;
+                }
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                // Comment frame keeps proxies from closing an idle stream.
+                if stream.write_all(b": keep-alive\n\n").is_err() || stream.flush().is_err() {
+                    break;
+                }
+            }
+            Err(RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    Ok(())
 }
 
 /// Basename of the running executable, reported by `GET /version`.

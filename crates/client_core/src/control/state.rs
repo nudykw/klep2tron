@@ -117,6 +117,27 @@ pub(super) fn build_state(
     root.to_string()
 }
 
+/// Broadcast state changes to SSE subscribers (`GET /events`).
+pub(super) fn publish_state_changes(
+    game_state: Res<State<GameState>>,
+    editor_mode: Res<EditorMode>,
+    project: Res<Project>,
+    control: Res<ControlState>,
+) {
+    if !(game_state.is_changed() || editor_mode.is_changed() || project.is_changed()) {
+        return;
+    }
+    let data = serde_json::json!({
+        "game_state": format!("{:?}", game_state.get()),
+        "editor_active": editor_mode.is_active,
+        "room": project.current_room_idx,
+        "rooms": project.rooms.len(),
+        "frame": control.frame,
+    })
+    .to_string();
+    super::events::publish("state", data);
+}
+
 pub(super) fn build_ui_query(
     filter: &Option<String>,
     ui_nodes: &Query<(Entity, Option<&Name>, Option<&Text>, &ComputedNode, &UiGlobalTransform)>,

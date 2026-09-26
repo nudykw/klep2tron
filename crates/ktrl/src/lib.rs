@@ -211,6 +211,38 @@ impl Client {
         self.get_json(&path)
     }
 
+    /// Stream `GET /events` (Server-Sent Events) until the connection closes.
+    ///
+    /// Calls `on_event(kind, data)` for each event; kinds are `log`, `state`
+    /// and `panic`. Runs until Ctrl-C (the caller should not expect a return).
+    pub fn events(&self, mut on_event: impl FnMut(&str, &str)) -> Result<()> {
+        use std::io::BufRead;
+
+        // A dedicated agent without the global timeout: the stream is long-lived
+        // and the server sends keep-alive comments.
+        let agent = ureq::AgentBuilder::new()
+            .timeout_connect(Duration::from_secs(5))
+            .build();
+        let mut req = agent.get(&self.url("/events"));
+        if let Some(token) = &self.token {
+            req = req.set("Authorization", &format!("Bearer {token}"));
+        }
+        let resp = req.call()?;
+        let reader = std::io::BufReader::new(resp.into_reader());
+        let mut kind = String::from("message");
+        for line in reader.lines() {
+            let line = line?;
+            if line.is_empty() {
+                kind = "message".to_string();
+            } else if let Some(value) = line.strip_prefix("event:") {
+                kind = value.trim().to_string();
+            } else if let Some(value) = line.strip_prefix("data:") {
+                on_event(&kind, value.trim());
+            }
+        }
+        Ok(())
+    }
+
     /// PNG bytes of the primary window or of `view` (`camera:<id>` / `rtt:<id>`).
     pub fn screenshot(&self, view: Option<&str>) -> Result<Vec<u8>> {
         match view {

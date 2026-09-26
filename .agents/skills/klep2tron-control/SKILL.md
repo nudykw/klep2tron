@@ -41,6 +41,8 @@ $K entity 813 && $K mesh 813 && $K material 813
 $K ui --label Wedge
 $K logs --tail 50                     # recent log lines
 $K logs --since 1234 --level warn     # incremental / filtered
+$K events                             # live log/state/panic stream
+$K events --kind state                # only state changes
 $K shot -o /tmp/shot.png              # primary window
 $K shot --view camera:529 -o /tmp/rtt.png
 $K scenario /tmp/scenario.json --verbose
@@ -221,6 +223,21 @@ curl -s 'http://127.0.0.1:15703/logs?level=warn'         # warn+ only
 
 With `since`, `tail` is ignored and every newer entry is returned (poll with the
 previous `last_seq`).
+
+### `GET /events` — live event stream (SSE)
+
+`text/event-stream` with `log`, `state` and `panic` events. `data` is JSON
+(logs: a `/logs` entry; state: `{game_state,editor_active,room,rooms,frame}`;
+panic: `{message}`). The stream keeps the connection open and sends keep-alive
+comments; stop with Ctrl-C.
+
+```bash
+curl -sN http://127.0.0.1:15703/events
+# event: state
+# data: {"game_state":"InGame","editor_active":true,"frame":234,...}
+```
+
+Use this instead of polling `/state`/`/logs` for long-running observation.
 
 ### `POST /key`
 `{"key":"ArrowUp","action":"tap"|"press"|"release"}` (default `tap`).

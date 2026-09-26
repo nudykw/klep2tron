@@ -20,6 +20,7 @@ use std::time::Duration;
 use crate::{EditorMode, GameState, Project, Selection};
 
 mod config;
+mod events;
 mod http;
 mod keys;
 pub mod logs;
@@ -31,7 +32,7 @@ use http::{detect_binary, start_server, Envelope, Req, Response};
 use keys::key_from_name;
 use scene::ControlScene;
 pub use state::{ControlAction, ControlExtras};
-use state::{build_state, build_ui_query};
+use state::{build_state, build_ui_query, publish_state_changes};
 
 const BODY_LIMIT: usize = 1 << 20;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -113,6 +114,7 @@ impl Plugin for ControlPlugin {
                             .after(bevy::input::InputSystems)
                             .after(bevy::ui::UiSystems::Focus),
                         handle_core_control_actions.after(control_process_system),
+                        publish_state_changes.after(control_process_system),
                     ),
                 );
             }

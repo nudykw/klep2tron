@@ -57,6 +57,12 @@ enum Cmd {
         #[arg(long)]
         level: Option<String>,
     },
+    /// Stream live events (`log`, `state`, `panic`) until interrupted.
+    Events {
+        /// Only print this event kind.
+        #[arg(long)]
+        kind: Option<String>,
+    },
     /// Entity hierarchy.
     Tree {
         #[arg(long, default_value_t = 4)]
@@ -162,6 +168,14 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
         Cmd::Ui { label } => println!("{}", pretty(&client.ui_query(label.as_deref())?)),
         Cmd::Logs { since, tail, level } => {
             println!("{}", pretty(&client.logs(since, tail, level.as_deref())?))
+        }
+        Cmd::Events { kind } => {
+            eprintln!("streaming /events (ctrl-c to stop)");
+            client.events(|event_kind, data| {
+                if kind.as_deref().map_or(true, |want| want == event_kind) {
+                    println!("[{event_kind}] {data}");
+                }
+            })?;
         }
         Cmd::Tree { depth, root } => {
             println!("{}", pretty(&client.scene_tree(depth, root)?))

@@ -12,7 +12,17 @@
 //! # Usage
 //!
 //! ```rust
-//! let segments = calculate_contours_only(&mesh, top_y, bottom_y);
+//! use bevy::asset::RenderAssetUsages;
+//! use bevy::mesh::{Mesh, PrimitiveTopology};
+//! use actor_editor::geometry::contour_calculator::calculate_contours_only;
+//!
+//! let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+//! mesh.insert_attribute(
+//!     Mesh::ATTRIBUTE_POSITION,
+//!     vec![[0.0f32, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+//! );
+//! let segments = calculate_contours_only(&mesh, 0.5, 0.0);
+//! assert!(!segments.is_empty());
 //! ```
 
 use bevy::prelude::*;

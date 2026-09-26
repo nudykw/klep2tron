@@ -7,13 +7,15 @@
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, Once, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::app::App;
 use bevy::log::tracing::field::{Field, Visit};
 use bevy::log::tracing::{Event, Subscriber};
 use bevy::log::tracing_subscriber::layer::{Context, Layer};
+
+use super::events;
 
 const CAPACITY: usize = 1000;
 
@@ -56,12 +58,31 @@ fn push(level: &'static str, target: &str, message: String) {
         buf.pop_front();
     }
     let seq = SEQ.fetch_add(1, Ordering::Relaxed);
-    buf.push_back(LogEntry {
+    let entry = LogEntry {
         seq,
         ts_ms: now_ms(),
         level,
         target: target.to_string(),
         message,
+    };
+    if let Ok(data) = serde_json::to_string(&entry) {
+        events::publish("log", data);
+    }
+    buf.push_back(entry);
+}
+
+/// Forward panics to `/events` and the log buffer (best effort: the process may
+/// exit before a slow client reads it).
+pub fn install_panic_hook() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let message = info.to_string();
+            push("ERROR", "panic", message.clone());
+            events::publish("panic", serde_json::json!({ "message": message }).to_string());
+            previous(info);
+        }));
     });
 }
 
@@ -91,6 +112,7 @@ pub fn snapshot(since: Option<u64>, tail: usize, min_level: Option<&str>) -> (Ve
 
 /// Install this as `LogPlugin::custom_layer` to capture logs into the buffer.
 pub fn log_layer(_app: &mut App) -> Option<bevy::log::BoxedLayer> {
+    install_panic_hook();
     Some(Box::new(LogCaptureLayer))
 }
 
