@@ -40,6 +40,7 @@ pub(super) enum Req {
     Step { frames: u32 },
     Action { name: String, args: serde_json::Value },
     UiQuery { label: Option<String> },
+    Logs { since: Option<u64>, tail: usize, level: Option<String> },
     SceneTree { root: Option<u32>, depth: usize },
     EntityDetail { id: u32 },
     MeshInfo { id: u32 },
@@ -232,6 +233,11 @@ pub(super) fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
             None => Req::Unknown("GET /material (missing id)".into()),
         },
         ("GET", "/ui_query") | ("POST", "/ui_query") => Req::UiQuery { label: label_param },
+        ("GET", "/logs") => Req::Logs {
+            since: query_param(query, "since").and_then(|s| s.parse().ok()),
+            tail: query_param(query, "tail").and_then(|s| s.parse().ok()).unwrap_or(100),
+            level: query_param(query, "level"),
+        },
         ("POST", "/pause") => Req::Pause {
             on: json.get("on").and_then(|v| v.as_bool()).unwrap_or(true),
         },

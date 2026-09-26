@@ -13,6 +13,8 @@
 use std::io::Read;
 use std::time::Duration;
 
+pub mod scenario;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -21,6 +23,7 @@ pub enum Error {
     Status { code: u16, body: String },
     Io(std::io::Error),
     Json(serde_json::Error),
+    Scenario(String),
 }
 
 impl std::fmt::Display for Error {
@@ -37,6 +40,7 @@ impl std::fmt::Display for Error {
             }
             Error::Io(e) => write!(f, "io error: {e}"),
             Error::Json(e) => write!(f, "json error: {e}"),
+            Error::Scenario(e) => write!(f, "scenario: {e}"),
         }
     }
 }
@@ -189,6 +193,24 @@ impl Client {
         }
     }
 
+    /// Recent log entries. With `since` set, returns everything newer than that
+    /// sequence number (incremental polling).
+    pub fn logs(
+        &self,
+        since: Option<u64>,
+        tail: usize,
+        level: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        let mut path = format!("/logs?tail={tail}");
+        if let Some(since) = since {
+            path.push_str(&format!("&since={since}"));
+        }
+        if let Some(level) = level {
+            path.push_str(&format!("&level={}", encode(level)));
+        }
+        self.get_json(&path)
+    }
+
     /// PNG bytes of the primary window or of `view` (`camera:<id>` / `rtt:<id>`).
     pub fn screenshot(&self, view: Option<&str>) -> Result<Vec<u8>> {
         match view {
@@ -237,17 +259,13 @@ impl Client {
     }
 
     pub fn key(&self, key: &str, action: &str) -> Result<String> {
-        self.post(
-            "/key",
-            &format!("{{\"key\":\"{}\",\"action\":\"{action}\"}}", encode(key)),
-        )
+        let body = serde_json::json!({ "key": key, "action": action }).to_string();
+        self.post("/key", &body)
     }
 
     pub fn ui_click(&self, label: &str, action: &str) -> Result<String> {
-        self.post(
-            "/ui_click",
-            &format!("{{\"label\":\"{}\",\"action\":\"{action}\"}}", encode(label)),
-        )
+        let body = serde_json::json!({ "label": label, "action": action }).to_string();
+        self.post("/ui_click", &body)
     }
 }
 

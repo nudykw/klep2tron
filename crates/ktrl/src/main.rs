@@ -1,5 +1,6 @@
 //! `ktrl` — command-line client for KTRL (Klep2tron Control Server).
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
@@ -44,6 +45,17 @@ enum Cmd {
         /// Case-insensitive substring filter.
         #[arg(long)]
         label: Option<String>,
+    },
+    /// Read recent log lines (warnings/errors included).
+    Logs {
+        /// Only entries newer than this sequence number (incremental polling).
+        #[arg(long)]
+        since: Option<u64>,
+        #[arg(long, default_value_t = 100)]
+        tail: usize,
+        /// Minimum severity: `info`, `warn` or `error`.
+        #[arg(long)]
+        level: Option<String>,
     },
     /// Entity hierarchy.
     Tree {
@@ -96,6 +108,26 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         frames: u32,
     },
+    /// Run a JSON scenario of steps (see scenario.rs docs for the format).
+    Scenario {
+        file: PathBuf,
+        #[arg(long)]
+        verbose: bool,
+    },
+    /// Record a PNG sequence by stepping frame by frame.
+    Record {
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 120)]
+        frames: u32,
+        /// Write one frame every N frames.
+        #[arg(long, default_value_t = 1)]
+        every: u32,
+        #[arg(long)]
+        view: Option<String>,
+        #[arg(long, default_value = "frame")]
+        prefix: String,
+    },
 }
 
 fn pretty(value: &serde_json::Value) -> String {
@@ -128,6 +160,9 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
             }
         }
         Cmd::Ui { label } => println!("{}", pretty(&client.ui_query(label.as_deref())?)),
+        Cmd::Logs { since, tail, level } => {
+            println!("{}", pretty(&client.logs(since, tail, level.as_deref())?))
+        }
         Cmd::Tree { depth, root } => {
             println!("{}", pretty(&client.scene_tree(depth, root)?))
         }
@@ -147,6 +182,25 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
         Cmd::Unhover => println!("{}", client.ui_click("", "unhover")?),
         Cmd::Pause { off } => println!("{}", client.pause(!off)?),
         Cmd::Step { frames } => println!("{}", client.step(frames)?),
+        Cmd::Scenario { file, verbose } => {
+            let scenario = ktrl::scenario::Scenario::load(&file)?;
+            if let Some(name) = &scenario.name {
+                eprintln!("scenario: {name}");
+            }
+            let steps = ktrl::scenario::run(client, &scenario, verbose)?;
+            eprintln!("scenario ok ({steps} steps)");
+        }
+        Cmd::Record { out, frames, every, view, prefix } => {
+            let files = ktrl::scenario::record(
+                client,
+                &out,
+                &prefix,
+                frames,
+                every,
+                view.as_deref(),
+            )?;
+            println!("wrote {} frames to {}", files.len(), out.display());
+        }
     }
     Ok(())
 }

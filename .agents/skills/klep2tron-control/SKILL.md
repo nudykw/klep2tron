@@ -39,8 +39,12 @@ $K set-tile 3 4 --h 2 --type WedgeN
 $K tree --depth 3
 $K entity 813 && $K mesh 813 && $K material 813
 $K ui --label Wedge
+$K logs --tail 50                     # recent log lines
+$K logs --since 1234 --level warn     # incremental / filtered
 $K shot -o /tmp/shot.png              # primary window
 $K shot --view camera:529 -o /tmp/rtt.png
+$K scenario /tmp/scenario.json --verbose
+$K record --out /tmp/frames --frames 120 --every 2
 $K step --frames 10 && $K pause --off
 ```
 
@@ -197,6 +201,26 @@ Reports `base_color`, `emissive`, `perceptual_roughness`, `metallic`,
 `reflectance`, `unlit`, `double_sided`, `cull_mode`, `alpha_mode` and the
 `base_color_texture` / `emissive_texture` asset ids of the entity's
 `StandardMaterial`.
+
+### `GET /logs` — recent log lines
+
+The binaries buffer the last 1000 log events (via a `tracing` layer), so you
+can read warnings/errors without scraping stdout:
+
+```json
+{"entries":[{"seq":437,"ts_ms":1758880000000,"level":"WARN",
+              "target":"bevy_render","message":"…"}],
+ "last_seq":437}
+```
+
+```bash
+curl -s 'http://127.0.0.1:15703/logs?tail=50'
+curl -s 'http://127.0.0.1:15703/logs?since=437'          # only new entries
+curl -s 'http://127.0.0.1:15703/logs?level=warn'         # warn+ only
+```
+
+With `since`, `tail` is ignored and every newer entry is returned (poll with the
+previous `last_seq`).
 
 ### `POST /key`
 `{"key":"ArrowUp","action":"tap"|"press"|"release"}` (default `tap`).

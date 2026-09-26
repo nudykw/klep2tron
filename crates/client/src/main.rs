@@ -13,6 +13,9 @@ fn main() {
         }).set(bevy::render::RenderPlugin {
             render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(client_core::get_wgpu_settings())),
             ..default()
+        }).set(bevy::log::LogPlugin {
+            custom_layer: client_core::control::logs::log_layer,
+            ..default()
         }))
         .add_plugins(bevy_obj::ObjPlugin)
         .add_plugins(ClientCorePlugin::default())

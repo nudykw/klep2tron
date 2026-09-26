@@ -22,6 +22,7 @@ use crate::{EditorMode, GameState, Project, Selection};
 mod config;
 mod http;
 mod keys;
+pub mod logs;
 mod scene;
 mod state;
 
@@ -339,6 +340,11 @@ fn control_process_system(
                     current.insert(entity, *interaction);
                 }
                 let _ = resp.send(Response::json(build_ui_query(&label, &ui_nodes, &current)));
+            }
+            Req::Logs { since, tail, level } => {
+                let (entries, last_seq) = logs::snapshot(since, tail, level.as_deref());
+                let body = serde_json::json!({ "entries": entries, "last_seq": last_seq });
+                let _ = resp.send(Response::json(body.to_string()));
             }
             Req::Screenshot { view } => {
                 scene.capture(&mut commands, &view, resp);
