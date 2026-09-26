@@ -1,6 +1,57 @@
 use bevy::prelude::*;
 use client_core::{Project, Selection, DirtyTiles, CommandHistory, RoomTransition, Room, TileType};
-use crate::{EditorState, OrbitCamera, BoxGizmos, TILE_SIZE, TILE_H};
+use client_core::{ClientAssets, MapEntity};
+use crate::{EditorState, OrbitCamera, BoxGizmos, SelectionPreview, TILE_SIZE, TILE_H};
+
+/// Spawns and keeps a translucent “ghost” of the tile type that would be
+/// placed at the current selection, so the preview is visible immediately.
+pub fn selection_preview_system(
+    mut commands: Commands,
+    selection: Res<Selection>,
+    project: Res<Project>,
+    editor_state: Res<EditorState>,
+    client_assets: Res<ClientAssets>,
+    mut preview: Query<(Entity, &mut Mesh3d, &mut Transform), With<SelectionPreview>>,
+) {
+    if project.rooms.is_empty() {
+        return;
+    }
+    let room_idx = project.current_room_idx;
+    let cell = project.rooms[room_idx].cells[selection.x][selection.z];
+
+    let (mesh, rot) = match editor_state.current_type {
+        TileType::WedgeN => (client_assets.wedge_mesh.clone(), 0.0),
+        TileType::WedgeE => (client_assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
+        TileType::WedgeS => (client_assets.wedge_mesh.clone(), std::f32::consts::PI),
+        TileType::WedgeW => (client_assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
+        _ => (client_assets.cube_mesh.clone(), 0.0),
+    };
+
+    let top_y = (cell.h as f32 - 0.5) * TILE_H;
+    let transform = Transform::from_translation(Vec3::new(
+        selection.x as f32,
+        top_y,
+        selection.z as f32,
+    ))
+    .with_scale(Vec3::new(TILE_SIZE, TILE_H, TILE_SIZE))
+    .with_rotation(Quat::from_rotation_y(rot));
+
+    if let Ok((_, mut current_mesh, mut current_transform)) = preview.single_mut() {
+        if current_mesh.0 != mesh {
+            current_mesh.0 = mesh;
+        }
+        *current_transform = transform;
+    } else {
+        commands.spawn((
+            SelectionPreview,
+            Mesh3d(mesh),
+            MeshMaterial3d(client_assets.highlight_material.clone()),
+            transform,
+            bevy::light::NotShadowCaster,
+            MapEntity,
+        ));
+    }
+}
 
 pub fn selection_system(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -182,7 +233,6 @@ pub fn selection_highlight_system(
     camera_query: Query<&Transform, With<OrbitCamera>>,
     time: Res<Time>,
     mut gizmos: Gizmos<BoxGizmos>,
-    mut dbg: Local<Option<(usize, usize, i32)>>,
 ) {
     let room_idx = project.current_room_idx;
     let cell = project.rooms[room_idx].cells[selection.x][selection.z];
@@ -204,14 +254,6 @@ pub fn selection_highlight_system(
     }
 
     let top_pos = Vec3::new(selection.x as f32, (cell.h as f32 - 0.5) * TILE_H, selection.z as f32);
-    let dbg_state = (selection.x, selection.z, cell.h);
-    if *dbg != Some(dbg_state) {
-        *dbg = Some(dbg_state);
-        info!(
-            "HIGHLIGHT sel=({},{}) cell.h={} top_y={:.3} room={} cam={:?}",
-            selection.x, selection.z, cell.h, top_pos.y, room_idx, cam_pos
-        );
-    }
     let transform = Transform::from_translation(top_pos).with_scale(Vec3::new(TILE_SIZE * 1.01, TILE_H * 1.01, TILE_SIZE * 1.01));
     let preview_type = editor_state.current_type;
     let color = Color::srgba(1.0, 1.0, 1.0, 0.4);

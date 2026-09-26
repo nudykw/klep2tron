@@ -15,6 +15,7 @@ pub use crate::ui::*;
 pub use crate::logic::*;
 
 #[derive(Component)] pub struct SelectionHighlight;
+#[derive(Component)] pub struct SelectionPreview;
 #[derive(Component)] pub struct UiPreview;
 #[derive(Component)] pub struct OverlayCamera;
 #[derive(Component)] pub struct RttCamera;
@@ -112,6 +113,7 @@ pub fn run_game() {
             mouse_selection_system,
             editor_ui_system,
             selection_highlight_system,
+            selection_preview_system,
             room_switching_system,
             auto_save_system,
             undo_redo_system,
@@ -194,7 +196,7 @@ pub fn setup_editor(
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     
     client_assets.highlight_material = materials.add(StandardMaterial {
-        base_color: Color::srgba(0.0, 1.0, 1.0, 0.1),
+        base_color: Color::srgba(0.2, 1.0, 1.0, 0.35),
         unlit: true,
         alpha_mode: AlphaMode::Blend,
         ..default()
