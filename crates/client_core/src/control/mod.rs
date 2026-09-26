@@ -33,6 +33,7 @@ mod mutate;
 mod scene;
 mod state;
 mod text;
+mod watch;
 
 use config::ControlConfig;
 use dispatch::{ControlCtx, Outcome};
@@ -40,7 +41,7 @@ use http::{detect_binary, start_server, Envelope, Req, Response};
 use keys::key_from_name;
 use scene::ControlScene;
 pub use state::{ControlAction, ControlExtras};
-use state::publish_state_changes;
+use state::{build_state, publish_state_changes};
 
 const BODY_LIMIT: usize = 1 << 20;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -194,6 +195,10 @@ struct ControlState {
     gamepad: Option<Entity>,
     /// Gamepad buttons to release once their countdown expires.
     gamepad_releases: Vec<(GamepadButton, u32)>,
+    /// Conditional watchpoints (`POST /watch`).
+    watches: Vec<watch::Watch>,
+    /// Next watch id.
+    next_watch_id: u64,
 }
 
 /// Read-only world view used by `/state` and `/ui_query`, bundled into one
@@ -335,4 +340,69 @@ fn control_process_system(
             }
         }
     }
+
+    // Conditional watchpoints: evaluated at the end of the frame.
+    if ctx.state.watches.iter().any(|watch| watch.active()) {
+        let frame = ctx.state.frame;
+        let needs_state = ctx
+            .state
+            .watches
+            .iter()
+            .any(|watch| watch.active() && watch.is_state_predicate());
+        let state = if needs_state {
+            serde_json::from_str::<serde_json::Value>(&build_state(
+                &world.game_state,
+                &world.selection,
+                &world.project,
+                &world.editor_mode,
+                &ctx.state,
+                &world.diagnostics,
+                &world.extras,
+                &world.transforms,
+            ))
+            .ok()
+        } else {
+            None
+        };
+        let count_entities = |filter: &watch::EntityFilter| scene.matching_count(filter);
+        let hits = watch::evaluate(
+            &mut ctx.state.watches,
+            frame,
+            state.as_ref(),
+            &count_entities,
+        );
+        for hit in hits {
+            if hit.pause {
+                ctx.state.paused = true;
+                ctx.virtual_time.pause();
+            }
+            let event = serde_json::json!({
+                "id": hit.id,
+                "frame": hit.frame,
+                "state": hit.snapshot,
+            });
+            events::publish("watch", event.to_string());
+            if hit.screenshot {
+                spawn_watch_screenshot(&mut ctx.commands, hit.id, hit.frame, &hit.dir);
+            }
+        }
+    }
+}
+
+/// Capture a screenshot triggered by a watchpoint hit and save it to `dir`.
+fn spawn_watch_screenshot(commands: &mut Commands, id: u64, frame: u64, dir: &str) {
+    let path = format!("{dir}/ktl_watch_{id}_{frame}.png");
+    commands.spawn(bevy::render::view::screenshot::Screenshot::primary_window()).observe(
+        move |captured: On<bevy::render::view::screenshot::ScreenshotCaptured>| {
+            if let Ok(image) = captured.image.clone().try_into_dynamic() {
+                let mut buffer = std::io::Cursor::new(Vec::new());
+                if image.write_to(&mut buffer, image::ImageFormat::Png).is_ok()
+                    && std::fs::write(&path, buffer.into_inner()).is_ok()
+                {
+                    let event = serde_json::json!({ "id": id, "frame": frame, "path": path });
+                    events::publish("watch_shot", event.to_string());
+                }
+            }
+        },
+    );
 }

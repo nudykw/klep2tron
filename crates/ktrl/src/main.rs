@@ -142,6 +142,25 @@ enum Cmd {
         #[arg(long, default_value_t = 1.0)]
         value: f32,
     },
+    /// Add a conditional watchpoint (pauses + emits a `watch` event on a hit).
+    Watch {
+        /// Predicate JSON, e.g. '{"field":"map.cells.3.4.h","op":">","value":2}'
+        /// or '{"name":"probe","component":"mesh","near":[5,1,5],"radius":1}'.
+        #[arg(long)]
+        json: Option<String>,
+        #[arg(long)]
+        file: Option<PathBuf>,
+    },
+    /// List active watchpoints (`--id N` includes the last snapshot).
+    Watches {
+        #[arg(long)]
+        id: Option<u64>,
+    },
+    /// Remove a watchpoint (`--id N`) or all of them.
+    Unwatch {
+        #[arg(long)]
+        id: Option<u64>,
+    },
     /// Click a UI button by label.
     Click { label: String },
     /// Hold a UI button hovered.
@@ -309,6 +328,22 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
             body.insert("value".into(), value.into());
             println!("{}", client.gamepad(serde_json::Value::Object(body))?);
         }
+        Cmd::Watch { json, file } => {
+            let spec = if let Some(file) = file {
+                let value: serde_json::Value =
+                    serde_json::from_str(&std::fs::read_to_string(&file)?)?;
+                value.get("watch").cloned().unwrap_or(value)
+            } else if let Some(json) = json {
+                serde_json::from_str(&json)?
+            } else {
+                return Err(ktrl::Error::Scenario(
+                    "watch needs --json '{...}' or --file <path>".into(),
+                ));
+            };
+            println!("{}", pretty(&client.watch(spec)?));
+        }
+        Cmd::Watches { id } => println!("{}", pretty(&client.watches(id)?)),
+        Cmd::Unwatch { id } => println!("{}", pretty(&client.unwatch(id)?)),
         Cmd::Click { label } => println!("{}", client.ui_click(&label, "click")?),
         Cmd::Hover { label } => println!("{}", client.ui_click(&label, "hover")?),
         Cmd::Unhover => println!("{}", client.ui_click("", "unhover")?),

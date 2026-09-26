@@ -83,6 +83,9 @@ $K record --out /tmp/frames --frames 120 --every 2
 $K text 'Actor Name'
 $K gamepad --button South
 $K gamepad --axis LeftStickX --value 0.5
+$K watch --json '{"field":"map.cells.3.4.h","op":">","value":2}'
+$K watches [--id N]
+$K unwatch [--id N]
 $K step --frames 10 && $K pause --off
 ```
 
@@ -359,6 +362,44 @@ Buttons: `South`/`A`, `East`/`B`, `North`/`Y`, `West`/`X`, `DPadUp/Down/Left/Rig
 `action` is `tap` (default; queues a release after two frames), `press` or
 `release`. Buttons stay `pressed` until released — use `tap` for discrete
 navigation. Axes persist until overwritten.
+
+### `POST /watch` — conditional watchpoints
+
+Spawns a predicate checked every frame. On a hit the app is **softly paused**
+(virtual time only — rendering and the HTTP server keep running), a `watch`
+event with a `state` snapshot is pushed to `/events`, and an optional screenshot
+is written to disk. Manage them with `ktrl watches` / `ktrl unwatch`.
+
+```bash
+# state predicate: fire when map cell (3,4) is higher than 2
+curl -s -X POST http://127.0.0.1:15703/watch \
+  -d '{"field":"map.cells.3.4.h","op":">","value":2}'
+
+# entity predicate: a mesh named "probe" within 1.0 of (5,1,5), with a screenshot
+curl -s -X POST http://127.0.0.1:15703/watch \
+  -d '{"name":"probe","component":"mesh","near":[5,1,5],"radius":1.0,"screenshot":true}'
+
+curl -s 'http://127.0.0.1:15703/watch'        # list
+curl -s 'http://127.0.0.1:15703/watch?id=0'   # one, with its last snapshot
+curl -s -X POST http://127.0.0.1:15703/watch/clear -d '{"id":0}'  # remove one
+curl -s -X POST http://127.0.0.1:15703/watch/clear                 # remove all
+```
+
+Predicate: `field` + `op` (`==`,`!=`,`<`,`<=`,`>`,`>=`,`contains`,`changed`) +
+`value`; **or** `name` / `component` (`mesh`,`camera`,`ui_node`,`ui_text`,
+`light`,`transform`,`any`) / `near` / `radius` with `count_op`/`count` over the
+matching entity count. Options: `pause` (default `true`), `snapshot` (`true`),
+`screenshot` (`false`), `once` (`true`; `once:false` re-fires on each rising
+edge), `dir`.
+
+On a hit `/events` emits `event: watch` (`{id,frame,state}`) and, if a
+screenshot was requested, `event: watch_shot` (`{id,frame,path}`). Max 32 active
+watches.
+
+> Real source-line breakpoints belong in a debugger (`lldb`/`gdb`), but a normal
+> breakpoint stops the whole process, so KTRL cannot answer while it is held
+> (drive `lldb --batch` instead). Watchpoints are the in-process equivalent and
+> compose with `/state`, `/step` and `/events`.
 
 ### `POST /mouse`
 ```bash

@@ -50,6 +50,9 @@ pub(super) enum Req {
     Key { key: String, action: String },
     Text { text: String },
     Gamepad { button: Option<String>, axis: Option<String>, value: f32, action: String },
+    WatchAdd { spec: serde_json::Value },
+    WatchList { id: Option<u64> },
+    WatchRemove { id: Option<u64> },
     /// Same-frame sequence of requests (see `batch::parse_batch_step`).
     Batch { steps: Vec<Req> },
     MouseMove { x: f32, y: f32 },
@@ -282,6 +285,13 @@ pub(super) fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
             axis: json.get("axis").and_then(|v| v.as_str()).map(|s| s.to_string()),
             value: json.get("value").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32,
             action: json.get("action").and_then(|v| v.as_str()).unwrap_or("tap").to_string(),
+        },
+        ("POST", "/watch") => Req::WatchAdd { spec: json.clone() },
+        ("GET", "/watch") => Req::WatchList {
+            id: query_param(query, "id").and_then(|s| s.parse().ok()),
+        },
+        ("POST", "/watch/clear") | ("POST", "/watch/remove") => Req::WatchRemove {
+            id: json.get("id").and_then(|v| v.as_u64()),
         },
         ("POST", "/ui_click") | ("POST", "/ui_hover") => Req::UiClick {
             label: label_param.unwrap_or_default(),

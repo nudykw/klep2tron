@@ -68,6 +68,12 @@ pub(super) fn parse_batch_step(step: &Value) -> Req {
         "step" | "frames" => Req::Step {
             frames: unsigned(step, "frames", 1).clamp(1, MAX_STEP_FRAMES as u64) as u32,
         },
+        "watch" => Req::WatchAdd {
+            spec: step.get("spec").cloned().unwrap_or(Value::Null),
+        },
+        "unwatch" => Req::WatchRemove {
+            id: step.get("id").and_then(|v| v.as_u64()),
+        },
         "shot" | "screenshot" => Req::Screenshot {
             view: step.get("view").and_then(|v| v.as_str()).map(|s| s.to_string()),
         },

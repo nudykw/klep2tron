@@ -14,6 +14,7 @@ use bevy::prelude::*;
 
 use super::gamepad;
 use super::http::{Req, Response};
+use super::watch::{self, MAX_WATCHES};
 use super::scene::ControlScene;
 use super::state::{build_state, build_ui_query, version_body, ControlAction};
 use super::{is_known_action, key_from_name, logs, text, ControlState, KtrlWorld};
@@ -118,6 +119,58 @@ impl ControlCtx<'_, '_> {
                 Outcome::Reply(text::respond(&text, window, &mut self.keyboard))
             }
             Req::Screenshot { view } => Outcome::Screenshot { view },
+            Req::WatchAdd { spec } => {
+                if self.state.watches.len() >= MAX_WATCHES {
+                    return Outcome::Reply(Response::text(
+                        400,
+                        format!("too many watches (max {MAX_WATCHES})"),
+                    ));
+                }
+                match watch::Watch::parse(&spec) {
+                    Ok(mut new_watch) => {
+                        let id = self.state.next_watch_id;
+                        self.state.next_watch_id += 1;
+                        new_watch.id = id;
+                        let body = new_watch.to_json(false);
+                        self.state.watches.push(new_watch);
+                        Outcome::Reply(Response::json(
+                            serde_json::json!({"ok":true,"id":id,"watch":body}).to_string(),
+                        ))
+                    }
+                    Err(message) => Outcome::Reply(Response::text(400, message)),
+                }
+            }
+            Req::WatchList { id } => {
+                let body = match id {
+                    Some(id) => match self.state.watches.iter().find(|w| w.id == id) {
+                        Some(watch) => watch.to_json(true),
+                        None => {
+                            return Outcome::Reply(Response::text(404, format!("no watch {id}")))
+                        }
+                    },
+                    None => serde_json::json!({
+                        "watches": self.state.watches.iter().map(|w| w.to_json(false)).collect::<Vec<_>>()
+                    }),
+                };
+                Outcome::Reply(Response::json(body.to_string()))
+            }
+            Req::WatchRemove { id } => {
+                let removed = match id {
+                    Some(id) => {
+                        let before = self.state.watches.len();
+                        self.state.watches.retain(|w| w.id != id);
+                        before - self.state.watches.len()
+                    }
+                    None => {
+                        let count = self.state.watches.len();
+                        self.state.watches.clear();
+                        count
+                    }
+                };
+                Outcome::Reply(Response::json(
+                    serde_json::json!({"ok":true,"removed":removed}).to_string(),
+                ))
+            }
             Req::Gamepad { button, axis, value, action } => {
                 let entity = gamepad::ensure(&mut self.commands, &mut self.state.gamepad);
                 let id = entity.index().index();

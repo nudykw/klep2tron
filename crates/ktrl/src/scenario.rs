@@ -63,6 +63,19 @@ pub enum Step {
         #[serde(default = "default_one")]
         value: f32,
     },
+    /// Add a watchpoint; with `wait` poll until it fires, then remove it.
+    Watch {
+        json: serde_json::Value,
+        #[serde(default)]
+        wait: bool,
+        #[serde(default = "default_timeout")]
+        timeout_ms: u64,
+    },
+    /// Remove a watchpoint (`id` given) or all of them.
+    Unwatch {
+        #[serde(default)]
+        id: Option<u64>,
+    },
     Key {
         key: String,
         #[serde(default = "default_tap")]
@@ -173,6 +186,33 @@ pub fn run(client: &Client, scenario: &Scenario, verbose: bool) -> Result<usize>
                 }
                 body.insert("value".into(), (*value).into());
                 client.gamepad(serde_json::Value::Object(body))?;
+            }
+            Step::Watch { json, wait, timeout_ms } => {
+                let created = client.watch(json.clone())?;
+                if *wait {
+                    let id = created
+                        .get("id")
+                        .and_then(|v| v.as_u64())
+                        .ok_or_else(|| Error::Scenario("watch response had no id".into()))?;
+                    let deadline = Instant::now() + Duration::from_millis(*timeout_ms);
+                    loop {
+                        let watch = client.watches(Some(id))?;
+                        if watch.get("fired").and_then(|v| v.as_bool()) == Some(true) {
+                            break;
+                        }
+                        if Instant::now() >= deadline {
+                            client.unwatch(Some(id)).ok();
+                            return Err(Error::Scenario(format!(
+                                "watch {id} did not fire within {timeout_ms}ms"
+                            )));
+                        }
+                        std::thread::sleep(Duration::from_millis(50));
+                    }
+                    client.unwatch(Some(id)).ok();
+                }
+            }
+            Step::Unwatch { id } => {
+                client.unwatch(*id)?;
             }
             Step::Key { key, action } => {
                 client.key(key, action)?;

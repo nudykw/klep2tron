@@ -49,7 +49,8 @@ control API, in debug builds (and in release when `settings.json` has
 - Endpoints: `GET /state`, `GET /screenshot[?view=]`, `GET /version`,
   `GET /ui_query`, `GET /logs`, `GET /events` (SSE), `GET /scene_tree`,
   `GET /entity/{id}`, `GET /mesh/{id}`, `GET /material/{id}`, `POST /key`,
-  `POST /text`, `POST /gamepad`, `POST /mouse`, `POST /ui_click`,
+  `POST /text`, `POST /gamepad`, `POST /watch`, `GET /watch`,
+  `POST /watch/clear`, `POST /mouse`, `POST /ui_click`,
   `POST /ui_hover`, `POST /pause`,
   `POST /step`, `POST /action`, `POST /batch`.
 - Request dispatch lives in `control/dispatch.rs` (`ControlCtx::handle`);
@@ -75,6 +76,10 @@ control API, in debug builds (and in release when `settings.json` has
 - Mutations (`control/mutate.rs`): `SpawnEntity` (plain fixture entity, new id in
   `/state.last_spawned`), `DespawnEntity`, `SetTransform` (translation/scale/
   rotation, optional `relative`).
+- Watchpoints (`control/watch.rs`): `POST /watch` predicates over `/state`
+  fields or ECS entities; a hit softly pauses, emits `watch` on SSE with a state
+  snapshot, and can save a screenshot (`watch_shot`). `GET /watch`,
+  `POST /watch/clear`.
 - Agent guide + helper script: `.agents/skills/klep2tron-control/`.
 - Plan: [plans/KTRL_Control_Server_Plan.md](../plans/KTRL_Control_Server_Plan.md).
 - Known issue: [plans/Preview_RTT_Thumbnails_Bug.md](../plans/Preview_RTT_Thumbnails_Bug.md).

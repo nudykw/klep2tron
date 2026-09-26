@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 use super::http::Response;
+use super::watch::EntityFilter;
 
 /// Components reported per entity. Kept at 11 entries (plus `Entity`) to stay
 /// within Bevy's query-tuple limit; `RenderTarget` is queried separately.
@@ -293,6 +294,46 @@ impl ControlScene<'_, '_> {
             "emissive_texture": material.emissive_texture.as_ref().map(|t| format!("{:?}", t.id())),
         })
         .to_string())
+    }
+
+    /// Number of entities matching an entity watch filter.
+    pub(super) fn matching_count(&self, filter: &EntityFilter) -> usize {
+        let wanted = filter.name.as_ref().map(|s| s.to_ascii_lowercase());
+        let component = filter.component.as_ref().map(|s| s.to_ascii_lowercase());
+        let mut count = 0;
+        for item in self.scene.iter() {
+            let (_, name, _parent, transform, mesh, _material, cam3, cam2, light, node, text) = item;
+            if let Some(wanted) = &wanted {
+                let matches = name
+                    .map(|n| n.as_str().to_ascii_lowercase().contains(wanted))
+                    .unwrap_or(false);
+                if !matches {
+                    continue;
+                }
+            }
+            if let Some(component) = &component {
+                let has = match component.as_str() {
+                    "mesh" => mesh.is_some(),
+                    "camera" => cam3.is_some() || cam2.is_some(),
+                    "ui_node" => node.is_some(),
+                    "ui_text" => text.is_some(),
+                    "light" => light.is_some(),
+                    "transform" => transform.is_some(),
+                    _ => true,
+                };
+                if !has {
+                    continue;
+                }
+            }
+            if let Some(near) = filter.near {
+                let Some(transform) = transform else { continue };
+                if transform.translation.distance(near) > filter.radius {
+                    continue;
+                }
+            }
+            count += 1;
+        }
+        count
     }
 
     fn render_target_json(&self, id: u32) -> serde_json::Value {

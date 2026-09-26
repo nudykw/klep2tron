@@ -66,6 +66,7 @@ for _ in $(seq 1 20); do
   [ "$(state_of)" = "InGame" ] && break
 done
 check "$(get /state | jqcheck 'd["game_state"]=="InGame" and d.get("editor_active")==True')" "action StartEditor -> InGame"
+post /step '{"frames":60}' >/dev/null   # warm-up: let assets finish loading
 
 # --- UI widgets -------------------------------------------------------------
 
@@ -77,7 +78,17 @@ check "$(echo "$uq" | jqcheck 'len(d["widgets"])>=1')" "GET /ui_query"
 tree="$(get '/scene_tree?depth=1')"
 check "$(echo "$tree" | jqcheck 'd["entity_count"]>0')" "GET /scene_tree"
 
-mesh_id="$(echo "$tree" | "$PY" -c 'import json,sys;d=json.load(sys.stdin);print(next((r["entity"] for r in d["roots"] if r["kind"]=="mesh"), ""))')"
+mesh_id=""
+candidates="$(echo "$tree" | "$PY" -c 'import json,sys;d=json.load(sys.stdin);print(" ".join(str(r["entity"]) for r in d["roots"] if r["kind"]=="mesh"))')"
+probe=0
+for candidate in $candidates; do
+  probe=$((probe + 1)); [ "$probe" -gt 25 ] && break
+  # Pick a mesh that actually has a StandardMaterial (skip e.g. the starry sky).
+  if [ "$(get "/entity/$candidate" | jqcheck 'd.get("material") is not None and d.get("mesh") is not None')" = yes ]; then
+    mesh_id="$candidate"
+    break
+  fi
+done
 if [ -n "$mesh_id" ]; then
   check "$(get "/entity/$mesh_id" | jqcheck 'd["kind"]=="mesh" and "mesh" in d')" "GET /entity/{id}"
   check "$(get "/mesh/$mesh_id" | jqcheck '"topology" in d and "vertex_count" in d')" "GET /mesh/{id}"
@@ -115,6 +126,20 @@ fi
 check "$(post /key '{"key":"ArrowUp"}' | jqcheck 'd["ok"]==True')" "POST /key"
 check "$(post /text '{"text":"hi"}' | jqcheck 'd["chars"]==2')" "POST /text"
 check "$(post /gamepad '{"axis":"LeftStickX","value":0.5}' | jqcheck 'd["ok"]==True')" "POST /gamepad"
+
+# --- watchpoints ------------------------------------------------------------
+
+frame="$(get /state | "$PY" -c 'import json,sys;print(json.load(sys.stdin)["frame"])')"
+w="$(post /watch "{\"field\":\"frame\",\"op\":\">\",\"value\":$((frame + 2)),\"pause\":false}")"
+wid="$(echo "$w" | "$PY" -c 'import json,sys;print(json.load(sys.stdin)["id"])')"
+post /step '{"frames":5}' >/dev/null
+check "$(get "/watch?id=$wid" | jqcheck 'd["fired"]==True')" "POST /watch (state predicate)"
+check "$(post /watch/clear "{\"id\":$wid}" | jqcheck 'd["removed"]==1')" "POST /watch/clear"
+w="$(post /watch '{"component":"camera","count_op":">=","count":1,"pause":false}')"
+wid="$(echo "$w" | "$PY" -c 'import json,sys;print(json.load(sys.stdin)["id"])')"
+post /step '{"frames":3}' >/dev/null
+check "$(get "/watch?id=$wid" | jqcheck 'd["fired"]==True')" "POST /watch (entity predicate)"
+post /watch/clear '{}' >/dev/null
 
 # --- batch ------------------------------------------------------------------
 

@@ -138,12 +138,21 @@ graph LR
 | 3.7a | `/text` — ввод текста в сфокусированное поле (синтез `KeyboardInput`) | ✅ |
 | 3.7b | Gamepad-инъекция (`POST /gamepad` через `RawGamepadEvent`) | ✅ |
 | 3.7c | MCP-обёртка | ✖ не планируется (в pi нет MCP-клиента) |
+| 3.8 | Watchpoint’ы (`POST /watch`): предикаты по `/state` и ECS-сущностям, soft-pause, SSE `watch`+снимок, опц. скриншот | ✅ |
 
 `/record` и `/batch` реализованы на стороне клиента (`ktrl scenario`/`record`):
 это даёт те же детерминированные серии шагов с `/step`-барьером и не требует
 менять сервер. Кольцевой буфер логов живёт в
 `crates/client_core/src/control/logs.rs` и подключается через
 `LogPlugin::custom_layer` в обоих бинарниках.
+
+Watchpoint’ы — это in-process условные точки останова: предикат
+(`field`/`op`/`value` для `/state` или `name`/`component`/`near`/`radius` +
+`count_op`/`count` для ECS) проверяется каждый кадр; при совпадении — мягкая
+пауза (`Time<Virtual>`), событие `watch` в SSE со снимком `/state` и опционально
+скриншот (`watch_shot`). Настоящие точки останова по строкам — это `lldb`/`gdb`,
+но обычный breakpoint останавливает весь процесс, и KTRL в этот момент не
+отвечает, поэтому их не совмещать; агент работает с `lldb --batch` напрямую.
 
 ---
 

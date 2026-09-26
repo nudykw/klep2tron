@@ -315,6 +315,31 @@ impl Client {
         self.post("/gamepad", &body.to_string())
     }
 
+    /// Add a conditional watchpoint; the server pauses and emits a `watch` event
+    /// on a hit. Returns `{"ok":true,"id":N,"watch":{...}}`.
+    pub fn watch(&self, spec: serde_json::Value) -> Result<serde_json::Value> {
+        let text = self.post("/watch", &spec.to_string())?;
+        Ok(serde_json::from_str(&text)?)
+    }
+
+    /// List watchpoints (`id` set: a single one, including its last snapshot).
+    pub fn watches(&self, id: Option<u64>) -> Result<serde_json::Value> {
+        match id {
+            Some(id) => self.get_json(&format!("/watch?id={id}")),
+            None => self.get_json("/watch"),
+        }
+    }
+
+    /// Remove a watchpoint (`id`) or all of them (`None`).
+    pub fn unwatch(&self, id: Option<u64>) -> Result<serde_json::Value> {
+        let body = match id {
+            Some(id) => serde_json::json!({ "id": id }).to_string(),
+            None => "{}".to_string(),
+        };
+        let text = self.post("/watch/clear", &body)?;
+        Ok(serde_json::from_str(&text)?)
+    }
+
     pub fn pause(&self, on: bool) -> Result<String> {
         self.post("/pause", &format!("{{\"on\":{on}}}"))
     }
