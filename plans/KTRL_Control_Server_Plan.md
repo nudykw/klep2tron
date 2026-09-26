@@ -1,6 +1,6 @@
 # 🛠 KTRL — Klep2tron Control Server (HTTP API + Skill)
 
-> **Статус:** Фазы 1 и 1.5 ✅ сделаны (2026-09-26); Фазы 2–3 в бэклоге
+> **Статус:** Фазы 1, 1.5 и 2 (кроме CLI `ktrl`) ✅ (2026-09-26); Фаза 3 в бэклоге
 > **Дата:** 2026-09-26
 > **Тип задачи:** Инфраструктура отладки/автоматизации
 > **Предыдущее имя плана:** `Control_Server_Plan.md` (переименован, история та же)
@@ -106,16 +106,20 @@ graph LR
 
 ## 5. Фаза 2 — интроспекция сцены и адресный рендер
 
-| # | Что | Детали |
+| # | Что | Статус |
 |---|---|---|
-| 2.1 | `/scene_tree` | Дерево сущностей с `Name`, компонентами, детьми |
-| 2.2 | `/entity/{id}` | Компоненты, `Transform`, `Mesh3d`/`MeshMaterial3d` handle, AABB, видимость |
-| 2.3 | `/mesh/{id}`, `/material/{id}`, `/texture/{handle}` | Метаданные mesh (вершины, атрибуты), материал (base color, emissive, alpha), размер/формула текстуры |
-| 2.4 | `/screenshot?view=camera:<id>` / `?view=rtt:<id>` | Снять конкретную камеру, а не primary window — прямо нужно для багов RTT-превью |
-| 2.5 | Offscreen-захват | `RenderTarget::Image` → работает при перекрытом/спрятанном окне, годится для CI |
-| 2.6 | CLI `ktrl` (`crates/control_proto` + `ktrl`) | Типизированный клиент вместо ручной JSON-склейки в `build_state`; `ktrl shot`, `ktrl state`, `ktrl step` |
-| 2.7 | Токен | Реализовать `"token"` из конфига (обязателен, если `control: true` в release) |
-| 2.8 | Тесты KTRL | Юнит-тесты парсинга запросов + интеграционный смоук-тест API (сейчас только `editor_smoke.sh`) |
+| 2.1 | `/scene_tree` — дерево сущностей с `Name`, `kind`, детьми; бюджет узлов | ✅ |
+| 2.2 | `/entity/{id}` — компоненты, `Transform`, mesh/material handle, `render_target` | ✅ |
+| 2.3 | `/mesh/{id}` (атрибуты, вершины, индексы, топология), `/material/{id}` (цвета, roughness, textures) | ✅ |
+| 2.4 | `/screenshot?view=camera:<id>` / `rtt:<id>` — снять конкретную камеру | ✅ |
+| 2.5 | Offscreen-захват image-render-target камер (работает при перекрытом окне) | ✅ |
+| 2.6 | CLI `ktrl` (`crates/control_proto` + бинарь) — типизированный клиент | ⏳ бэклог |
+| 2.7 | Токен (`token` в конфиге / `KLEP_CONTROL_TOKEN`, `Authorization: Bearer`) | ✅ |
+| 2.8 | Тесты KTRL: юнит-тесты `parse_request`/auth; интеграционный смоук | ✅ (юнит) / ⏳ (интегр.) |
+
+Реализация: `crates/client_core/src/control/scene.rs` (интроспекция +`capture`),
+`http.rs` (маршруты, токен), `config.rs` (token); RTT-изображения редактора
+получили `TextureUsages::COPY_SRC` (`crates/editor_client/src/lib.rs`).
 
 ---
 

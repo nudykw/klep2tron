@@ -237,7 +237,7 @@ pub fn setup_editor(
                 label: None, size, dimension: TextureDimension::D2,
                 format: TextureFormat::Bgra8UnormSrgb,
                 mip_level_count: 1, sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
             ..default()

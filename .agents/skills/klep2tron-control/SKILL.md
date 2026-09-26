@@ -14,9 +14,15 @@ Enablement:
 - **release builds** — disabled unless `settings.json` contains
   `"control": { "enabled": true, "port": 15703 }`.
 - Override with `KLEP_CONTROL=0|1` and `KLEP_CONTROL_PORT=<port>`.
+- Optional auth: set `"control": { "token": "..." }` or
+  `KLEP_CONTROL_TOKEN=...`; every request must then send
+  `Authorization: Bearer <token>` (`401` otherwise).
 
 The server binds to `127.0.0.1` only. Start the app first
 (`cargo run -p editor_client` or `cargo run -p client`).
+
+> The bash examples below omit the auth header. Add
+> `-H 'Authorization: Bearer <token>'` when a token is configured.
 
 ## Endpoints
 
@@ -55,11 +61,18 @@ Returns a PNG of the current frame (`image/png`). Save and open it:
 
 ```bash
 curl -s --max-time 8 -o /tmp/shot.png http://127.0.0.1:15703/screenshot
+# camera / render-target addressed (see /scene_tree for camera entity ids):
+curl -s -o /tmp/rtt.png 'http://127.0.0.1:15703/screenshot?view=camera:529'
 ```
+
+`view` is `primary` (default), `camera:<entity>`, `rtt:<entity>`, or a bare
+entity index. Image-render-target cameras (the editor's RTT tile previews) are
+captured **offscreen**, so they work even when the window is occluded — use this
+to debug the preview thumbnails.
 
 > Debug builds run with continuous rendering (`WinitSettings`), so the window
 > does not need focus for a fresh frame. A fully occluded window can still
-> return a stale frame on macOS — keep the app window visible when possible.
+> return a stale frame on macOS when capturing the primary window.
 
 ### `GET /version`
 Server identity, useful because `client` and `editor_client` may lag each other:
@@ -116,6 +129,51 @@ curl -s 'http://127.0.0.1:15703/ui_query?label=Wedge%20S' # substring filter
 ```
 
 Coordinates are logical pixels (window space, top-left origin).
+
+### `GET /scene_tree` — entity hierarchy
+
+```bash
+curl -s 'http://127.0.0.1:15703/scene_tree?depth=3'        # whole scene
+curl -s 'http://127.0.0.1:15703/scene_tree?root=42&depth=2' # subtree
+```
+
+```json
+{"roots":[{"entity":42,"name":"Player","kind":"mesh","children":[…] }],
+ "depth":3,"entity_count":972,"truncated":false}
+```
+
+`kind` is one of `camera`, `mesh`, `ui_node`, `ui_text`, `light`, `entity`.
+Nodes without a `Name` have `"name":null`; the editor does not name its tiles.
+Node budget is 1024; `children_truncated` marks cut subtrees.
+
+### `GET /entity/{id}` — one entity
+
+```bash
+curl -s http://127.0.0.1:15703/entity/813
+# or: /entity?id=813
+```
+
+Returns `name`, `parent`, `kind`, the `components` list, `transform`
+(translation/rotation/scale), `mesh`/`material` asset ids, `text`, and
+`render_target` for cameras.
+
+### `GET /mesh/{id}` — mesh of an entity
+
+```json
+{"entity":813,"handle":"AssetId<...>{ index: 7, generation: 0}",
+ "vertex_count":18,"index_count":24,"topology":"TriangleList",
+ "attributes":[{"name":"Vertex_Position","count":18}, …]}
+```
+
+`attributes_available:false` means the CPU-side mesh data was released after
+extraction to the render world (vertex counts are then `null`).
+
+### `GET /material/{id}` — material of an entity
+
+Reports `base_color`, `emissive`, `perceptual_roughness`, `metallic`,
+`reflectance`, `unlit`, `double_sided`, `cull_mode`, `alpha_mode` and the
+`base_color_texture` / `emissive_texture` asset ids of the entity's
+`StandardMaterial`.
 
 ### `POST /key`
 `{"key":"ArrowUp","action":"tap"|"press"|"release"}` (default `tap`).

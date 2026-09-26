@@ -12,10 +12,9 @@
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy::render::view::screenshot::Screenshot;
 use bevy::ui::{ComputedNode, UiGlobalTransform};
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::{EditorMode, GameState, Project, Selection};
@@ -23,11 +22,13 @@ use crate::{EditorMode, GameState, Project, Selection};
 mod config;
 mod http;
 mod keys;
+mod scene;
 mod state;
 
 use config::ControlConfig;
 use http::{detect_binary, start_server, Envelope, Req, Response};
 use keys::key_from_name;
+use scene::ControlScene;
 pub use state::{ControlAction, ControlExtras};
 use state::{build_state, build_ui_query};
 
@@ -83,7 +84,7 @@ impl Plugin for ControlPlugin {
             info!("KTRL: disabled");
             return;
         }
-        match start_server(cfg.port) {
+        match start_server(cfg.port, cfg.token.as_deref().map(Arc::<str>::from)) {
             Ok(rx) => {
                 info!("KTRL: listening on http://127.0.0.1:{}", cfg.port);
                 app.insert_resource(ControlRx { rx: Mutex::new(rx) });
@@ -209,6 +210,7 @@ fn control_process_system(
     mut virtual_time: ResMut<Time<bevy::time::Virtual>>,
     mut actions: MessageWriter<ControlAction>,
     world: KtrlWorld,
+    scene: ControlScene,
 ) {
     let KtrlWorld {
         game_state,
@@ -338,25 +340,36 @@ fn control_process_system(
                 }
                 let _ = resp.send(Response::json(build_ui_query(&label, &ui_nodes, &current)));
             }
-            Req::Screenshot => {
-                let resp = resp.clone();
-                commands.spawn(Screenshot::primary_window()).observe(
-                    move |captured: On<bevy::render::view::screenshot::ScreenshotCaptured>| {
-                        let image = captured.image.clone();
-                        let body = match image.try_into_dynamic() {
-                            Ok(dyn_img) => {
-                                let mut buf = std::io::Cursor::new(Vec::new());
-                                match dyn_img.write_to(&mut buf, image::ImageFormat::Png) {
-                                    Ok(()) => Response::png(buf.into_inner()),
-                                    Err(e) => Response::text(500, format!("png encode failed: {e}")),
-                                }
-                            }
-                            Err(e) => Response::text(500, format!("image convert failed: {e}")),
-                        };
-                        let _ = resp.send(body);
-                    },
-                );
+            Req::Screenshot { view } => {
+                scene.capture(&mut commands, &view, resp);
             }
+            Req::SceneTree { root, depth } => {
+                let _ = resp.send(Response::json(scene.tree(root, depth)));
+            }
+            Req::EntityDetail { id } => match scene.entity(id) {
+                Ok(body) => {
+                    let _ = resp.send(Response::json(body));
+                }
+                Err(msg) => {
+                    let _ = resp.send(Response::text(404, msg));
+                }
+            },
+            Req::MeshInfo { id } => match scene.mesh(id) {
+                Ok(body) => {
+                    let _ = resp.send(Response::json(body));
+                }
+                Err(msg) => {
+                    let _ = resp.send(Response::text(404, msg));
+                }
+            },
+            Req::MaterialInfo { id } => match scene.material(id) {
+                Ok(body) => {
+                    let _ = resp.send(Response::json(body));
+                }
+                Err(msg) => {
+                    let _ = resp.send(Response::text(404, msg));
+                }
+            },
             Req::Key { key, action } => {
                 match key_from_name(&key) {
                     Some(code) => {

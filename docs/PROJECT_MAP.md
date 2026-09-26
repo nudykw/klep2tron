@@ -42,11 +42,16 @@ control API, in debug builds (and in release when `settings.json` has
 `KLEP_CONTROL_PORT` override it). API version `ktrls/1`.
 
 - Source: `crates/client_core/src/control/mod.rs`.
-- Endpoints: `GET /state`, `GET /screenshot`, `GET /version`, `GET /ui_query`,
-  `POST /key`, `POST /mouse`, `POST /ui_click`, `POST /ui_hover`, `POST /pause`,
-  `POST /step`, `POST /action`.
+- Endpoints: `GET /state`, `GET /screenshot[?view=]`, `GET /version`,
+  `GET /ui_query`, `GET /scene_tree`, `GET /entity/{id}`, `GET /mesh/{id}`,
+  `GET /material/{id}`, `POST /key`, `POST /mouse`, `POST /ui_click`,
+  `POST /ui_hover`, `POST /pause`, `POST /step`, `POST /action`.
 - Deterministic stepping: `POST /pause` freezes virtual time; `POST /step
   {"frames":N}` renders exactly N frames and blocks until done (no `sleep`).
+- Offscreen capture: image-render-target cameras (`?view=camera:<id>`) are read
+  back directly, so RTT thumbnails can be captured with the window occluded.
+- Optional auth: `"control": { "token": "..." }` in `settings.json` or
+  `KLEP_CONTROL_TOKEN`; then requests need `Authorization: Bearer <token>`.
 - Cross-binary actions: `POST /action` emits `ControlAction` (handled by
   `client_core` for lifecycle, by `editor_client` for map edits). Editor-only
   state (`tool`, `undo`, `redo`) is merged into `/state` via `ControlExtras`.
