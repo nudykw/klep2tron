@@ -43,6 +43,8 @@ enum Req {
     Key { key: String, action: String },
     MouseMove { x: f32, y: f32 },
     MouseButton { button: String, action: String },
+    /// `action`: `click` (one frame), `hover` (held), `unhover`.
+    UiClick { label: String, action: String },
     Unknown(String),
 }
 
@@ -113,8 +115,7 @@ impl Plugin for ControlPlugin {
             Ok(rx) => {
                 info!("control server: listening on http://127.0.0.1:{}", cfg.port);
                 app.insert_resource(ControlRx { rx: Mutex::new(rx) });
-                app.init_resource::<PendingReleases>();
-                app.init_resource::<HeldKeys>();
+                app.init_resource::<ControlState>();
                 // Keep rendering even when the window is not focused, so that
                 // screenshots always show a fresh frame instead of a stale/blank
                 // swapchain image.
@@ -127,7 +128,9 @@ impl Plugin for ControlPlugin {
                 // after that and before the game systems consume it.
                 app.add_systems(
                     PreUpdate,
-                    control_process_system.after(bevy::input::InputSystems),
+                    control_process_system
+                        .after(bevy::input::InputSystems)
+                        .after(bevy::ui::UiSystems::Focus),
                 );
             }
             Err(e) => error!("control server: failed to bind port {}: {}", cfg.port, e),
@@ -218,6 +221,14 @@ fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
         ("POST", "/key") => Req::Key {
             key: json.get("key").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
             action: json.get("action").and_then(|v| v.as_str()).unwrap_or("tap").to_string(),
+        },
+        ("POST", "/ui_click") | ("POST", "/ui_hover") => Req::UiClick {
+            label: json.get("label").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
+            action: json
+                .get("action")
+                .and_then(|v| v.as_str())
+                .unwrap_or(if path == "/ui_hover" { "hover" } else { "click" })
+                .to_string(),
         },
         ("POST", "/mouse") => {
             if json.get("button").is_some() {
@@ -359,14 +370,17 @@ fn key_from_digit(c: char) -> Option<KeyCode> {
     })
 }
 
-/// A key press that is released after a couple of frames, so `just_pressed` fires.
+/// Controller input state that must be re-applied every frame.
 #[derive(Resource, Default)]
-struct PendingReleases(Vec<(KeyCode, u32)>);
-
-/// Keys held down by the controller; re-applied every frame because Bevy
-/// clears `ButtonInput` at the start of each frame.
-#[derive(Resource, Default)]
-struct HeldKeys(Vec<KeyCode>);
+struct ControlState {
+    /// Keys released after a couple of frames, so `just_released` fires.
+    releases: Vec<(KeyCode, u32)>,
+    /// Keys held down; re-applied every frame because Bevy clears `ButtonInput`.
+    held: Vec<KeyCode>,
+    /// A UI entity kept hovered; re-applied every frame because `ui_focus_system`
+    /// recomputes `Interaction` from the real pointer.
+    forced_hover: Option<Entity>,
+}
 
 #[allow(clippy::too_many_arguments)]
 fn control_process_system(
@@ -380,16 +394,26 @@ fn control_process_system(
     mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
     transforms: Query<(Entity, &Transform)>,
     mut commands: Commands,
-    mut releases: ResMut<PendingReleases>,
-    mut held: ResMut<HeldKeys>,
+    mut state: ResMut<ControlState>,
+    texts: Query<(Entity, &Text)>,
+    names: Query<(Entity, &Name)>,
+    parents: Query<&ChildOf>,
+    mut interactions: Query<&mut Interaction>,
 ) {
     // Re-apply keys that the controller is holding down.
-    for code in held.0.clone() {
+    for code in state.held.clone() {
         keys.press(code);
     }
 
+    // Re-apply the forced UI hover (overrides the pointer-based value).
+    if let Some(entity) = state.forced_hover {
+        if let Ok(mut interaction) = interactions.get_mut(entity) {
+            *interaction = Interaction::Hovered;
+        }
+    }
+
     // Release keys whose hold expired.
-    releases.0.retain_mut(|(code, frames)| {
+    state.releases.retain_mut(|(code, frames)| {
         if *frames == 0 {
             keys.release(*code);
             false
@@ -436,18 +460,18 @@ fn control_process_system(
                     Some(code) => {
                         match action.as_str() {
                             "press" => {
-                                if !held.0.contains(&code) {
-                                    held.0.push(code);
+                                if !state.held.contains(&code) {
+                                    state.held.push(code);
                                 }
                                 keys.press(code);
                             }
                             "release" => {
-                                held.0.retain(|c| *c != code);
+                                state.held.retain(|c| *c != code);
                                 keys.release(code);
                             }
                             _ => {
                                 keys.press(code);
-                                releases.0.push((code, 2));
+                                state.releases.push((code, 2));
                             }
                         }
                         let _ = resp.send(Response::json(format!("{{\"ok\":true,\"key\":\"{}\"}}", key)));
@@ -462,6 +486,67 @@ fn control_process_system(
                     window.set_cursor_position(Some(Vec2::new(x, y)));
                 }
                 let _ = resp.send(Response::json("{\"ok\":true}".into()));
+            }
+            Req::UiClick { label, action } => {
+                match action.as_str() {
+                    "unhover" => {
+                        state.forced_hover = None;
+                        let _ = resp.send(Response::json("{\"ok\":true}".into()));
+                    }
+                    _ => {
+                        let mut found = None;
+                        for (entity, name) in names.iter() {
+                            if name.as_str().trim().eq_ignore_ascii_case(label.trim()) {
+                                found = Some(entity);
+                                break;
+                            }
+                        }
+                        if found.is_none() {
+                            for (entity, text) in texts.iter() {
+                                if text.0.trim().eq_ignore_ascii_case(label.trim()) {
+                                    found = Some(entity);
+                                    break;
+                                }
+                            }
+                        }
+                        let mut target = None;
+                        if let Some(mut current) = found {
+                            for _ in 0..10 {
+                                if interactions.get_mut(current).is_ok() {
+                                    target = Some(current);
+                                    break;
+                                }
+                                match parents.get(current) {
+                                    Ok(parent) => current = parent.0,
+                                    Err(_) => break,
+                                }
+                            }
+                        }
+                        match target {
+                            Some(entity) => {
+                                if let Ok(mut interaction) = interactions.get_mut(entity) {
+                                    if action == "hover" {
+                                        state.forced_hover = Some(entity);
+                                        *interaction = Interaction::Hovered;
+                                    } else {
+                                        *interaction = Interaction::Pressed;
+                                    }
+                                }
+                                let _ = resp.send(Response::json(format!(
+                                    "{{\"ok\":true,\"entity\":{},\"action\":\"{}\"}}",
+                                    entity.index(),
+                                    action
+                                )));
+                            }
+                            None => {
+                                let _ = resp.send(Response::text(
+                                    404,
+                                    format!("no button with label: {label}"),
+                                ));
+                            }
+                        }
+                    }
+                }
             }
             Req::MouseButton { button, action } => {
                 let code = match button.as_str() {
@@ -499,7 +584,7 @@ fn build_state(
         .unwrap_or_else(|| "unknown".into());
 
     let mut entities = Vec::new();
-    for (entity, transform) in transforms.iter().take(256) {
+    for (entity, transform) in transforms.iter().take(4096) {
         let t = transform.translation;
         entities.push(format!(
             "{{\"entity\":{},\"pos\":[{:.3},{:.3},{:.3}]}}",

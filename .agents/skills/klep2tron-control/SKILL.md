@@ -64,6 +64,21 @@ curl -s -X POST http://127.0.0.1:15703/mouse -d '{"x":1200,"y":800}'          # 
 curl -s -X POST http://127.0.0.1:15703/mouse -d '{"button":"left","action":"click"}'
 ```
 
+> Injected mouse movement does not drive Bevy's UI picking (that follows real
+> winit pointer events), so prefer `/ui_click` for UI buttons.
+
+### `POST /ui_click` / `POST /ui_hover`
+Set a UI button's `Interaction` directly, matched by its `Name` or `Text`.
+Useful for UI that mouse injection cannot reach.
+
+```bash
+# one-frame press (triggers the button's action)
+curl -s -X POST http://127.0.0.1:15703/ui_click -d '{"label":"LEVEL EDITOR","action":"click"}'
+# keep it hovered (re-applied every frame until cleared)
+curl -s -X POST http://127.0.0.1:15703/ui_hover -d '{"label":"Wedge S","action":"hover"}'
+curl -s -X POST http://127.0.0.1:15703/ui_hover -d '{"action":"unhover"}'
+```
+
 ## Typical workflows
 
 **Capture what the app is doing:**
