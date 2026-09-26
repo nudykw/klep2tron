@@ -65,6 +65,9 @@ control API, in debug builds (and in release when `settings.json` has
   back directly, so RTT thumbnails can be captured with the window occluded.
 - Optional auth: `"control": { "token": "..." }` in `settings.json` or
   `KLEP_CONTROL_TOKEN`; then requests need `Authorization: Bearer <token>`.
+  Bind address: `"control": { "bind": "..." }` / `KLEP_CONTROL_BIND` (default
+  `127.0.0.1`); a token is mandatory for non-loopback binds. Remote access is
+  possible directly (bind `0.0.0.0`/Tailscale IP) or via SSH/Tailscale tunnels.
 - Cross-binary actions: `POST /action` emits `ControlAction` (handled by
   `client_core` for lifecycle + mutations, by `editor_client` for map edits).
   Editor-only state (`tool`, `undo`, `redo`) is merged into `/state` via

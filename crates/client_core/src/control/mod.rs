@@ -95,9 +95,16 @@ impl Plugin for ControlPlugin {
             info!("KTRL: disabled");
             return;
         }
-        match start_server(cfg.port, cfg.token.as_deref().map(Arc::<str>::from)) {
+        if cfg.is_exposed() && cfg.token.is_none() {
+            error!(
+                "KTRL: refusing to bind {} without a token; set control.token or KLEP_CONTROL_TOKEN",
+                cfg.bind
+            );
+            return;
+        }
+        match start_server(&cfg.bind, cfg.port, cfg.token.as_deref().map(Arc::<str>::from)) {
             Ok(rx) => {
-                info!("KTRL: listening on http://127.0.0.1:{}", cfg.port);
+                info!("KTRL: listening on http://{}:{}", cfg.bind, cfg.port);
                 app.insert_resource(ControlRx { rx: Mutex::new(rx) });
                 app.init_resource::<ControlState>();
                 app.init_resource::<ControlExtras>();

@@ -67,11 +67,12 @@ pub(super) struct Envelope {
 // --- Server thread ----------------------------------------------------------
 
 pub(super) fn start_server(
+    bind: &str,
     port: u16,
     token: Option<Arc<str>>,
 ) -> std::io::Result<Receiver<Envelope>> {
     let (tx, rx) = mpsc::channel::<Envelope>();
-    let listener = TcpListener::bind(("127.0.0.1", port))?;
+    let listener = TcpListener::bind((bind, port))?;
     std::thread::spawn(move || {
         for stream in listener.incoming() {
             let Ok(stream) = stream else { continue };

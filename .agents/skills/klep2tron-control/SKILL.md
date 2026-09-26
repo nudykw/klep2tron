@@ -17,9 +17,38 @@ Enablement:
 - Optional auth: set `"control": { "token": "..." }` or
   `KLEP_CONTROL_TOKEN=...`; every request must then send
   `Authorization: Bearer <token>` (`401` otherwise).
+- Bind address: `"control": { "bind": "0.0.0.0" }` or `KLEP_CONTROL_BIND`
+  (default `127.0.0.1`). A **token is mandatory for any non-loopback bind** —
+  the server logs an error and does not start otherwise.
 
-The server binds to `127.0.0.1` only. Start the app first
-(`cargo run -p editor_client` or `cargo run -p client`).
+Start the app first (`cargo run -p editor_client` or `cargo run -p client`).
+
+### Remote access (LAN / Tailscale)
+
+**Direct bind** — the app listens on the network:
+```bash
+KLEP_CONTROL_BIND=0.0.0.0 KLEP_CONTROL_TOKEN=secret ./editor_client    # on the remote
+ktrl --url http://other-host:15703 --token secret state                 # from anywhere
+```
+`ktrl` and `curl` are unchanged; `KLEP_CONTROL_URL` also works.
+
+**Tunnel** — keeps the loopback bind, no config change:
+```bash
+# SSH local forward (server stays on 127.0.0.1)
+ssh -N -L 15703:127.0.0.1:15703 user@other-host &
+ktrl --url http://127.0.0.1:15703 state
+
+# Tailscale: serve the local port to the tailnet
+ssh user@other-host 'tailscale serve --bg 15703'
+ktrl --url https://other-host.<tailnet>.ts.net --token secret state
+```
+
+`/events` (SSE) streams over both. Always set a token when exposed: without one,
+anyone who can reach the port controls the app.
+
+> The remote machine still needs a display for the GUI (a Wayland/X session or
+> Xvfb); over SSH set `WAYLAND_DISPLAY`/`XDG_RUNTIME_DIR` (or `DISPLAY`) so the
+> app can create a window.
 
 > The bash examples below omit the auth header. Add
 > `-H 'Authorization: Bearer <token>'` when a token is configured.
