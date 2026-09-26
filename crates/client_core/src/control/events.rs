@@ -58,9 +58,9 @@ mod tests {
     fn publish_reaches_all_subscribers() {
         let a = subscribe();
         let b = subscribe();
-        publish("test_event", r#"{"n":1}"#.into());
-        assert_eq!(recv_kind(&a, "test_event").data, r#"{"n":1}"#);
-        assert_eq!(recv_kind(&b, "test_event").data, r#"{"n":1}"#);
+        publish("test_broadcast", r#"{"n":1}"#.into());
+        assert_eq!(recv_kind(&a, "test_broadcast").data, r#"{"n":1}"#);
+        assert_eq!(recv_kind(&b, "test_broadcast").data, r#"{"n":1}"#);
     }
 
     #[test]
@@ -68,6 +68,6 @@ mod tests {
         let rx = subscribe();
         drop(rx);
         // Must not panic even though one receiver is gone.
-        publish("test_event", "{}".into());
+        publish("test_prune", "{}".into());
     }
 }

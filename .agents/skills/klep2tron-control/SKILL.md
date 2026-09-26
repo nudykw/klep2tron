@@ -36,6 +36,9 @@ $K --url http://127.0.0.1:15703 --token <tok> state
 $K version
 $K action StartEditor && $K step --frames 40
 $K set-tile 3 4 --h 2 --type WedgeN
+$K spawn --mesh cube --name probe --pos 5,1,5 --color 0,1,0
+$K move <id> --pos 1,0,0 --relative
+$K despawn <id>
 $K tree --depth 3
 $K entity 813 && $K mesh 813 && $K material 813
 $K ui --label Wedge
@@ -137,9 +140,27 @@ curl -s -X POST http://127.0.0.1:15703/action -d '{"action":"Undo"}'
 
 Actions: `StartGame`, `StartEditor`, `QuitToMenu`, `Exit`,
 `SetSelection {x,z}`, `SetTile {x,z,h,tt}`, `SetTileType {tt}`, `Undo`, `Redo`,
-`NextRoom`, `PrevRoom`, `AddRoom`, `ClearRoom`, `SaveMap`, `LoadMap`.
+`NextRoom`, `PrevRoom`, `AddRoom`, `ClearRoom`, `SaveMap`, `LoadMap`,
+`SpawnEntity`, `DespawnEntity`, `SetTransform`.
 `tt` accepts `Cube`, `Wedge N`/`WedgeN`/`n`, … and `Empty`. Unknown actions get
 `400`; the effect lands on the next frame (barrier with `/step`).
+
+**Mutations (fixtures without clicking):**
+
+```bash
+# spawn a plain entity (not MapEntity, so it survives map rebuilds):
+curl -s -X POST http://127.0.0.1:15703/action \
+  -d '{"action":"SpawnEntity","mesh":"cube","name":"probe","translation":[5,1,5],"color":[0,1,0,1]}'
+# the new id appears as `last_spawned` in GET /state
+curl -s -X POST http://127.0.0.1:15703/action \
+  -d '{"action":"SetTransform","id":1009,"translation":[1,0,0],"relative":true}'
+curl -s -X POST http://127.0.0.1:15703/action -d '{"action":"DespawnEntity","id":1009}'
+```
+
+`SetTransform` takes `translation`, `scale`, `rotation` (quat `[x,y,z,w]`),
+`rotation_euler_deg` (`[x,y,z]`) and `relative` (delta for translation/scale).
+`SpawnEntity` takes `mesh` (`cube`|`wedge`), `name`, `translation`, `scale`,
+`rotation_euler_deg`, `material` (`highlight`) or `color`.
 
 ### `GET /ui_query` — list widgets
 

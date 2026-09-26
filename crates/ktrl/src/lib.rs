@@ -282,6 +282,27 @@ impl Client {
         self.action("SetTile", Some(serde_json::Value::Object(obj)))
     }
 
+    /// Spawn a fixture entity. The new entity id is published as `last_spawned`
+    /// in `GET /state`.
+    pub fn spawn_entity(&self, args: serde_json::Value) -> Result<String> {
+        self.action("SpawnEntity", Some(args))
+    }
+
+    pub fn despawn_entity(&self, id: u32) -> Result<String> {
+        self.action("DespawnEntity", Some(serde_json::json!({ "id": id })))
+    }
+
+    /// Edit an entity's transform; `args` may hold `translation`, `scale`,
+    /// `rotation`, `rotation_euler_deg` and `relative`.
+    pub fn set_transform(&self, id: u32, args: serde_json::Value) -> Result<String> {
+        let mut map = match args {
+            serde_json::Value::Object(map) => map,
+            _ => serde_json::Map::new(),
+        };
+        map.insert("id".into(), id.into());
+        self.action("SetTransform", Some(serde_json::Value::Object(map)))
+    }
+
     pub fn pause(&self, on: bool) -> Result<String> {
         self.post("/pause", &format!("{{\"on\":{on}}}"))
     }

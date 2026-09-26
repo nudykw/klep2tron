@@ -62,8 +62,12 @@ control API, in debug builds (and in release when `settings.json` has
 - Optional auth: `"control": { "token": "..." }` in `settings.json` or
   `KLEP_CONTROL_TOKEN`; then requests need `Authorization: Bearer <token>`.
 - Cross-binary actions: `POST /action` emits `ControlAction` (handled by
-  `client_core` for lifecycle, by `editor_client` for map edits). Editor-only
-  state (`tool`, `undo`, `redo`) is merged into `/state` via `ControlExtras`.
+  `client_core` for lifecycle + mutations, by `editor_client` for map edits).
+  Editor-only state (`tool`, `undo`, `redo`) is merged into `/state` via
+  `ControlExtras`.
+- Mutations (`control/mutate.rs`): `SpawnEntity` (plain fixture entity, new id in
+  `/state.last_spawned`), `DespawnEntity`, `SetTransform` (translation/scale/
+  rotation, optional `relative`).
 - Agent guide + helper script: `.agents/skills/klep2tron-control/`.
 - Plan: [plans/KTRL_Control_Server_Plan.md](../plans/KTRL_Control_Server_Plan.md).
 - Known issue: [plans/Preview_RTT_Thumbnails_Bug.md](../plans/Preview_RTT_Thumbnails_Bug.md).

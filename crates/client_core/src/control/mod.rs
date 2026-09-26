@@ -24,6 +24,7 @@ mod events;
 mod http;
 mod keys;
 pub mod logs;
+mod mutate;
 mod scene;
 mod state;
 
@@ -57,6 +58,7 @@ const KNOWN_ACTIONS: &[&str] = &[
     "ClearRoom",
     "SaveMap",
     "LoadMap",
+    "SetTransform", "DespawnEntity", "SpawnEntity",
 ];
 
 fn is_known_action(name: &str) -> bool {
@@ -115,6 +117,7 @@ impl Plugin for ControlPlugin {
                             .after(bevy::ui::UiSystems::Focus),
                         handle_core_control_actions.after(control_process_system),
                         publish_state_changes.after(control_process_system),
+                        mutate::handle_mutations.after(control_process_system),
                     ),
                 );
             }

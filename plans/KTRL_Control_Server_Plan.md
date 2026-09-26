@@ -132,7 +132,7 @@ graph LR
 | 3.1 | `/logs` — кольцевой буфер `tracing`-событий, `?since&tail&level` | ✅ |
 | 3.2 | `ktrl scenario <file>` — детерминированные сценарии (`frames`/`shot`/`wait_state`/`expect_state`/…) | ✅ |
 | 3.3 | `ktrl record` — PNG-секвенция (кадр/шаг), offscreen (`--view`) | ✅ |
-| 3.4 | Мутации: спавн/despawn, запись `Transform` (фикстуры без кликов) | ⏳ бэклог |
+| 3.4 | Мутации: спавн/despawn, запись `Transform` (фикстуры без кликов) | ✅ |
 | 3.5 | `/batch` — список шагов одним запросом (частично закрыт `scenario`) | ⏳ бэклог |
 | 3.6 | Поток событий SSE (`/events`: `log`/`state`/`panic`) вместо поллинга | ✅ |
 | 3.7 | Gamepad, `/text` (ввод в поля), MCP-обёртка | ⏳ бэклог |

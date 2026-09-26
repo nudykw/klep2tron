@@ -92,6 +92,39 @@ enum Cmd {
         #[arg(long = "type")]
         tt: Option<String>,
     },
+    /// Spawn a fixture entity (plain entity, survives map rebuilds).
+    Spawn {
+        #[arg(long, default_value = "cube")]
+        mesh: String,
+        #[arg(long)]
+        name: Option<String>,
+        /// Translation as `x,y,z`.
+        #[arg(long)]
+        pos: Option<String>,
+        #[arg(long)]
+        scale: Option<String>,
+        /// Euler rotation in degrees as `x,y,z`.
+        #[arg(long = "rot")]
+        rot: Option<String>,
+        /// sRGB color `r,g,b[,a]` (0..1).
+        #[arg(long)]
+        color: Option<String>,
+    },
+    /// Despawn an entity by index.
+    Despawn { id: u32 },
+    /// Edit an entity's transform (position/scale/rotation).
+    Move {
+        id: u32,
+        #[arg(long)]
+        pos: Option<String>,
+        #[arg(long)]
+        scale: Option<String>,
+        #[arg(long = "rot")]
+        rot: Option<String>,
+        /// Treat `--pos`/`--scale` as deltas.
+        #[arg(long)]
+        relative: bool,
+    },
     /// Inject a key (`tap`/`press`/`release`).
     Key {
         key: String,
@@ -151,6 +184,23 @@ fn parse_set(pairs: &[String]) -> serde_json::Value {
     serde_json::Value::Object(map)
 }
 
+/// Parse `x,y,z` (or any comma-separated numbers) into exactly `expected` floats.
+fn parse_floats(spec: &str, expected: usize) -> Option<Vec<f32>> {
+    let parts: Vec<f32> = spec
+        .split(',')
+        .map(|part| part.trim().parse::<f32>().ok())
+        .collect::<Option<Vec<_>>>()?;
+    (parts.len() == expected).then_some(parts)
+}
+
+fn parse_color(spec: &str) -> Option<Vec<f32>> {
+    let mut parts = parse_floats(spec, 3).or_else(|| parse_floats(spec, 4))?;
+    if parts.len() == 3 {
+        parts.push(1.0);
+    }
+    Some(parts)
+}
+
 fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
     match cmd {
         Cmd::Version => println!("{}", pretty(&client.version()?)),
@@ -189,6 +239,43 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
         }
         Cmd::SetTile { x, z, h, tt } => {
             println!("{}", client.set_tile(x, z, h, tt.as_deref())?)
+        }
+        Cmd::Spawn { mesh, name, pos, scale, rot, color } => {
+            let mut args = serde_json::Map::new();
+            args.insert("mesh".into(), mesh.into());
+            if let Some(name) = name {
+                args.insert("name".into(), name.into());
+            }
+            if let Some(v) = pos.as_deref().and_then(|s| parse_floats(s, 3)) {
+                args.insert("translation".into(), v.into());
+            }
+            if let Some(v) = scale.as_deref().and_then(|s| parse_floats(s, 3)) {
+                args.insert("scale".into(), v.into());
+            }
+            if let Some(v) = rot.as_deref().and_then(|s| parse_floats(s, 3)) {
+                args.insert("rotation_euler_deg".into(), v.into());
+            }
+            if let Some(v) = color.as_deref().and_then(parse_color) {
+                args.insert("color".into(), v.into());
+            }
+            println!("{}", client.spawn_entity(serde_json::Value::Object(args))?);
+        }
+        Cmd::Despawn { id } => println!("{}", client.despawn_entity(id)?),
+        Cmd::Move { id, pos, scale, rot, relative } => {
+            let mut args = serde_json::Map::new();
+            if let Some(v) = pos.as_deref().and_then(|s| parse_floats(s, 3)) {
+                args.insert("translation".into(), v.into());
+            }
+            if let Some(v) = scale.as_deref().and_then(|s| parse_floats(s, 3)) {
+                args.insert("scale".into(), v.into());
+            }
+            if let Some(v) = rot.as_deref().and_then(|s| parse_floats(s, 3)) {
+                args.insert("rotation_euler_deg".into(), v.into());
+            }
+            if relative {
+                args.insert("relative".into(), true.into());
+            }
+            println!("{}", client.set_transform(id, serde_json::Value::Object(args))?);
         }
         Cmd::Key { key, action } => println!("{}", client.key(&key, &action)?),
         Cmd::Click { label } => println!("{}", client.ui_click(&label, "click")?),
