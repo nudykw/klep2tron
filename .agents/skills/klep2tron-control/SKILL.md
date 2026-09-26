@@ -111,6 +111,19 @@ curl -s -o /tmp/shot.png http://127.0.0.1:15703/screenshot
 # e.g. [5-555]  -> Cube, WedgeW, WedgeN, WedgeE visible; WedgeS blank
 ```
 
+`scripts/editor_smoke.sh` automates the full regression: enter the editor, run
+slow and fast hover series over all five buttons, and fail if any shot is not
+`[55555]`:
+
+```bash
+scripts/editor_smoke.sh                      # control API on 127.0.0.1:15703
+scripts/editor_smoke.sh http://127.0.0.1:15703
+```
+
+See `references/editor-verification.md` for the full set of recipes, including
+the orbit-camera (RTT rotation) check and why `/ui_hover` alone may not
+reproduce archetype-order bugs.
+
 ## Notes
 
 - Screenshots are captured by the engine itself, so no OS screen-recording
