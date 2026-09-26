@@ -1,0 +1,18 @@
+[package]
+name = "ktrl"
+version = "0.1.0"
+edition = "2021"
+description = "Client + CLI for KTRL (Klep2tron Control Server)"
+
+[lib]
+name = "ktrl"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ktrl"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+serde_json = "1"
+ureq = { version = "2", default-features = false }

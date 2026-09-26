@@ -24,6 +24,29 @@ The server binds to `127.0.0.1` only. Start the app first
 > The bash examples below omit the auth header. Add
 > `-H 'Authorization: Bearer <token>'` when a token is configured.
 
+## ktrl CLI
+
+The `ktrl` crate wraps the API in a `clap` binary (uses `ureq`), so you do not
+have to hand-roll `curl`. Build once and use it for the common calls:
+
+```bash
+cargo build -p ktrl
+K=./target/debug/ktrl
+$K --url http://127.0.0.1:15703 --token <tok> state
+$K version
+$K action StartEditor && $K step --frames 40
+$K set-tile 3 4 --h 2 --type WedgeN
+$K tree --depth 3
+$K entity 813 && $K mesh 813 && $K material 813
+$K ui --label Wedge
+$K shot -o /tmp/shot.png              # primary window
+$K shot --view camera:529 -o /tmp/rtt.png
+$K step --frames 10 && $K pause --off
+```
+
+`--url`/`--token` default to `KLEP_CONTROL_URL` / `KLEP_CONTROL_TOKEN`.
+The library client (`ktrl::Client`) exposes the same calls programmatically.
+
 ## Endpoints
 
 ### `GET /state`

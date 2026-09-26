@@ -62,6 +62,7 @@ BEVY_ASSET_ROOT=$PWD ./target/debug/editor_client
 | `editor_client_web` | WASM wrapper for the map editor | wasm |
 | `server` | Authoritative game server (Docker/PostgreSQL) | native |
 | `admin_web` | Server admin panel (Axum) | native |
+| `ktrl` | Client + CLI for the KTRL control API (`ureq`, `clap`) | native |
 
 `actor_editor` is deliberately **not** a dependency of the web crates.
 

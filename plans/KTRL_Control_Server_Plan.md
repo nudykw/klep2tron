@@ -1,6 +1,6 @@
 # 🛠 KTRL — Klep2tron Control Server (HTTP API + Skill)
 
-> **Статус:** Фазы 1, 1.5 и 2 (кроме CLI `ktrl`) ✅ (2026-09-26); Фаза 3 в бэклоге
+> **Статус:** Фазы 1, 1.5 и 2 ✅ (2026-09-26); Фаза 3 в бэклоге
 > **Дата:** 2026-09-26
 > **Тип задачи:** Инфраструктура отладки/автоматизации
 > **Предыдущее имя плана:** `Control_Server_Plan.md` (переименован, история та же)
@@ -113,13 +113,15 @@ graph LR
 | 2.3 | `/mesh/{id}` (атрибуты, вершины, индексы, топология), `/material/{id}` (цвета, roughness, textures) | ✅ |
 | 2.4 | `/screenshot?view=camera:<id>` / `rtt:<id>` — снять конкретную камеру | ✅ |
 | 2.5 | Offscreen-захват image-render-target камер (работает при перекрытом окне) | ✅ |
-| 2.6 | CLI `ktrl` (`crates/control_proto` + бинарь) — типизированный клиент | ⏳ бэклог |
+| 2.6 | CLI `ktrl` (`crates/ktrl`: `ktrl::Client` на ureq + clap-бинарь) | ✅ |
 | 2.7 | Токен (`token` в конфиге / `KLEP_CONTROL_TOKEN`, `Authorization: Bearer`) | ✅ |
 | 2.8 | Тесты KTRL: юнит-тесты `parse_request`/auth; интеграционный смоук | ✅ (юнит) / ⏳ (интегр.) |
 
 Реализация: `crates/client_core/src/control/scene.rs` (интроспекция +`capture`),
 `http.rs` (маршруты, токен), `config.rs` (token); RTT-изображения редактора
 получили `TextureUsages::COPY_SRC` (`crates/editor_client/src/lib.rs`).
+Клиент/CLI: `crates/ktrl` (`Client`, подкоманды `state`/`tree`/`entity`/
+`mesh`/`material`/`shot`/`ui`/`action`/`set-tile`/`key`/`click`/`pause`/`step`).
 
 ---
 

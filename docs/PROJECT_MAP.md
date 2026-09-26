@@ -33,6 +33,7 @@ This document serves as a technical overview for AI assistance to quickly naviga
 - `crates/server`: Server-side logic (Docker/PostgreSQL).
 - `crates/shared`: Shared data structures between client and server.
 - `crates/admin_web`: Web interface for administration.
+- `crates/ktrl`: KTRL client library (`ktrl::Client`) + `ktrl` CLI for the control API.
 
 ## 🔌 KTRL — Klep2tron Control Server (debug tooling)
 
@@ -41,7 +42,10 @@ control API, in debug builds (and in release when `settings.json` has
 `"control": { "enabled": true }`), on `127.0.0.1:15703` (`KLEP_CONTROL`,
 `KLEP_CONTROL_PORT` override it). API version `ktrls/1`.
 
-- Source: `crates/client_core/src/control/mod.rs`.
+- Source: `crates/client_core/src/control/` (`mod`, `http`, `state`, `scene`,
+  `keys`, `config`).
+- Client + CLI: `crates/ktrl` (`ktrl::Client` + `ktrl` binary, `cargo run -p
+  ktrl -- ...`).
 - Endpoints: `GET /state`, `GET /screenshot[?view=]`, `GET /version`,
   `GET /ui_query`, `GET /scene_tree`, `GET /entity/{id}`, `GET /mesh/{id}`,
   `GET /material/{id}`, `POST /key`, `POST /mouse`, `POST /ui_click`,
