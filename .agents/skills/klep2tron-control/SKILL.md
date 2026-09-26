@@ -377,6 +377,16 @@ scripts/editor_smoke.sh                      # control API on 127.0.0.1:15703
 scripts/editor_smoke.sh http://127.0.0.1:15703
 ```
 
+`scripts/api_smoke.sh` is the full end-to-end API check (version/state/logs,
+pause/step, the editor round-trip, introspection, tiles, mutations, key/text,
+batch, primary + offscreen screenshots and SSE). Run it against any running
+debug build:
+
+```bash
+scripts/api_smoke.sh
+KLEP_CONTROL_TOKEN=<tok> scripts/api_smoke.sh
+```
+
 See `references/editor-verification.md` for the full set of recipes, including
 the orbit-camera (RTT rotation) check and why `/ui_hover` alone may not
 reproduce archetype-order bugs.

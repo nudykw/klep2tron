@@ -1,6 +1,6 @@
 # 🛠 KTRL — Klep2tron Control Server (HTTP API + Skill)
 
-> **Статус:** Фазы 1, 1.5, 2 и часть 3 ✅ (2026-09-26); остальное — бэклог
+> **Статус:** Фазы 1–3 ✅ (2026-09-26); остался только 3.7b (gamepad/MCP)
 > **Дата:** 2026-09-26
 > **Тип задачи:** Инфраструктура отладки/автоматизации
 > **Предыдущее имя плана:** `Control_Server_Plan.md` (переименован, история та же)
@@ -115,7 +115,7 @@ graph LR
 | 2.5 | Offscreen-захват image-render-target камер (работает при перекрытом окне) | ✅ |
 | 2.6 | CLI `ktrl` (`crates/ktrl`: `ktrl::Client` на ureq + clap-бинарь) | ✅ |
 | 2.7 | Токен (`token` в конфиге / `KLEP_CONTROL_TOKEN`, `Authorization: Bearer`) | ✅ |
-| 2.8 | Тесты KTRL: юнит-тесты `parse_request`/auth; интеграционный смоук | ✅ (юнит) / ⏳ (интегр.) |
+| 2.8 | Тесты KTRL: юнит-тесты `parse_request`/auth/лог/batch; `crates/ktrl/tests/client_api.rs` (клиент против заглушки); `scripts/api_smoke.sh` (live, все эндпоинты) | ✅ |
 
 Реализация: `crates/client_core/src/control/scene.rs` (интроспекция +`capture`),
 `http.rs` (маршруты, токен), `config.rs` (token); RTT-изображения редактора
