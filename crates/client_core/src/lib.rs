@@ -136,6 +136,28 @@ pub enum TileType {
     WedgeN, WedgeE, WedgeS, WedgeW,
 }
 
+impl TileType {
+    /// Parse a tile type from a human/agent-supplied string.
+    ///
+    /// Accepts the `Debug` name (`"WedgeN"`), a spaced name (`"Wedge N"`),
+    /// the bare direction (`"n"`, `"e"`, …) and `"empty"`/`"air"`.
+    pub fn parse(s: &str) -> Option<Self> {
+        let compact: String = s
+            .chars()
+            .filter(|c| !c.is_whitespace() && *c != '_' && *c != '-')
+            .collect();
+        Some(match compact.to_ascii_lowercase().as_str() {
+            "empty" | "air" | "none" => TileType::Empty,
+            "cube" | "block" => TileType::Cube,
+            "wedgen" | "n" => TileType::WedgeN,
+            "wedgee" | "e" => TileType::WedgeE,
+            "wedges" | "s" => TileType::WedgeS,
+            "wedgew" | "w" => TileType::WedgeW,
+            _ => return None,
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Default)]
 pub struct Cell {
     pub h: i32,

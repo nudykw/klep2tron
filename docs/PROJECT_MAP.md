@@ -34,17 +34,24 @@ This document serves as a technical overview for AI assistance to quickly naviga
 - `crates/shared`: Shared data structures between client and server.
 - `crates/admin_web`: Web interface for administration.
 
-## 🔌 Local control API (debug tooling)
+## 🔌 KTRL — Klep2tron Control Server (debug tooling)
 
-Both native binaries start a local HTTP control server in debug builds (and in
-release when `settings.json` has `"control": { "enabled": true }`), on
-`127.0.0.1:15703` (`KLEP_CONTROL`, `KLEP_CONTROL_PORT` override it).
+Both native binaries start **KTRL** (Klep2tron Control Server), a local HTTP
+control API, in debug builds (and in release when `settings.json` has
+`"control": { "enabled": true }`), on `127.0.0.1:15703` (`KLEP_CONTROL`,
+`KLEP_CONTROL_PORT` override it). API version `ktrls/1`.
 
 - Source: `crates/client_core/src/control/mod.rs`.
-- Endpoints: `GET /state`, `GET /screenshot`, `POST /key`, `POST /mouse`,
-  `POST /ui_click`, `POST /ui_hover`.
+- Endpoints: `GET /state`, `GET /screenshot`, `GET /version`, `GET /ui_query`,
+  `POST /key`, `POST /mouse`, `POST /ui_click`, `POST /ui_hover`, `POST /pause`,
+  `POST /step`, `POST /action`.
+- Deterministic stepping: `POST /pause` freezes virtual time; `POST /step
+  {"frames":N}` renders exactly N frames and blocks until done (no `sleep`).
+- Cross-binary actions: `POST /action` emits `ControlAction` (handled by
+  `client_core` for lifecycle, by `editor_client` for map edits). Editor-only
+  state (`tool`, `undo`, `redo`) is merged into `/state` via `ControlExtras`.
 - Agent guide + helper script: `.agents/skills/klep2tron-control/`.
-- Plan: [plans/Control_Server_Plan.md](../plans/Control_Server_Plan.md).
+- Plan: [plans/KTRL_Control_Server_Plan.md](../plans/KTRL_Control_Server_Plan.md).
 - Known issue: [plans/Preview_RTT_Thumbnails_Bug.md](../plans/Preview_RTT_Thumbnails_Bug.md).
 
 ## 🚦 State Machine (`GameState`)

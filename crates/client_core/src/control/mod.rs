@@ -1,100 +1,68 @@
-//! Local HTTP control API for agents (screenshots, input, state).
+//! KTRL — Klep2tron Control Server: local HTTP control API for agents
+//! (screenshots, input, state, actions).
 //!
 //! Enabled by default in debug builds and via `settings.json`
 //! (`"control": { "enabled": true, "port": 15703 }`) in release.
-//! Binds to 127.0.0.1 only.
+//! Binds to 127.0.0.1 only. API version: `ktrls/1`.
+//! Roadmap: `plans/KTRL_Control_Server_Plan.md`.
+//!
+//! Layout: [`http`] is the transport/parser, [`state`] the serialization and
+//! host-facing types, this module the ECS system that services requests.
 
+use bevy::diagnostic::DiagnosticsStore;
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::Screenshot;
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
-use std::sync::mpsc::{self, Receiver, Sender};
+use bevy::ui::{ComputedNode, UiGlobalTransform};
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::{EditorMode, GameState, Project, Selection};
 
+mod config;
+mod http;
+mod keys;
+mod state;
+
+use config::ControlConfig;
+use http::{detect_binary, start_server, Envelope, Req, Response};
+use keys::key_from_name;
+pub use state::{ControlAction, ControlExtras};
+use state::{build_state, build_ui_query};
+
 const BODY_LIMIT: usize = 1 << 20;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Upper bound on `/step` frames: the HTTP thread gives up after
+/// [`RESPONSE_TIMEOUT`], so a request must finish well within 10 s.
+const MAX_STEP_FRAMES: u32 = 120;
 
-// --- Wire types -------------------------------------------------------------
+/// Actions accepted by `POST /action`.
+const KNOWN_ACTIONS: &[&str] = &[
+    "StartGame",
+    "StartEditor",
+    "QuitToMenu",
+    "Exit",
+    "SetSelection",
+    "SetTile",
+    "SetTileType",
+    "Undo",
+    "Redo",
+    "NextRoom",
+    "PrevRoom",
+    "AddRoom",
+    "ClearRoom",
+    "SaveMap",
+    "LoadMap",
+];
 
-pub struct Response {
-    pub status: u16,
-    pub content_type: &'static str,
-    pub body: Vec<u8>,
-}
-
-impl Response {
-    fn json(body: String) -> Self {
-        Self { status: 200, content_type: "application/json", body: body.into_bytes() }
-    }
-    fn text(status: u16, body: String) -> Self {
-        Self { status, content_type: "text/plain; charset=utf-8", body: body.into_bytes() }
-    }
-    fn png(body: Vec<u8>) -> Self {
-        Self { status: 200, content_type: "image/png", body }
-    }
-}
-
-enum Req {
-    State,
-    Screenshot,
-    Key { key: String, action: String },
-    MouseMove { x: f32, y: f32 },
-    MouseButton { button: String, action: String },
-    /// `action`: `click` (one frame), `hover` (held), `unhover`.
-    UiClick { label: String, action: String },
-    Unknown(String),
-}
-
-struct Envelope {
-    req: Req,
-    resp: Sender<Response>,
+fn is_known_action(name: &str) -> bool {
+    KNOWN_ACTIONS.contains(&name)
 }
 
 #[derive(Resource)]
- struct ControlRx {
+struct ControlRx {
     rx: Mutex<Receiver<Envelope>>,
-}
-
-// --- Config -----------------------------------------------------------------
-
-struct ControlConfig {
-    enabled: bool,
-    port: u16,
-}
-
-impl ControlConfig {
-    fn load() -> Self {
-        let mut enabled = cfg!(debug_assertions);
-        let mut port = 15703u16;
-
-        if let Ok(v) = std::env::var("KLEP_CONTROL") {
-            enabled = v != "0" && !v.is_empty();
-        }
-        if let Ok(p) = std::env::var("KLEP_CONTROL_PORT") {
-            if let Ok(p) = p.parse() {
-                port = p;
-            }
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        if let Ok(content) = std::fs::read_to_string("settings.json") {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(c) = json.get("control") {
-                    if let Some(e) = c.get("enabled").and_then(|v| v.as_bool()) {
-                        enabled = e;
-                    }
-                    if let Some(p) = c.get("port").and_then(|v| v.as_u64()) {
-                        port = p as u16;
-                    }
-                }
-            }
-        }
-
-        Self { enabled, port }
-    }
 }
 
 // --- Plugin -----------------------------------------------------------------
@@ -106,16 +74,26 @@ impl Plugin for ControlPlugin {
         if cfg!(target_arch = "wasm32") {
             return;
         }
+        // Registered even when the server is off, so host binaries can add
+        // their own `ControlAction` handlers unconditionally.
+        app.add_message::<ControlAction>();
+
         let cfg = ControlConfig::load();
         if !cfg.enabled {
-            info!("control server: disabled");
+            info!("KTRL: disabled");
             return;
         }
         match start_server(cfg.port) {
             Ok(rx) => {
-                info!("control server: listening on http://127.0.0.1:{}", cfg.port);
+                info!("KTRL: listening on http://127.0.0.1:{}", cfg.port);
                 app.insert_resource(ControlRx { rx: Mutex::new(rx) });
                 app.init_resource::<ControlState>();
+                app.init_resource::<ControlExtras>();
+                {
+                    let mut state = app.world_mut().resource_mut::<ControlState>();
+                    state.binary = detect_binary();
+                    state.port = cfg.port;
+                }
                 // Keep rendering even when the window is not focused, so that
                 // screenshots always show a fresh frame instead of a stale/blank
                 // swapchain image.
@@ -128,247 +106,46 @@ impl Plugin for ControlPlugin {
                 // after that and before the game systems consume it.
                 app.add_systems(
                     PreUpdate,
-                    control_process_system
-                        .after(bevy::input::InputSystems)
-                        .after(bevy::ui::UiSystems::Focus),
+                    (
+                        control_process_system
+                            .after(bevy::input::InputSystems)
+                            .after(bevy::ui::UiSystems::Focus),
+                        handle_core_control_actions.after(control_process_system),
+                    ),
                 );
             }
-            Err(e) => error!("control server: failed to bind port {}: {}", cfg.port, e),
+            Err(e) => error!("KTRL: failed to bind port {}: {}", cfg.port, e),
         }
     }
 }
 
-fn start_server(port: u16) -> std::io::Result<Receiver<Envelope>> {
-    let (tx, rx) = mpsc::channel::<Envelope>();
-    let listener = TcpListener::bind(("127.0.0.1", port))?;
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(stream) = stream else { continue };
-            let tx = tx.clone();
-            std::thread::spawn(move || {
-                let _ = handle_connection(stream, tx);
-            });
-        }
-    });
-    Ok(rx)
-}
-
-// --- Minimal HTTP -----------------------------------------------------------
-
-fn read_request(stream: &mut TcpStream) -> std::io::Result<(String, String, Vec<u8>)> {
-    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
-    let mut buf = Vec::new();
-    let mut tmp = [0u8; 4096];
-
-    // Read until end of headers.
-    let header_end;
-    loop {
-        let n = stream.read(&mut tmp)?;
-        if n == 0 {
-            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "eof"));
-        }
-        buf.extend_from_slice(&tmp[..n]);
-        if let Some(pos) = find_subslice(&buf, b"\r\n\r\n") {
-            header_end = pos + 4;
-            break;
-        }
-        if buf.len() > BODY_LIMIT {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "headers too large"));
-        }
-    }
-
-    let head = String::from_utf8_lossy(&buf[..header_end]).to_string();
-    let mut lines = head.lines();
-    let request_line = lines.next().unwrap_or_default().to_string();
-    let mut parts = request_line.split_whitespace();
-    let method = parts.next().unwrap_or_default().to_string();
-    let path = parts.next().unwrap_or_default().to_string();
-
-    let content_length: usize = lines
-        .find_map(|l| {
-            let (k, v) = l.split_once(':')?;
-            if k.eq_ignore_ascii_case("content-length") {
-                v.trim().parse().ok()
-            } else {
-                None
+/// Core lifecycle actions shared by every host binary.
+fn handle_core_control_actions(
+    mut actions: MessageReader<ControlAction>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+    mut editor_mode: ResMut<EditorMode>,
+    mut exit: MessageWriter<bevy::app::AppExit>,
+) {
+    for action in actions.read() {
+        match action.name.as_str() {
+            "StartGame" => {
+                next_game_state.set(GameState::Loading);
+                editor_mode.is_active = false;
             }
-        })
-        .unwrap_or(0);
-
-    let mut body = buf[header_end..].to_vec();
-    while body.len() < content_length {
-        let n = stream.read(&mut tmp)?;
-        if n == 0 {
-            break;
-        }
-        body.extend_from_slice(&tmp[..n]);
-    }
-    body.truncate(content_length.min(BODY_LIMIT));
-
-    Ok((method, path, body))
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|w| w == needle)
-}
-
-fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
-    let path = path.split('?').next().unwrap_or(path);
-    let json: serde_json::Value = serde_json::from_slice(body).unwrap_or(serde_json::Value::Null);
-    match (method, path) {
-        ("GET", "/state") | ("GET", "/") => Req::State,
-        ("GET", "/screenshot") | ("POST", "/screenshot") => Req::Screenshot,
-        ("POST", "/key") => Req::Key {
-            key: json.get("key").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
-            action: json.get("action").and_then(|v| v.as_str()).unwrap_or("tap").to_string(),
-        },
-        ("POST", "/ui_click") | ("POST", "/ui_hover") => Req::UiClick {
-            label: json.get("label").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
-            action: json
-                .get("action")
-                .and_then(|v| v.as_str())
-                .unwrap_or(if path == "/ui_hover" { "hover" } else { "click" })
-                .to_string(),
-        },
-        ("POST", "/mouse") => {
-            if json.get("button").is_some() {
-                Req::MouseButton {
-                    button: json.get("button").and_then(|v| v.as_str()).unwrap_or("left").to_string(),
-                    action: json.get("action").and_then(|v| v.as_str()).unwrap_or("click").to_string(),
-                }
-            } else {
-                Req::MouseMove {
-                    x: json.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-                    y: json.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-                }
+            "StartEditor" => {
+                next_game_state.set(GameState::Loading);
+                editor_mode.is_active = true;
             }
+            "QuitToMenu" => next_game_state.set(GameState::Menu),
+            "Exit" => {
+                exit.write(bevy::app::AppExit::Success);
+            }
+            _ => {}
         }
-        _ => Req::Unknown(format!("{} {}", method, path)),
     }
-}
-
-fn handle_connection(mut stream: TcpStream, tx: Sender<Envelope>) -> std::io::Result<()> {
-    let (method, path, body) = read_request(&mut stream)?;
-    let req = parse_request(&method, &path, &body);
-
-    let (resp_tx, resp_rx) = mpsc::channel();
-    if tx.send(Envelope { req, resp: resp_tx }).is_err() {
-        let _ = write_response(&mut stream, &Response::text(503, "app not running".into()));
-        return Ok(());
-    }
-
-    let response = match resp_rx.recv_timeout(RESPONSE_TIMEOUT) {
-        Ok(r) => r,
-        Err(_) => Response::text(504, "timeout waiting for the frame".into()),
-    };
-    write_response(&mut stream, &response)
-}
-
-fn write_response(stream: &mut TcpStream, resp: &Response) -> std::io::Result<()> {
-    let head = format!(
-        "HTTP/1.1 {} OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
-        resp.status, resp.content_type, resp.body.len()
-    );
-    stream.write_all(head.as_bytes())?;
-    stream.write_all(&resp.body)?;
-    stream.flush()
 }
 
 // --- ECS side ---------------------------------------------------------------
-
-fn key_from_name(name: &str) -> Option<KeyCode> {
-    use KeyCode::*;
-    Some(match name {
-        "ArrowUp" | "Up" => ArrowUp,
-        "ArrowDown" | "Down" => ArrowDown,
-        "ArrowLeft" | "Left" => ArrowLeft,
-        "ArrowRight" | "Right" => ArrowRight,
-        "Enter" | "Return" => Enter,
-        "Space" => Space,
-        "Escape" | "Esc" => Escape,
-        "Tab" => Tab,
-        "Backspace" => Backspace,
-        "Delete" => Delete,
-        "ShiftLeft" | "Shift" => ShiftLeft,
-        "ControlLeft" | "Ctrl" => ControlLeft,
-        "AltLeft" | "Alt" => AltLeft,
-        "F1" => F1,
-        "F2" => F2,
-        "F3" => F3,
-        "F4" => F4,
-        "F5" => F5,
-        "KeyA" => KeyA,
-        "KeyB" => KeyB,
-        "KeyC" => KeyC,
-        "KeyD" => KeyD,
-        "KeyE" => KeyE,
-        "KeyF" => KeyF,
-        "KeyG" => KeyG,
-        "KeyH" => KeyH,
-        "KeyI" => KeyI,
-        "KeyJ" => KeyJ,
-        "KeyK" => KeyK,
-        "KeyL" => KeyL,
-        "KeyM" => KeyM,
-        "KeyN" => KeyN,
-        "KeyO" => KeyO,
-        "KeyP" => KeyP,
-        "KeyQ" => KeyQ,
-        "KeyR" => KeyR,
-        "KeyS" => KeyS,
-        "KeyT" => KeyT,
-        "KeyU" => KeyU,
-        "KeyV" => KeyV,
-        "KeyW" => KeyW,
-        "KeyX" => KeyX,
-        "KeyY" => KeyY,
-        "KeyZ" => KeyZ,
-        "Digit0" => Digit0,
-        "Digit1" => Digit1,
-        "Digit2" => Digit2,
-        "Digit3" => Digit3,
-        "Digit4" => Digit4,
-        "Digit5" => Digit5,
-        "Digit6" => Digit6,
-        "Digit7" => Digit7,
-        "Digit8" => Digit8,
-        "Digit9" => Digit9,
-        _ => {
-            if name.len() == 1 {
-                let c = name.chars().next().unwrap();
-                if c.is_ascii_alphabetic() {
-                    // fall through to the match above is not possible; map here
-                    return key_from_char(c);
-                }
-                if c.is_ascii_digit() {
-                    return key_from_digit(c);
-                }
-            }
-            return None;
-        }
-    })
-}
-
-fn key_from_char(c: char) -> Option<KeyCode> {
-    use KeyCode::*;
-    Some(match c.to_ascii_uppercase() {
-        'A' => KeyA, 'B' => KeyB, 'C' => KeyC, 'D' => KeyD, 'E' => KeyE, 'F' => KeyF,
-        'G' => KeyG, 'H' => KeyH, 'I' => KeyI, 'J' => KeyJ, 'K' => KeyK, 'L' => KeyL,
-        'M' => KeyM, 'N' => KeyN, 'O' => KeyO, 'P' => KeyP, 'Q' => KeyQ, 'R' => KeyR,
-        'S' => KeyS, 'T' => KeyT, 'U' => KeyU, 'V' => KeyV, 'W' => KeyW, 'X' => KeyX,
-        'Y' => KeyY, 'Z' => KeyZ,
-        _ => return None,
-    })
-}
-
-fn key_from_digit(c: char) -> Option<KeyCode> {
-    use KeyCode::*;
-    Some(match c {
-        '0' => Digit0, '1' => Digit1, '2' => Digit2, '3' => Digit3, '4' => Digit4,
-        '5' => Digit5, '6' => Digit6, '7' => Digit7, '8' => Digit8, '9' => Digit9,
-        _ => return None,
-    })
-}
 
 /// Controller input state that must be re-applied every frame.
 #[derive(Resource, Default)]
@@ -380,26 +157,74 @@ struct ControlState {
     /// A UI entity kept hovered; re-applied every frame because `ui_focus_system`
     /// recomputes `Interaction` from the real pointer.
     forced_hover: Option<Entity>,
+    /// Monotonic frame counter, incremented even while virtual time is paused.
+    frame: u64,
+    /// `true` while `/pause` froze virtual time (the frame clock keeps running).
+    paused: bool,
+    /// A `/step` is running until the frame clock reaches this value.
+    step_until: Option<u64>,
+    /// Response held back until a `/step` completes, so it returns the final frame.
+    step_resp: Option<Sender<Response>>,
+    /// Binary name reported by `/version`.
+    binary: String,
+    /// Bound port reported by `/version`.
+    port: u16,
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Read-only world view used by `/state` and `/ui_query`, bundled into one
+/// `SystemParam` to stay within Bevy's per-system parameter limit.
+#[derive(SystemParam)]
+struct KtrlWorld<'w, 's> {
+    game_state: Option<Res<'w, State<GameState>>>,
+    selection: Option<Res<'w, Selection>>,
+    project: Option<Res<'w, Project>>,
+    editor_mode: Option<Res<'w, EditorMode>>,
+    transforms: Query<'w, 's, (Entity, &'static Transform, Option<&'static Name>)>,
+    ui_nodes: Query<
+        'w,
+        's,
+        (
+            Entity,
+            Option<&'static Name>,
+            Option<&'static Text>,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
+    >,
+    texts: Query<'w, 's, (Entity, &'static Text)>,
+    names: Query<'w, 's, (Entity, &'static Name)>,
+    parents: Query<'w, 's, &'static ChildOf>,
+    interactions: Query<'w, 's, (Entity, &'static mut Interaction)>,
+    diagnostics: Res<'w, DiagnosticsStore>,
+    extras: Option<Res<'w, ControlExtras>>,
+}
+
 fn control_process_system(
     rx: Option<Res<ControlRx>>,
-    game_state: Option<Res<State<GameState>>>,
-    selection: Option<Res<Selection>>,
-    project: Option<Res<Project>>,
-    editor_mode: Option<Res<EditorMode>>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut mouse_buttons: ResMut<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
-    transforms: Query<(Entity, &Transform)>,
     mut commands: Commands,
     mut state: ResMut<ControlState>,
-    texts: Query<(Entity, &Text)>,
-    names: Query<(Entity, &Name)>,
-    parents: Query<&ChildOf>,
-    mut interactions: Query<&mut Interaction>,
+    mut virtual_time: ResMut<Time<bevy::time::Virtual>>,
+    mut actions: MessageWriter<ControlAction>,
+    world: KtrlWorld,
 ) {
+    let KtrlWorld {
+        game_state,
+        selection,
+        project,
+        editor_mode,
+        transforms,
+        ui_nodes,
+        texts,
+        names,
+        parents,
+        mut interactions,
+        diagnostics,
+        extras,
+    } = world;
+
     // Re-apply keys that the controller is holding down.
     for code in state.held.clone() {
         keys.press(code);
@@ -407,7 +232,7 @@ fn control_process_system(
 
     // Re-apply the forced UI hover (overrides the pointer-based value).
     if let Some(entity) = state.forced_hover {
-        if let Ok(mut interaction) = interactions.get_mut(entity) {
+        if let Ok((_, mut interaction)) = interactions.get_mut(entity) {
             *interaction = Interaction::Hovered;
         }
     }
@@ -423,6 +248,24 @@ fn control_process_system(
         }
     });
 
+    // KTRL frame clock: counts every frame, even while virtual time is paused.
+    state.frame = state.frame.wrapping_add(1);
+
+    // Finish a pending `/step`: re-pause and release the held-back response.
+    if state.step_until.is_some_and(|target| state.frame >= target) {
+        state.step_until = None;
+        if state.paused {
+            virtual_time.pause();
+        }
+        if let Some(resp) = state.step_resp.take() {
+            let body = format!(
+                "{{\"ok\":true,\"frame\":{},\"paused\":{}}}",
+                state.frame, state.paused
+            );
+            let _ = resp.send(Response::json(body));
+        }
+    }
+
     let Some(rx) = rx else { return };
 
     let requests: Vec<Envelope> = {
@@ -433,14 +276,72 @@ fn control_process_system(
     for Envelope { req, resp } in requests {
         match req {
             Req::State => {
-                let state = build_state(&game_state, &selection, &project, &editor_mode, &transforms);
-                let _ = resp.send(Response::json(state));
+                let body = build_state(
+                    &game_state,
+                    &selection,
+                    &project,
+                    &editor_mode,
+                    &state,
+                    &diagnostics,
+                    &extras,
+                    &transforms,
+                );
+                let _ = resp.send(Response::json(body));
+            }
+            Req::Version => {
+                let body = format!(
+                    "{{\"name\":\"KTRL\",\"server\":\"ktrls\",\"api\":1,\"binary\":\"{}\",\"port\":{},\"frame\":{}}}",
+                    state.binary, state.port, state.frame
+                );
+                let _ = resp.send(Response::json(body));
+            }
+            Req::Pause { on } => {
+                state.paused = on;
+                state.step_until = None;
+                state.step_resp = None;
+                if on {
+                    virtual_time.pause();
+                } else {
+                    virtual_time.unpause();
+                }
+                let body = format!(
+                    "{{\"ok\":true,\"paused\":{},\"frame\":{}}}",
+                    on, state.frame
+                );
+                let _ = resp.send(Response::json(body));
+            }
+            Req::Step { frames } => {
+                if state.step_resp.is_some() {
+                    let _ = resp.send(Response::text(409, "a step is already in progress".into()));
+                } else {
+                    virtual_time.unpause();
+                    state.step_until = Some(state.frame.saturating_add(frames as u64));
+                    state.step_resp = Some(resp);
+                }
+            }
+            Req::Action { name, args } => {
+                if is_known_action(&name) {
+                    actions.write(ControlAction { name: name.clone(), args });
+                    let body = format!(
+                        "{{\"ok\":true,\"action\":\"{}\",\"frame\":{}}}",
+                        name, state.frame
+                    );
+                    let _ = resp.send(Response::json(body));
+                } else {
+                    let _ = resp.send(Response::text(400, format!("unknown action: {name}")));
+                }
+            }
+            Req::UiQuery { label } => {
+                let mut current = std::collections::HashMap::new();
+                for (entity, interaction) in interactions.iter() {
+                    current.insert(entity, *interaction);
+                }
+                let _ = resp.send(Response::json(build_ui_query(&label, &ui_nodes, &current)));
             }
             Req::Screenshot => {
                 let resp = resp.clone();
-                commands
-                    .spawn(Screenshot::primary_window())
-                    .observe(move |captured: On<bevy::render::view::screenshot::ScreenshotCaptured>| {
+                commands.spawn(Screenshot::primary_window()).observe(
+                    move |captured: On<bevy::render::view::screenshot::ScreenshotCaptured>| {
                         let image = captured.image.clone();
                         let body = match image.try_into_dynamic() {
                             Ok(dyn_img) => {
@@ -453,7 +354,8 @@ fn control_process_system(
                             Err(e) => Response::text(500, format!("image convert failed: {e}")),
                         };
                         let _ = resp.send(body);
-                    });
+                    },
+                );
             }
             Req::Key { key, action } => {
                 match key_from_name(&key) {
@@ -524,7 +426,7 @@ fn control_process_system(
                         }
                         match target {
                             Some(entity) => {
-                                if let Ok(mut interaction) = interactions.get_mut(entity) {
+                                if let Ok((_, mut interaction)) = interactions.get_mut(entity) {
                                     if action == "hover" {
                                         state.forced_hover = Some(entity);
                                         *interaction = Interaction::Hovered;
@@ -534,7 +436,7 @@ fn control_process_system(
                                 }
                                 let _ = resp.send(Response::json(format!(
                                     "{{\"ok\":true,\"entity\":{},\"action\":\"{}\"}}",
-                                    entity.index(),
+                                    entity.index().index(),
                                     action
                                 )));
                             }
@@ -571,69 +473,3 @@ fn control_process_system(
     }
 }
 
-fn build_state(
-    game_state: &Option<Res<State<GameState>>>,
-    selection: &Option<Res<Selection>>,
-    project: &Option<Res<Project>>,
-    editor_mode: &Option<Res<EditorMode>>,
-    transforms: &Query<(Entity, &Transform)>,
-) -> String {
-    let gs = game_state
-        .as_ref()
-        .map(|s| format!("{:?}", s.get()))
-        .unwrap_or_else(|| "unknown".into());
-
-    let mut entities = Vec::new();
-    for (entity, transform) in transforms.iter().take(4096) {
-        let t = transform.translation;
-        entities.push(format!(
-            "{{\"entity\":{},\"pos\":[{:.3},{:.3},{:.3}]}}",
-            entity.index(),
-            t.x, t.y, t.z
-        ));
-    }
-
-    let selection_json = match selection {
-        Some(s) => format!("{{\"x\":{},\"z\":{}}}", s.x, s.z),
-        None => "null".into(),
-    };
-    let editor_active = editor_mode.as_ref().map(|m| m.is_active).unwrap_or(false);
-
-    let map_json = match project {
-        Some(p) if !p.rooms.is_empty() => {
-            let room = &p.rooms[p.current_room_idx];
-            let mut cells = String::from("[");
-            for x in 0..16 {
-                cells.push('[');
-                for z in 0..16 {
-                    if z > 0 {
-                        cells.push(',');
-                    }
-                    let c = &room.cells[x][z];
-                    cells.push_str(&format!("{{\"h\":{},\"tt\":\"{:?}\"}}", c.h, c.tt));
-                }
-                cells.push(']');
-                if x < 15 {
-                    cells.push(',');
-                }
-            }
-            cells.push(']');
-            format!(
-                "{{\"current_room\":{},\"rooms\":{},\"cells\":{}}}",
-                p.current_room_idx,
-                p.rooms.len(),
-                cells
-            )
-        }
-        _ => "null".into(),
-    };
-
-    format!(
-        "{{\"game_state\":\"{}\",\"editor_active\":{},\"selection\":{},\"map\":{},\"entities\":[{}]}}",
-        gs,
-        editor_active,
-        selection_json,
-        map_json,
-        entities.join(",")
-    )
-}

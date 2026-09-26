@@ -5,8 +5,9 @@ description: Control and inspect a running Klep2tron client or editor over its l
 
 # Klep2tron control API
 
-The running `client` and `editor_client` binaries expose a local HTTP API on
-`http://127.0.0.1:15703` when the control server is enabled.
+The running `client` and `editor_client` binaries expose **KTRL** (Klep2tron
+Control Server) — a local HTTP API on `http://127.0.0.1:15703` (`ktrls/1`), when
+the control server is enabled.
 
 Enablement:
 - **debug builds** — enabled by default.
@@ -26,15 +27,28 @@ Returns JSON:
 {
   "game_state": "InGame",
   "editor_active": true,
+  "frame": 4211,
+  "paused": false,
+  "fps": 60.0,
   "selection": { "x": 15, "z": 0 },
+  "tool": "Cube",
+  "undo": 3,
+  "redo": 0,
   "map": {
     "current_room": 0,
     "rooms": 1,
+    "size": [16, 16],
     "cells": [[{"h":1,"tt":"WedgeE"}, ...], ...]   // cells[x][z]
   },
-  "entities": [{"entity": 42, "pos": [15.0, 0.25, 0.0]}, ...]
+  "entities": [{"entity": 42, "name": "Player", "pos": [15.0, 0.25, 0.0]}, ...],
+  "entities_truncated": false
 }
 ```
+
+- `frame` increments every rendered frame, even while paused — use it as a
+  readiness barrier (act, then poll until `frame` advanced).
+- `tool` / `undo` / `redo` are supplied by the editor binary; they are absent
+  in the plain game client.
 
 ### `GET /screenshot`
 Returns a PNG of the current frame (`image/png`). Save and open it:
@@ -46,6 +60,62 @@ curl -s --max-time 8 -o /tmp/shot.png http://127.0.0.1:15703/screenshot
 > Debug builds run with continuous rendering (`WinitSettings`), so the window
 > does not need focus for a fresh frame. A fully occluded window can still
 > return a stale frame on macOS — keep the app window visible when possible.
+
+### `GET /version`
+Server identity, useful because `client` and `editor_client` may lag each other:
+
+```json
+{"name":"KTRL","server":"ktrls","api":1,"binary":"editor_client","port":15703,"frame":42}
+```
+
+### `POST /pause` / `POST /step` — deterministic frames
+
+`/pause` freezes virtual time (animations, camera panning) while rendering and
+input keep running. `/step` advances exactly N frames and **blocks until they
+have rendered**, returning the final frame number — use it instead of `sleep`.
+
+```bash
+curl -s -X POST http://127.0.0.1:15703/pause -d '{"on":true}'
+curl -s -X POST http://127.0.0.1:15703/step  -d '{"frames":30}'   # {"ok":true,"frame":..,"paused":true}
+curl -s -X POST http://127.0.0.1:15703/pause -d '{"on":false}'
+```
+
+`frames` is clamped to 120 (the HTTP request would time out above that).
+
+### `POST /action` — direct actions (no clicking)
+
+Runs an action straight in the ECS. Generic actions work in both binaries;
+editor actions require the editor to be active.
+
+```bash
+curl -s -X POST http://127.0.0.1:15703/action -d '{"action":"StartEditor"}'
+curl -s -X POST http://127.0.0.1:15703/action -d '{"action":"SetTile","x":3,"z":4,"h":2,"tt":"WedgeN"}'
+curl -s -X POST http://127.0.0.1:15703/action -d '{"action":"Undo"}'
+```
+
+Actions: `StartGame`, `StartEditor`, `QuitToMenu`, `Exit`,
+`SetSelection {x,z}`, `SetTile {x,z,h,tt}`, `SetTileType {tt}`, `Undo`, `Redo`,
+`NextRoom`, `PrevRoom`, `AddRoom`, `ClearRoom`, `SaveMap`, `LoadMap`.
+`tt` accepts `Cube`, `Wedge N`/`WedgeN`/`n`, … and `Empty`. Unknown actions get
+`400`; the effect lands on the next frame (barrier with `/step`).
+
+### `GET /ui_query` — list widgets
+
+Lists UI nodes with their label and layout, so you can click by coordinates or
+find the exact label for `/ui_click`:
+
+```json
+{"widgets":[{"entity":12,"label":"Cube","interaction":"None",
+             "size":[70.0,70.0],"center":[600.0,42.5],
+             "min":[565.0,7.5],"max":[635.0,77.5]}]}
+```
+
+```bash
+curl -s 'http://127.0.0.1:15703/ui_query'                 # all widgets
+curl -s 'http://127.0.0.1:15703/ui_query?label=Wedge%20S' # substring filter
+```
+
+Coordinates are logical pixels (window space, top-left origin).
 
 ### `POST /key`
 `{"key":"ArrowUp","action":"tap"|"press"|"release"}` (default `tap`).
@@ -87,17 +157,22 @@ curl -s http://127.0.0.1:15703/state | python3 -m json.tool | head -40
 curl -s -o /tmp/shot.png http://127.0.0.1:15703/screenshot
 ```
 
-**Walk the main menu** (keyboard driven):
+**Walk the main menu** (keyboard driven). Use `/step` as the barrier instead
+of fixed sleeps, so it works at any frame rate:
 ```bash
-for k in Down Down Enter; do
-  curl -s -X POST http://127.0.0.1:15703/key -d "{\"key\":\"$k\"}"; sleep 0.4
+for k in ArrowDown ArrowDown Enter; do
+  curl -s -X POST http://127.0.0.1:15703/key -d "{\"key\":\"$k\"}"
+  curl -s -X POST http://127.0.0.1:15703/step -d '{"frames":10}'
 done
 curl -s http://127.0.0.1:15703/state
 ```
 
-**Place a tile in the map editor:** focus the window, then move/click with
-`/mouse` and select the tile type in the top panel, or use keyboard shortcuts
-(`Q`/`A` change height, arrow keys move the selection).
+**Place a tile in the map editor** — no clicking needed:
+```bash
+curl -s -X POST http://127.0.0.1:15703/action -d '{"action":"SetTile","x":4,"z":7,"h":3,"tt":"WedgeW"}'
+curl -s -X POST http://127.0.0.1:15703/step  -d '{"frames":3}'
+```
+Mouse/keyboard still work too (`Q`/`A` change height, arrows move selection).
 
 ## Checking the editor preview thumbnails
 
@@ -128,5 +203,6 @@ reproduce archetype-order bugs.
 
 - Screenshots are captured by the engine itself, so no OS screen-recording
   permission is needed — but the window must not be occluded.
-- Some endpoints act on the next frame; wait ~100–300 ms between calls.
+- Prefer `/step` over `sleep`: it blocks until the requested frames rendered and
+  returns the frame number. Only mouse/keys need a real time gap inside the app.
 - The API is intended for local debugging only.

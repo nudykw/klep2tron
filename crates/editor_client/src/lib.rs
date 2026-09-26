@@ -7,6 +7,7 @@ use bevy::camera::RenderTarget;
 use bevy::camera::visibility::RenderLayers;
 
 pub mod camera;
+pub mod control_actions;
 pub mod ui;
 pub mod logic;
 
@@ -105,6 +106,7 @@ pub fn run_game() {
         .add_systems(Update, (
             update_window_title, 
             handle_menu_input, 
+            crate::control_actions::handle_editor_control_actions,
             sync_rtt_cameras_system,
             camera_control_system,
             sync_overlay_camera_system,
