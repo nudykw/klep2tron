@@ -16,6 +16,7 @@ pub use crate::logic::*;
 
 #[derive(Component)] pub struct SelectionHighlight;
 #[derive(Component)] pub struct SelectionPreview;
+#[derive(Component)] pub struct PreviewImagePending;
 #[derive(Component)] pub struct UiPreview;
 #[derive(Component)] pub struct OverlayCamera;
 #[derive(Component)] pub struct RttCamera;
@@ -114,6 +115,7 @@ pub fn run_game() {
             editor_ui_system,
             selection_highlight_system,
             selection_preview_system,
+            reveal_preview_images,
             room_switching_system,
             auto_save_system,
             undo_redo_system,
@@ -291,7 +293,7 @@ pub fn setup_editor(
                 _ => "Tile",
             };
             p.spawn(((Button, UiNode { node: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() }, background_color: BackgroundColor(Color::srgb(0.2, 0.2, 0.2)), border_color: BorderColor::all(Color::srgb(0.4, 0.4, 0.4)), ..default() }), TileTypeButton(*tt), TooltipText(label.to_string()), Name::new(label.to_string()))).with_children(|p| {
-                p.spawn((ImageNode::new(preview_handles[idx].clone()), UiNode { node: Node { width: Val::Px(60.0), height: Val::Px(60.0), ..default() }, ..default() }));
+                p.spawn((ImageNode::new(preview_handles[idx].clone()), UiNode { node: Node { width: Val::Px(60.0), height: Val::Px(60.0), ..default() }, visibility: Visibility::Hidden, ..default() }, PreviewImagePending));
             });
         }
         
