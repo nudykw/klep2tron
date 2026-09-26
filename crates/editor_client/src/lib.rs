@@ -153,6 +153,7 @@ pub fn setup_editor(
     mut config_store: ResMut<GizmoConfigStore>,
     mut history: ResMut<CommandHistory>,
     mut editor_state: ResMut<EditorState>,
+    mut selection: ResMut<Selection>,
     editor_mode: Res<EditorMode>,
 ) {
     if !editor_mode.is_active { return; }
@@ -174,7 +175,21 @@ pub fn setup_editor(
     }
 
     let room_idx = project.current_room_idx;
-    editor_state.last_selected_cell = project.rooms[room_idx].cells[0][0];
+
+    // Start on the near-right solid tile so that the selection highlight is
+    // immediately visible in the default view.
+    if let Some(room) = project.rooms.get(room_idx) {
+        'find_start: for x in (0..16).rev() {
+            for z in (0..16).rev() {
+                if room.cells[x][z].h >= 0 {
+                    selection.x = x;
+                    selection.z = z;
+                    break 'find_start;
+                }
+            }
+        }
+    }
+    editor_state.last_selected_cell = project.rooms[room_idx].cells[selection.x][selection.z];
 
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     
@@ -232,7 +247,7 @@ pub fn setup_editor(
         let pos = Vec3::new(100.0 + (*idx as f32 * 10.0), 1000.0, 0.0);
 
         commands.spawn((
-            (Camera3d::default(), Camera { clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() }, RenderTarget::Image(handle.clone().into()), Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y)),
+            (Camera3d::default(), Camera { order: -1 - *idx as isize, clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() }, RenderTarget::Image(handle.clone().into()), Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y)),
             layer.clone(),
             RttCamera,
             RttCameraTarget(pos),
@@ -303,9 +318,4 @@ pub fn setup_editor(
         RenderLayers::layer(1),
         MapEntity,
     ));
-
-    info!(
-        "EDITOR SETUP: rooms={} previews={} rtt_cameras={} panel_children={}",
-        project.rooms.len(), preview_handles.len(), types.len(), types.len() + 1
-    );
 }

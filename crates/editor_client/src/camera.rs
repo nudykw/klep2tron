@@ -65,18 +65,10 @@ pub fn camera_control_system(
 pub fn sync_overlay_camera_system(
     main_query: Query<&Transform, (With<OrbitCamera>, Without<OverlayCamera>)>,
     mut overlay_query: Query<&mut Transform, With<OverlayCamera>>,
-    main_proj: Query<&Projection, (With<OrbitCamera>, Without<OverlayCamera>)>,
-    overlay_proj: Query<&Projection, With<OverlayCamera>>,
-    mut dbg: Local<u32>,
 ) {
     if let Ok(main_trans) = main_query.single() {
         if let Ok(mut over_trans) = overlay_query.single_mut() {
             *over_trans = *main_trans;
-            if *dbg < 2 {
-                *dbg += 1;
-                info!("OVERLAY SYNC: main={:?} overlay={:?}", main_trans.translation, over_trans.translation);
-                info!("PROJECTIONS: main={:?} overlay={:?}", main_proj.single().ok(), overlay_proj.single().ok());
-            }
         }
     }
 }
