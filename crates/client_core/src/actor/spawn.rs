@@ -92,10 +92,17 @@ pub fn spawn_player_actor(
 
     let scale = manifest.0.scale;
 
-    // Cylindrical body sized from the model, in world units (GDD: cylinder).
+    // Cylindrical/capsule body sized from the model, in world units (GDD: cylinder).
+    // Capsule provides rounded hemispherical ends so the body glides over tile seams.
     let height = ((model_max.y - model_min.y) * scale.y).max(0.1);
     let radius = (0.5 * (model_max.x - model_min.x).min(model_max.z - model_min.z) * scale.x)
         .max(0.05);
+
+    let collider = if height > 2.0 * radius {
+        Collider::capsule(radius, height - 2.0 * radius)
+    } else {
+        Collider::sphere(radius)
+    };
 
     let root = commands
         .spawn((
@@ -108,7 +115,8 @@ pub fn spawn_player_actor(
             ),
             Visibility::default(),
             RigidBody::Dynamic,
-            Collider::cylinder(radius, height),
+            collider,
+            Friction::ZERO.with_combine_rule(CoefficientCombine::Min),
             PlayerBody { radius, height },
             LockedAxes::ROTATION_LOCKED,
         ))
