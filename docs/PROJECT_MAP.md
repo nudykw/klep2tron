@@ -10,6 +10,9 @@ This document serves as a technical overview for AI assistance to quickly naviga
   - `src/ui/`: `menu`, `help`, and `hud` submodules.
   - `src/world.rs`: Environment, lighting, and camera setup.
   - `src/assets/`: Resource loading and progress bar.
+  - `src/actor/`: Actor (hero/NPC) support — `.k2m`/`actor.ron` asset loaders and
+    hero spawning (`ActorPlugin`, `PlayerActorConfig`, `ActorRoot`). See
+    [Actor_Storage_Format.md](Actor_Storage_Format.md).
   - `src/perf.rs`: Metrics collection and history.
   - `src/transition.rs`: Room switching logic and UI.
   - `src/input.rs`: Global shared controls (fullscreen).
@@ -94,7 +97,8 @@ Defined in `client_core/src/lib.rs`:
 ## 📦 Key Resources
 
 - **Project**: Holds the entire map data (Rooms, Cells).
-- **ClientAssets**: Handles for meshes (`cube`, `wedge`) and materials.
+- **ClientAssets**: Handles for meshes (`cube`, `wedge`), materials, the font,
+  and the player hero (`.k2m` parts + `actor.ron` manifest).
 - **TileMap**: Runtime cache of spawned entities mapped to coordinates.
 - **DirtyTiles**: List of coordinates that need re-rendering (optimization).
 - **PerfHistory**: In-memory storage for FPS, CPU, and RAM metrics.

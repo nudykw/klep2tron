@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub mod ui;
 pub mod rendering;
 pub mod assets;
+pub mod actor;
 pub mod world;
 pub mod perf;
 pub mod transition;
@@ -24,6 +25,7 @@ pub use crate::ui::menu::*;
 pub use crate::ui::help::*;
 pub use crate::ui::hud::*;
 pub use crate::assets::*;
+pub use crate::actor::*;
 pub use crate::rendering::*;
 pub use crate::world::*;
 pub use crate::perf::*;
@@ -191,6 +193,7 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<RoomTransition>()
            .init_resource::<CommandHistory>()
            .init_state::<MenuSubState>()
+           .add_plugins(actor::ActorPlugin)
            .add_plugins(SettingsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_plugins(MaterialPlugin::<StarrySkyMaterial>::default())

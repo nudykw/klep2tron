@@ -1,5 +1,7 @@
+use bevy::asset::RecursiveDependencyLoadState;
 use bevy::prelude::*;
 use crate::ui::widgets::*;
+use crate::actor::{ActorManifest, PlayerActorConfig};
 use crate::{GameState, ProgressBar, LoadingEntity};
 
 #[derive(Resource, Default)]
@@ -8,6 +10,14 @@ pub struct ClientAssets {
     pub wedge_mesh: Handle<Mesh>,
     pub font: Handle<Font>,
     pub highlight_material: Handle<StandardMaterial>,
+    /// Manifest of the player hero (`actors/<Name>/actor.ron`).
+    pub actor_manifest: Handle<ActorManifest>,
+    /// Baked head mesh of the player hero.
+    pub actor_head: Handle<Mesh>,
+    /// Baked body mesh of the player hero.
+    pub actor_body: Handle<Mesh>,
+    /// Baked engine (legs) mesh of the player hero.
+    pub actor_legs: Handle<Mesh>,
 }
 
 pub fn start_loading(
@@ -15,10 +25,16 @@ pub fn start_loading(
     mut assets: ResMut<ClientAssets>, 
     asset_server: Res<AssetServer>,
     state: Res<State<GameState>>,
+    actor: Res<PlayerActorConfig>,
 ) {
     assets.cube_mesh = asset_server.load("3dModels/Room/Bricks/cube.obj");
     assets.wedge_mesh = asset_server.load("3dModels/Room/Bricks/wedge.obj");
     assets.font = asset_server.load("fonts/Roboto-Regular.ttf");
+
+    assets.actor_manifest = asset_server.load(actor.manifest());
+    assets.actor_head = asset_server.load(actor.head_mesh());
+    assets.actor_body = asset_server.load(actor.body_mesh());
+    assets.actor_legs = asset_server.load(actor.legs_mesh());
     
     if *state.get() == GameState::Loading {
         commands.spawn((Camera2d, LoadingEntity));
@@ -38,20 +54,31 @@ pub fn check_loading_system(
     assets: Res<ClientAssets>,
     mut bar_query: Query<&mut Node, With<ProgressBar>>,
 ) {
-    let cube_state = asset_server.get_recursive_dependency_load_state(&assets.cube_mesh);
-    let wedge_state = asset_server.get_recursive_dependency_load_state(&assets.wedge_mesh);
+    let states = [
+        asset_server.get_recursive_dependency_load_state(&assets.cube_mesh),
+        asset_server.get_recursive_dependency_load_state(&assets.wedge_mesh),
+        asset_server.get_recursive_dependency_load_state(&assets.actor_manifest),
+        asset_server.get_recursive_dependency_load_state(&assets.actor_head),
+        asset_server.get_recursive_dependency_load_state(&assets.actor_body),
+        asset_server.get_recursive_dependency_load_state(&assets.actor_legs),
+    ];
 
-    let mut loaded_count = 0;
-    if cube_state.is_some_and(|s| s.is_loaded()) { loaded_count += 1; }
-    if wedge_state.is_some_and(|s| s.is_loaded()) { loaded_count += 1; }
+    let loaded_count = states.iter().filter(|s| s.as_ref().is_some_and(|s| s.is_loaded())).count();
+    let failed_count = states
+        .iter()
+        .filter(|s| matches!(s.as_ref(), Some(RecursiveDependencyLoadState::Failed(_))))
+        .count();
 
-    let progress = (loaded_count as f32 / 2.0) * 100.0;
+    let progress = (loaded_count as f32 / states.len() as f32) * 100.0;
 
     if let Ok(mut style) = bar_query.single_mut() {
         style.width = Val::Percent(progress);
     }
 
-    if loaded_count == 2 {
+    if loaded_count + failed_count == states.len() {
+        if failed_count > 0 {
+            warn!("{failed_count} asset(s) failed to load; entering the game anyway");
+        }
         next_state.set(GameState::InGame);
     }
 }

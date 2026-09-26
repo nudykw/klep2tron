@@ -73,7 +73,8 @@ BEVY_ASSET_ROOT=$PWD ./target/debug/editor_client
 - `docs/ROOM_RENDERING.md`, `docs/Actor_Storage_Format.md` — subsystems.
 - `docs/design/GDD.md` — game design.
 - `plans/` — active plans and post-mortems. Relevant right now:
-  `plans/Bevy019_Migration_Plan.md`, `plans/Preview_RTT_Thumbnails_Bug.md`.
+  `plans/Bevy019_Migration_Plan.md`, `plans/Preview_RTT_Thumbnails_Bug.md`,
+  `plans/Player_Actor_Spawning.md`.
 - `.agents/skills/` — on-demand workflows (`klep2tron-control`,
   `klep2tron-build`, `klep2tron-docs`, `bevy-upgrade`).
 
