@@ -76,12 +76,11 @@ pub fn socket_metadata_sync_system(
 
         if let Some(part) = part {
             for (entity, other_socket) in socket_query.iter() {
-                if entity != selected_entity && other_socket.definition.part == part {
-                    if other_socket.definition.name == name_input.value {
+                if entity != selected_entity && other_socket.definition.part == part
+                    && other_socket.definition.name == name_input.value {
                         is_unique = false;
                         break;
                     }
-                }
             }
         }
 
@@ -136,8 +135,7 @@ pub fn socket_color_picker_system(
     let Ok(window) = window_query.single() else { return; };
     if let Some(cursor) = window.cursor_position() {
         for (interaction, node, transform) in hue_query.iter() {
-            if *interaction == Interaction::Pressed || *interaction == Interaction::Hovered {
-                if *interaction == Interaction::Pressed {
+            if *interaction == Interaction::Pressed {
                     let rect = node.size;
                     let pos = transform.translation().truncate();
                     let local_x = cursor.x - (pos.x - rect.x / 2.0);
@@ -145,7 +143,6 @@ pub fn socket_color_picker_system(
                     color_state.hue = hue;
                     color_state.color = Color::hsla(hue, 0.8, 0.5, 1.0);
                 }
-            }
         }
     }
 

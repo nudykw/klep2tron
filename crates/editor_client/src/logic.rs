@@ -188,12 +188,11 @@ pub fn room_switching_system(
         if next_idx >= project.rooms.len() { project.rooms.push(Room::default()); }
         transition.start(next_idx);
     }
-    if keyboard.just_pressed(KeyCode::BracketLeft) {
-        if project.current_room_idx > 0 { 
+    if keyboard.just_pressed(KeyCode::BracketLeft)
+        && project.current_room_idx > 0 { 
             history.push_undo(&project);
             transition.start(project.current_room_idx - 1);
         }
-    }
 }
 
 pub fn auto_save_system(project: Res<Project>) {

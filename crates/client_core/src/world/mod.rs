@@ -156,10 +156,7 @@ pub fn apply_graphics_quality_system(
 
     // Shadows
     for mut light in light_query.iter_mut() {
-        let enabled = match settings.shadow_quality {
-            QualityLevel::Off => false,
-            _ => true,
-        };
+        let enabled = !matches!(settings.shadow_quality, QualityLevel::Off);
         if light.shadow_maps_enabled != enabled {
             light.shadow_maps_enabled = enabled;
             info!("Directional light shadows set to: {}", enabled);

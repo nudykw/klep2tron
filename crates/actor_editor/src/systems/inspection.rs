@@ -259,7 +259,7 @@ pub fn inspection_ui_logic_system(
             false
         };
 
-        let hovered = interaction_opt.map_or(false, |i| *i == Interaction::Hovered);
+        let hovered = interaction_opt.is_some_and(|i| *i == Interaction::Hovered);
 
         if active {
             *bg = Color::srgba(0.3, 0.6, 1.0, 0.6).into();
@@ -290,12 +290,9 @@ pub fn inspection_ui_sync_system(
     if current_open != *last_is_active && current_active == *last_is_active {
         settings.is_active = current_open;
     }
-    // 2. If settings.is_active was toggled (by master button, hotkey, or solo/focus buttons)
-    else if current_active != *last_is_active {
-        section.is_open = current_active;
-    }
-    // Keep visual state in sync with model if they drifted for some reason
-    else if current_open != current_active {
+    // 2. If settings.is_active was toggled (by master button, hotkey, or solo/focus
+    //    buttons), or the visual state drifted from the model, sync the section.
+    else if current_active != *last_is_active || current_open != current_active {
         section.is_open = current_active;
     }
 
@@ -317,7 +314,7 @@ pub fn wireframe_sync_system(
     
     for (entity, part) in query.iter() {
         let is_isolated = if settings.is_active {
-            settings.isolated_part.map_or(true, |p| p == *part)
+            settings.isolated_part.is_none_or(|p| p == *part)
         } else {
             true
         };

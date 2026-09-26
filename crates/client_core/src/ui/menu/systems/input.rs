@@ -172,8 +172,8 @@ pub fn menu_input_system(
     if left_just { horizontal_dir = -1; }
     if right_just { horizontal_dir = 1; }
 
-    if horizontal_dir != 0 {
-        if !is_confirmation {
+    if horizontal_dir != 0
+        && !is_confirmation {
             if let Ok(item) = params.focused_query.single() {
                 if item.item_type == MenuItemType::Toggle || item.item_type == MenuItemType::Slider {
                     let action = match item.action {
@@ -210,7 +210,6 @@ pub fn menu_input_system(
                 }
             }
         }
-    }
 }
 
 fn is_child_of_any(

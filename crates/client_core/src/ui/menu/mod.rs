@@ -34,7 +34,7 @@ impl Plugin for MenuPlugin {
                 tooltip_system,
                 input_hint_system,
                 menu_tooltip_system,
-           ).chain().run_if(menu_cond.clone()))
+           ).chain().run_if(menu_cond))
 
            .add_systems(Update, sync_pending_settings.run_if(in_state(GameState::Menu)));
     }

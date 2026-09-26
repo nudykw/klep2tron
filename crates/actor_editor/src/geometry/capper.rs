@@ -70,14 +70,13 @@ pub fn build_caps_from_segments(segments: &[[Vec3; 2]], facing_up: bool, rim_thi
 
 
     let all_tris: Vec<_> = loops.iter()
-        .map(|l| {
+        .flat_map(|l| {
             if rim_thickness > 0.0001 {
                 triangulate_rim(l, facing_up, rim_thickness)
             } else {
                 triangulate_polygon(l, facing_up)
             }
         })
-        .flatten()
         .collect();
     
     all_tris
@@ -164,11 +163,10 @@ fn is_ear(p_idx: usize, c_idx: usize, n_idx: usize, indices: &[usize], vertices:
         if idx == p_idx || idx == c_idx || idx == n_idx { continue; }
         let p = vertices[idx];
         
-        if p.x >= min_x && p.x <= max_x && p.z >= min_z && p.z <= max_z {
-            if point_in_triangle_2d_fast(p, a, b, c) {
+        if p.x >= min_x && p.x <= max_x && p.z >= min_z && p.z <= max_z
+            && point_in_triangle_2d_fast(p, a, b, c) {
                 return false;
             }
-        }
     }
 
     true

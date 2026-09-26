@@ -105,7 +105,7 @@ pub fn snapshot(since: Option<u64>, tail: usize, min_level: Option<&str>) -> (Ve
 
     let mut entries: Vec<LogEntry> = buf
         .iter()
-        .filter(|e| since.map_or(true, |s| e.seq > s))
+        .filter(|e| since.is_none_or(|s| e.seq > s))
         .filter(|e| level_rank(e.level) >= min_rank)
         .cloned()
         .collect();

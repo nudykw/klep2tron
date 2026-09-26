@@ -110,8 +110,7 @@ pub fn socket_list_click_system(
                         selected.0.clear();
                     }
                     
-                    for i in min..=max {
-                        let e = visible_entities[i];
+                    for &e in visible_entities.iter().take(max + 1).skip(min) {
                         if !selected.0.contains(&e) {
                             selected.0.push(e);
                         }

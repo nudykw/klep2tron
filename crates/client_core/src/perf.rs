@@ -21,7 +21,7 @@ pub fn collect_perf_system(
     mut history: ResMut<PerfHistory>,
 ) {
     let current_time = time.elapsed_secs_f64();
-    if history.entries.last().map_or(true, |e| (current_time - e.timestamp) >= 1.0) {
+    if history.entries.last().is_none_or(|e| (current_time - e.timestamp) >= 1.0) {
         let fps = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
         let cpu = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::SYSTEM_CPU_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;
         let mem = diagnostics.get(&bevy::diagnostic::SystemInformationDiagnosticsPlugin::SYSTEM_MEM_USAGE).and_then(|d| d.smoothed()).unwrap_or(0.0) as f32;

@@ -53,16 +53,10 @@ pub fn socket_vfx_spawner_system(
         if let Ok(active) = active_config_query.get(socket_entity) {
             if let (Some(old), Some(new)) = (&active.0, new_config) {
                 // Recreate if structural parameters changed
-                if old.effect_type != new.effect_type || 
+                needs_recreate = old.effect_type != new.effect_type || 
                    old.asset_path != new.asset_path ||
                    old.emission != new.emission ||
-                   old.motion != new.motion ||
-                   old.visuals != new.visuals 
-                {
-                    needs_recreate = true;
-                } else {
-                    needs_recreate = false;
-                }
+                   old.motion != new.motion || old.visuals != new.visuals;
             } else if active.0.is_none() && new_config.is_none() {
                 needs_recreate = false;
             }

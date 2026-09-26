@@ -22,7 +22,7 @@ pub fn map_rendering_system(
     mut dirty: ResMut<DirtyTiles>,
 ) {
     if assets.cube_mesh == Handle::default() { return; } 
-    let room_changed = last_room.map_or(true, |r| r != project.current_room_idx);
+    let room_changed = last_room.is_none_or(|r| r != project.current_room_idx);
     
     if !*first_run || room_changed || dirty.full_rebuild || project.is_changed() {
         if !*first_run || room_changed || dirty.full_rebuild {
@@ -75,7 +75,7 @@ pub fn map_rendering_system(
                 _ => break,
             };
             tx += dx; tz += dz;
-            if tx < 0 || tx >= 16 || tz < 0 || tz >= 16 { break; }
+            if !(0..16).contains(&tx) || !(0..16).contains(&tz) { break; }
             
             let c = room.cells[tx as usize][tz as usize];
             if c.tt == initial_tt {

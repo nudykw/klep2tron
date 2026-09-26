@@ -179,7 +179,7 @@ impl ControlCtx<'_, '_> {
                         return Outcome::Reply(Response::text(400, format!("unknown button: {name}")));
                     };
                     let pressed = action != "release";
-                    let magnitude = if pressed { value.max(0.1).min(1.0) } else { 0.0 };
+                    let magnitude = if pressed { value.clamp(0.1, 1.0) } else { 0.0 };
                     self.raw_gamepad.write(RawGamepadEvent::Button(
                         RawGamepadButtonChangedEvent::new(entity, button, magnitude),
                     ));

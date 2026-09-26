@@ -157,7 +157,6 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<(String, String, Vec<
     let method = parts.next().unwrap_or_default().to_string();
     let path = parts.next().unwrap_or_default().to_string();
 
-    let content_length: usize;
     let mut auth = None;
     let mut content_length_opt: Option<usize> = None;
     for line in lines {
@@ -169,7 +168,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<(String, String, Vec<
             }
         }
     }
-    content_length = content_length_opt.unwrap_or(0);
+    let content_length: usize = content_length_opt.unwrap_or(0);
 
     let mut body = buf[header_end..].to_vec();
     while body.len() < content_length {

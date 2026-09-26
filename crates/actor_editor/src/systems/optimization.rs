@@ -85,7 +85,7 @@ pub fn perform_mesh_optimization(
     };
 
     let target_index_count = (target_tris * 3).min(indices.len());
-    let pos_data: Vec<[f32; 3]> = positions.iter().map(|p| *p).collect();
+    let pos_data: Vec<[f32; 3]> = positions.to_vec();
     
     // --- Step 1: Welding (Merging duplicate vertices) ---
     // meshopt works best when vertices are shared. Many OBJ/GLB loaders might produce unwelded meshes.
@@ -112,7 +112,7 @@ pub fn perform_mesh_optimization(
 
     info!("Optimization: New indices count={}", new_indices.len());
     
-    if new_indices.len() >= indices.len() && new_indices.len() > 0 {
+    if new_indices.len() >= indices.len() && !new_indices.is_empty() {
         return None; 
     }
 

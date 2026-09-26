@@ -61,11 +61,10 @@ pub fn text_input_system(
     for (_entity, interaction, mut input, _, _) in query.iter_mut() {
         if *interaction == Interaction::Pressed {
             input.is_focused = true;
-        } else if mouse.just_pressed(MouseButton::Left) {
-            if *interaction != Interaction::Hovered && input.is_focused {
+        } else if mouse.just_pressed(MouseButton::Left)
+            && *interaction != Interaction::Hovered && input.is_focused {
                 input.is_focused = false;
             }
-        }
     }
 
     // 2. Visual updates

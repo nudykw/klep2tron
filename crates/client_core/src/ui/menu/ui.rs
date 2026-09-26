@@ -191,7 +191,7 @@ pub fn menu_item_system(
                             spawn_menu_button(scroll_p, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()), false);
                             let mut count = 1;
                             // Buttons contributed by plugins/binaries (e.g. level editor, actor editor).
-                            for (_i, (name, action, tooltip)) in extra_buttons.buttons.iter().enumerate() {
+                            for (name, action, tooltip) in extra_buttons.buttons.iter() {
                                 spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), tooltip.clone(), false);
                                 count += 1;
                             }

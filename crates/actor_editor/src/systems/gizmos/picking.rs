@@ -59,11 +59,10 @@ pub fn manual_gizmo_picking_system(
                     let seg_point = start.lerp(end, _t_seg.clamp(0.0, 1.0));
                     let dist = ray_point.distance(seg_point);
                     
-                    if dist < 0.15 {
-                        if closest_gizmo.is_none() || dist < closest_gizmo.unwrap().1 {
+                    if dist < 0.15
+                        && (closest_gizmo.is_none() || dist < closest_gizmo.unwrap().1) {
                             closest_gizmo = Some((entity, dist));
                         }
-                    }
                 }
             },
             GizmoAction::Rotate => {
@@ -76,11 +75,10 @@ pub fn manual_gizmo_picking_system(
                         let dist_to_center = hit_point.distance(center);
                         let dist_to_ring = (dist_to_center - 0.75).abs();
                         
-                        if dist_to_ring < 0.1 {
-                            if closest_gizmo.is_none() || dist_to_ring < closest_gizmo.unwrap().1 {
+                        if dist_to_ring < 0.1
+                            && (closest_gizmo.is_none() || dist_to_ring < closest_gizmo.unwrap().1) {
                                 closest_gizmo = Some((entity, dist_to_ring));
                             }
-                        }
                     }
                 }
             }

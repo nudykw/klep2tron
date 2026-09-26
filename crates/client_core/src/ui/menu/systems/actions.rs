@@ -45,8 +45,8 @@ pub fn handle_menu_action(
                         next_menu_state.set(MenuSubState::Settings);
                     }
                 },
-                MenuSubState::Settings => {
-                    if has_changes {
+                MenuSubState::Settings
+                    if has_changes => {
                         if pending.selected_gpu != settings.selected_gpu {
                             confirmation.message = "GPU changed. Save and restart app?".to_string();
                         } else {
@@ -54,10 +54,7 @@ pub fn handle_menu_action(
                         }
                         confirmation.has_cancel = true;
                         next_menu_state.set(MenuSubState::Confirmation);
-                    } else {
-                        next_menu_state.set(MenuSubState::Main); 
-                    }
-                },
+                    },
                 _ => {
                     next_menu_state.set(MenuSubState::Main);
                 }
@@ -187,7 +184,7 @@ pub fn handle_menu_action(
         MenuAction::ApplySettings => {
             if ***pending != **settings {
                 **settings = (***pending).clone();
-                save_settings(&**settings);
+                save_settings(settings);
             }
         },
         MenuAction::ConfirmYes => {
@@ -198,7 +195,7 @@ pub fn handle_menu_action(
             } else {
                 let gpu_changed = pending.selected_gpu != settings.selected_gpu;
                 **settings = (***pending).clone();
-                save_settings(&**settings);
+                save_settings(settings);
                 
                 if gpu_changed {
                     #[cfg(not(target_arch = "wasm32"))]

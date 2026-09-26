@@ -190,11 +190,10 @@ pub fn triangle_selection_system(
                     let dir_to_cam = (camera_transform.translation() - world_center).normalize();
                     
                     // Backface culling: only check visibility for front-facing triangles
-                    if normal.dot(dir_to_cam) > 0.0 {
-                        if is_visible(world_center, camera_transform.translation(), &part_query, &meshes) {
+                    if normal.dot(dir_to_cam) > 0.0
+                        && is_visible(world_center, camera_transform.translation(), &part_query, &meshes) {
                             newly_selected.insert(tri_idx);
                         }
-                    }
                 }
             }
             
@@ -257,7 +256,7 @@ fn is_visible(
     
     for (_, _, mesh_handle, transform, _) in part_query.iter() {
         if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(hit) = crate::geometry::raycast::ray_mesh_intersection(camera_pos, dir.into(), mesh, transform) {
+            if let Some(hit) = crate::geometry::raycast::ray_mesh_intersection(camera_pos, dir, mesh, transform) {
                 if hit.distance < dist_to_target - 0.001 {
                     return false;
                 }

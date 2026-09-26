@@ -1,0 +1,14 @@
+# rust-analyzer configuration for the Klep2tron Cargo workspace.
+#
+# Only `workspace`/`local` scoped keys are valid in a project-root file. Global
+# options (`files.exclude`, `procMacro.*`, `cachePriming.*`) must go in the user
+# config, e.g. `~/.config/rust-analyzer/rust-analyzer.toml`.
+#
+# Keys are written as nested tables: `check.command` -> `[check] command`.
+
+[check]
+# Use clippy for on-save diagnostics (the project already lints with clippy).
+command = "clippy"
+# Check all targets (tests, benches, examples), mirroring the repo rule
+# `cargo test --workspace --no-run`. Set to `false` for faster saves.
+allTargets = true

@@ -121,14 +121,7 @@ pub struct Room {
 
 impl Default for Room {
     fn default() -> Self {
-        let mut cells = [[Cell::default(); 16]; 16];
-        for x in 0..16 {
-            for z in 0..16 {
-                cells[x][z].h = 0;
-                cells[x][z].tt = TileType::Cube;
-            }
-        }
-        Self { cells }
+        Self { cells: [[Cell { h: 0, tt: TileType::Cube }; 16]; 16] }
     }
 }
 
@@ -240,18 +233,14 @@ fn global_input_system(
     editor_mode: Res<EditorMode>,
     mut exit_confirm: ResMut<ExitConfirmationActive>,
 ) {
-    if keyboard.just_pressed(KeyCode::Escape) {
-        match *state.get() {
-            GameState::InGame => {
-                if editor_mode.is_active {
-                    next_state.set(GameState::Menu);
-                } else {
-                    exit_confirm.0 = !exit_confirm.0;
-                }
-            },
-            _ => {}
+    if keyboard.just_pressed(KeyCode::Escape)
+        && *state.get() == GameState::InGame {
+            if editor_mode.is_active {
+                next_state.set(GameState::Menu);
+            } else {
+                exit_confirm.0 = !exit_confirm.0;
+            }
         }
-    }
 }
 
 fn exit_confirmation_sync_system(

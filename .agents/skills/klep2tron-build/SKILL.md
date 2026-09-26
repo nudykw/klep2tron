@@ -28,6 +28,24 @@ root or Bevy looks in `target/debug/assets`:
 BEVY_ASSET_ROOT=$PWD ./target/debug/editor_client
 ```
 
+## Editor / LSP and structured diagnostics
+
+- `rust-analyzer.toml` (repo root) configures rust-analyzer for this workspace
+  (clippy + all targets). Only `workspace`/`local` scoped keys are valid in the
+  root file; global ones (`files.exclude`, `procMacro.*`, `cachePriming.*`) must
+  live in the user config (`~/.config/rust-analyzer/rust-analyzer.toml`).
+- For a compact, machine-readable diagnostics list instead of raw `cargo check`
+  output:
+
+  ```bash
+  scripts/diagnostics.sh                     # cargo check --workspace
+  CARGO_CMD=clippy scripts/diagnostics.sh    # cargo clippy --workspace
+  scripts/diagnostics.sh -p editor_client    # scope to one crate
+  ```
+
+  It prints one `LEVEL[code] file:line:col: message` line per diagnostic plus a
+  summary, and exits non-zero when there are errors.
+
 ## Web (WASM) via Trunk
 
 Install once: `cargo install --locked trunk` (and `rustup target add

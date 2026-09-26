@@ -260,7 +260,7 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
         Cmd::Events { kind } => {
             eprintln!("streaming /events (ctrl-c to stop)");
             client.events(|event_kind, data| {
-                if kind.as_deref().map_or(true, |want| want == event_kind) {
+                if kind.as_deref().is_none_or(|want| want == event_kind) {
                     println!("[{event_kind}] {data}");
                 }
             })?;

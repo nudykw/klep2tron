@@ -188,8 +188,8 @@ fn split_triangle(
     let mut above_nodes = Vec::new();
     let mut below_nodes = Vec::new();
 
-    for i in 0..3 {
-        if tri[i].pos.y > y { above_nodes.push(i); } 
+    for (i, vertex) in tri.iter().enumerate() {
+        if vertex.pos.y > y { above_nodes.push(i); } 
         else { below_nodes.push(i); }
     }
 

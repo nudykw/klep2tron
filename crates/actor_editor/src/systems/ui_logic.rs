@@ -551,15 +551,14 @@ pub fn mode_tab_interaction_system(
     mut toast_events: MessageWriter<ToastEvent>,
 ) {
     for (interaction, tab) in interaction_query.iter() {
-        if *interaction == Interaction::Pressed {
-            if *editor_mode != tab.0 {
+        if *interaction == Interaction::Pressed
+            && *editor_mode != tab.0 {
                 *editor_mode = tab.0;
                 toast_events.write(ToastEvent {
                     message: format!("Mode: {:?}", *editor_mode),
                     toast_type: ToastType::Info,
                 });
             }
-        }
     }
 }
 
