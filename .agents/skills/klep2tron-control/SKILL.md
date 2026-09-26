@@ -43,9 +43,9 @@ Returns a PNG of the current frame (`image/png`). Save and open it:
 curl -s --max-time 8 -o /tmp/shot.png http://127.0.0.1:15703/screenshot
 ```
 
-> The window must be visible and focused: macOS/Bevy does not render an
-> occluded window, so screenshots come back nearly empty when the app is
-> behind another window.
+> Debug builds run with continuous rendering (`WinitSettings`), so the window
+> does not need focus for a fresh frame. A fully occluded window can still
+> return a stale frame on macOS — keep the app window visible when possible.
 
 ### `POST /key`
 `{"key":"ArrowUp","action":"tap"|"press"|"release"}` (default `tap`).

@@ -114,7 +114,21 @@ impl Plugin for ControlPlugin {
                 info!("control server: listening on http://127.0.0.1:{}", cfg.port);
                 app.insert_resource(ControlRx { rx: Mutex::new(rx) });
                 app.init_resource::<PendingReleases>();
-                app.add_systems(Update, control_process_system);
+                app.init_resource::<HeldKeys>();
+                // Keep rendering even when the window is not focused, so that
+                // screenshots always show a fresh frame instead of a stale/blank
+                // swapchain image.
+                app.insert_resource(bevy::winit::WinitSettings {
+                    focused_mode: bevy::winit::UpdateMode::Continuous,
+                    unfocused_mode: bevy::winit::UpdateMode::Continuous,
+                });
+                // `keyboard_input_system` clears `ButtonInput` every frame in
+                // `PreUpdate` (InputSystems), so injected input must be applied
+                // after that and before the game systems consume it.
+                app.add_systems(
+                    PreUpdate,
+                    control_process_system.after(bevy::input::InputSystems),
+                );
             }
             Err(e) => error!("control server: failed to bind port {}: {}", cfg.port, e),
         }
@@ -349,6 +363,11 @@ fn key_from_digit(c: char) -> Option<KeyCode> {
 #[derive(Resource, Default)]
 struct PendingReleases(Vec<(KeyCode, u32)>);
 
+/// Keys held down by the controller; re-applied every frame because Bevy
+/// clears `ButtonInput` at the start of each frame.
+#[derive(Resource, Default)]
+struct HeldKeys(Vec<KeyCode>);
+
 #[allow(clippy::too_many_arguments)]
 fn control_process_system(
     rx: Option<Res<ControlRx>>,
@@ -362,7 +381,13 @@ fn control_process_system(
     transforms: Query<(Entity, &Transform)>,
     mut commands: Commands,
     mut releases: ResMut<PendingReleases>,
+    mut held: ResMut<HeldKeys>,
 ) {
+    // Re-apply keys that the controller is holding down.
+    for code in held.0.clone() {
+        keys.press(code);
+    }
+
     // Release keys whose hold expired.
     releases.0.retain_mut(|(code, frames)| {
         if *frames == 0 {
@@ -410,8 +435,16 @@ fn control_process_system(
                 match key_from_name(&key) {
                     Some(code) => {
                         match action.as_str() {
-                            "press" => keys.press(code),
-                            "release" => keys.release(code),
+                            "press" => {
+                                if !held.0.contains(&code) {
+                                    held.0.push(code);
+                                }
+                                keys.press(code);
+                            }
+                            "release" => {
+                                held.0.retain(|c| *c != code);
+                                keys.release(code);
+                            }
                             _ => {
                                 keys.press(code);
                                 releases.0.push((code, 2));
