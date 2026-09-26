@@ -10,7 +10,7 @@ pub struct Tooltip(pub String);
 pub struct TooltipRoot;
 
 pub fn spawn_tooltip_root(commands: &mut Commands, font: &Handle<Font>, target_camera: Option<Entity>) {
-    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, padding: UiRect::all(Val::Px(10.0)), display: Display::None, width: Val::Auto, height: Val::Auto, border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.95)), global_z_index: GlobalZIndex(100), ..default() }, TooltipRoot, ActorEditorEntity, ));
+    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, padding: UiRect::all(Val::Px(10.0)), display: Display::None, width: Val::Auto, height: Val::Auto, border_radius: BorderRadius::all(Val::Px(6.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.95)), ..default() }, GlobalZIndex(100), TooltipRoot, ActorEditorEntity, ));
     if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| { p.spawn(ui_text("", &font.clone(), 14.0, Color::WHITE)); });
 }

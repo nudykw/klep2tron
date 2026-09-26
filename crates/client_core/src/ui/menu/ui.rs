@@ -102,7 +102,7 @@ pub fn setup_menu(
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             ..default()
-        }, global_z_index: GlobalZIndex(100), ..default() }, MenuEntity)).with_children(|p| {
+        }, ..default() }, GlobalZIndex(100), MenuEntity)).with_children(|p| {
         p.spawn(((ui_text("", &default(), 20.0, Color::srgb(0.9, 0.9, 0.6)), Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() }), TooltipDisplay));
 
         p.spawn((ui_text("", &default(), 18.0, Color::srgb(0.7, 0.7, 0.7)), InputHintFooter));
@@ -248,7 +248,7 @@ pub fn menu_item_system(
                 width: Val::Percent(100.0), height: Val::Percent(100.0),
                 align_items: AlignItems::Center, justify_content: JustifyContent::Center,
                 ..default()
-            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)), global_z_index: GlobalZIndex(1000), ..default() }, MenuEntity, crate::ConfirmationOverlay)).with_children(|p| {
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)), ..default() }, GlobalZIndex(1000), MenuEntity, crate::ConfirmationOverlay)).with_children(|p| {
             p.spawn((UiNode { node: Node {
                     width: Val::Px(550.0), height: Val::Auto,
                     flex_direction: FlexDirection::Column,

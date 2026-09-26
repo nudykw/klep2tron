@@ -29,12 +29,19 @@ pub fn ui_text(
 ///
 /// `border_color` is applied to all four sides. `border_radius` lives on
 /// [`Node`] itself in Bevy 0.19, so put it inside the `node` field.
+///
+/// NOTE: `GlobalZIndex` is deliberately *not* a field here. A `GlobalZIndex`
+/// component (even `GlobalZIndex(0)`) makes `bevy_ui`'s `ui_stack_system`
+/// treat the node as a separate stacking root and detach it from its parent's
+/// traversal, which makes draw order depend on archetype order and therefore
+/// on unrelated archetype moves (e.g. `bevy_picking` inserting
+/// `PickingInteraction` on first hover). Add `GlobalZIndex(n)` as a separate
+/// component only when you actually need a global overlay.
 #[derive(Bundle, Default)]
 pub struct UiNode {
     pub node: Node,
     pub background_color: BackgroundColor,
     pub border_color: BorderColor,
     pub z_index: ZIndex,
-    pub global_z_index: GlobalZIndex,
     pub visibility: Visibility,
 }

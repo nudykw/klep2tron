@@ -9,7 +9,7 @@ pub struct ToastContainer;
 pub struct ToastTimer(pub Timer);
 
 pub fn spawn_toast_container(commands: &mut Commands, target_camera: Option<Entity>) -> Entity {
-    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, bottom: Val::Px(40.0), right: Val::Px(20.0), flex_direction: FlexDirection::ColumnReverse, align_items: AlignItems::End, ..default() }, global_z_index: GlobalZIndex(110), ..default() }, ToastContainer, ActorEditorEntity, ));
+    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, bottom: Val::Px(40.0), right: Val::Px(20.0), flex_direction: FlexDirection::ColumnReverse, align_items: AlignItems::End, ..default() }, ..default() }, GlobalZIndex(110), ToastContainer, ActorEditorEntity, ));
     if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.id()
 }
@@ -32,7 +32,7 @@ pub struct ConfirmModalButton(pub EditorAction);
 pub struct CancelModalButton;
 
 pub fn spawn_confirmation_modal(commands: &mut Commands, font: &Handle<Font>, _icon_font: &Handle<Font>, title: &str, message: &str, action: EditorAction, target_camera: Option<Entity>) {
-    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), align_items: AlignItems::Center, justify_content: JustifyContent::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)), global_z_index: GlobalZIndex(200), ..default() }, ModalOverlay, ActorEditorEntity, ));
+    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), align_items: AlignItems::Center, justify_content: JustifyContent::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)), ..default() }, GlobalZIndex(200), ModalOverlay, ActorEditorEntity, ));
     if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| {
         p.spawn(UiNode { node: Node { width: Val::Px(400.0), padding: UiRect::all(Val::Px(25.0)), flex_direction: FlexDirection::Column, border_radius: BorderRadius::all(Val::Px(12.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 1.0)), ..default() }).with_children(|modal| {
@@ -47,7 +47,7 @@ pub fn spawn_confirmation_modal(commands: &mut Commands, font: &Handle<Font>, _i
 }
 
 pub fn spawn_save_modal(commands: &mut Commands, font: &Handle<Font>, initial_name: &str, target_camera: Option<Entity>) {
-    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), align_items: AlignItems::Center, justify_content: JustifyContent::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)), global_z_index: GlobalZIndex(200), ..default() }, ModalOverlay, ActorEditorEntity, ));
+    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), align_items: AlignItems::Center, justify_content: JustifyContent::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)), ..default() }, GlobalZIndex(200), ModalOverlay, ActorEditorEntity, ));
     if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| {
         p.spawn(UiNode { node: Node { width: Val::Px(400.0), padding: UiRect::all(Val::Px(25.0)), flex_direction: FlexDirection::Column, border_radius: BorderRadius::all(Val::Px(12.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 1.0)), ..default() }).with_children(|modal| {
@@ -110,7 +110,7 @@ pub fn spawn_progress_bar(parent: &mut ChildSpawnerCommands, font: &Handle<Font>
 }
 
 pub fn spawn_loading_overlay(commands: &mut Commands, font: &Handle<Font>, target_camera: Option<Entity>) {
-    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), display: Display::None, align_items: AlignItems::Center, justify_content: JustifyContent::Center, flex_direction: FlexDirection::Column, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85)), global_z_index: GlobalZIndex(300), ..default() }, LoadingOverlay, ActorEditorEntity, ));
+    let mut cmd = commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0), display: Display::None, align_items: AlignItems::Center, justify_content: JustifyContent::Center, flex_direction: FlexDirection::Column, ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85)), ..default() }, GlobalZIndex(300), LoadingOverlay, ActorEditorEntity, ));
     if let Some(camera) = target_camera { cmd.insert(bevy::ui::UiTargetCamera(camera)); }
     cmd.with_children(|p| {
         p.spawn((ui_text("IMPORTING MODEL", &font.clone(), 24.0, Color::WHITE), Node { margin: UiRect::bottom(Val::Px(20.0)), ..default() }));

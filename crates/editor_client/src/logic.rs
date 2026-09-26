@@ -3,25 +3,6 @@ use client_core::{Project, Selection, DirtyTiles, CommandHistory, RoomTransition
 use client_core::{ClientAssets, MapEntity};
 use crate::{EditorState, OrbitCamera, BoxGizmos, SelectionPreview, TILE_SIZE, TILE_H};
 
-/// Reveals the preview thumbnails a few frames after entering the editor, so
-/// the render targets already hold content when the UI first binds to them.
-/// Binding while the texture is still empty appears to stick permanently.
-pub fn reveal_preview_images(
-    mut commands: Commands,
-    mut frames: Local<u32>,
-    pending: Query<Entity, With<crate::PreviewImagePending>>,
-) {
-    *frames += 1;
-    if *frames >= 30 {
-        for entity in pending.iter() {
-            commands
-                .entity(entity)
-                .insert(Visibility::Visible)
-                .remove::<crate::PreviewImagePending>();
-        }
-    }
-}
-
 /// Spawns and keeps a translucent “ghost” of the tile type that would be
 /// placed at the current selection, so the preview is visible immediately.
 pub fn selection_preview_system(

@@ -70,7 +70,8 @@ pub fn transition_ui_system(
                     width: Val::Percent(100.0), height: Val::Percent(100.0),
                     position_type: PositionType::Absolute,
                     ..default()
-                }, background_color: BackgroundColor(Color::NONE), global_z_index: GlobalZIndex(1000), ..default() },
+                }, background_color: BackgroundColor(Color::NONE), ..default() },
+            GlobalZIndex(1000),
             TransitionUi,
         ));
     } else if let Ok(mut color) = overlay_query.single_mut() {

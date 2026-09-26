@@ -110,7 +110,7 @@ pub fn setup_project_panel(
                                     padding: UiRect::horizontal(Val::Px(10.0)),
                                     align_items: AlignItems::Center,
                                     border_radius: BorderRadius::all(Val::Px(4.0)), ..default()
-                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), global_z_index: GlobalZIndex(100), ..default() }), crate::widgets::TextInput {
+                                }, background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.05)), ..default() }), GlobalZIndex(100), crate::widgets::TextInput {
                                 placeholder: "Search sockets...".to_string(),
                                 ..default()
                             }),

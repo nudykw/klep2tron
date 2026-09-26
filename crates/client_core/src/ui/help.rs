@@ -31,7 +31,8 @@ pub fn help_ui_system(
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center, align_items: AlignItems::Center,
                         ..default()
-                    }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85)), global_z_index: GlobalZIndex(100), ..default() },
+                    }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85)), ..default() },
+                GlobalZIndex(100),
                 HelpUi,
             )).with_children(|parent| {
                 parent.spawn(UiNode { node: Node {
