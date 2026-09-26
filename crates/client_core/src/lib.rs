@@ -12,6 +12,8 @@ pub mod input;
 pub mod history;
 pub mod settings;
 pub mod benchmark;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod control;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
@@ -148,6 +150,9 @@ pub struct ClientCorePlugin {
 
 impl Plugin for ClientCorePlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_plugins(control::ControlPlugin);
+
         app.insert_resource(self.options.clone())
            .add_plugins(FrameTimeDiagnosticsPlugin::default())
            .init_state::<GameState>()
