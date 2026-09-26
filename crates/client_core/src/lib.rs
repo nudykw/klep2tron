@@ -6,6 +6,7 @@ pub mod ui;
 pub mod rendering;
 pub mod assets;
 pub mod actor;
+pub mod physics;
 pub mod world;
 pub mod perf;
 pub mod transition;
@@ -26,6 +27,7 @@ pub use crate::ui::help::*;
 pub use crate::ui::hud::*;
 pub use crate::assets::*;
 pub use crate::actor::*;
+pub use crate::physics::*;
 pub use crate::rendering::*;
 pub use crate::world::*;
 pub use crate::perf::*;
@@ -194,6 +196,8 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<CommandHistory>()
            .init_state::<MenuSubState>()
            .add_plugins(actor::ActorPlugin)
+           .add_plugins(physics::GamePhysicsPlugin)
+           .add_plugins(input::PlayerInputPlugin)
            .add_plugins(SettingsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_plugins(MaterialPlugin::<StarrySkyMaterial>::default())
@@ -204,6 +208,7 @@ impl Plugin for ClientCorePlugin {
            .add_systems(Update, (
                 set_window_icon,
                 hud_update_system.run_if(in_state(GameState::InGame)),
+                world::follow_player_camera_system.run_if(in_state(GameState::InGame)),
                 map_rendering_system.run_if(in_state(GameState::InGame).or_else(in_state(GameState::Benchmark))),
                 collect_perf_system,
                 help_toggle_system,

@@ -74,7 +74,7 @@ BEVY_ASSET_ROOT=$PWD ./target/debug/editor_client
 - `docs/design/GDD.md` — game design.
 - `plans/` — active plans and post-mortems. Relevant right now:
   `plans/Bevy019_Migration_Plan.md`, `plans/Preview_RTT_Thumbnails_Bug.md`,
-  `plans/Player_Actor_Spawning.md`.
+  `plans/Player_Actor_Spawning.md`, `plans/Player_Physics_And_Controls.md`.
 - `.agents/skills/` — on-demand workflows (`klep2tron-control`,
   `klep2tron-build`, `klep2tron-docs`, `bevy-upgrade`).
 
@@ -96,6 +96,15 @@ screenshots instead of guessing. See the `klep2tron-control` skill.
 
 ## Bevy 0.19 traps (learned the hard way)
 
+- **Avian3D scales a collider by the entity's `Transform.scale`.** Keep physics
+  bodies (player root) at scale `ONE` and put the model scale on a child "visual
+  pivot" (`actor/spawn.rs`), or the collider ends up scaled twice.
+- **Tile collision reuses `rendering::tile_geometry`.** `map_rendering_system`
+  and `physics::colliders` both derive tile transforms from it; never duplicate
+  the `h * 0.5` tile maths elsewhere.
+- **`Vec3::min`/`max` returned wrong bounds on large mesh vertex buffers** under
+  the workspace's feature set. Compute AABBs with explicit per-component
+  `f32::min`/`max` (see `actor/spawn.rs::model_bounds`).
 - **Never put `GlobalZIndex` on every UI node.** In `bevy_ui` the *presence* of
   `GlobalZIndex` (even `GlobalZIndex(0)`) makes the node a separate stacking
   root, so draw order falls back to archetype order and an unrelated archetype

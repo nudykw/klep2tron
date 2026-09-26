@@ -4,6 +4,7 @@ use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap};
 use bevy::post_process::bloom::Bloom;
 use crate::{Project, Room, TileMap, GraphicsSettings, QualityLevel, UpscalingMode};
+use crate::actor::ActorRoot;
 use bevy::pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
 use bevy::render::view::Msaa;
 
@@ -59,6 +60,7 @@ pub fn setup_game_world(
             falloff: FogFalloff::Linear { start: 5.0, end: 25.0 },
             ..default()
         },
+        FollowCamera,
         MapEntity,
     ));
 
@@ -92,6 +94,28 @@ pub struct TileEntity;
 
 #[derive(Component)]
 pub struct MapEntity;
+
+/// Marks the third-person camera that follows the player.
+#[derive(Component)]
+pub struct FollowCamera;
+
+/// Camera offset from the player, giving the isometric-ish view.
+const FOLLOW_CAMERA_OFFSET: Vec3 = Vec3::new(8.0, 7.0, 8.0);
+
+/// Keeps [`FollowCamera`] aimed at the hero.
+pub fn follow_player_camera_system(
+    player: Query<&Transform, (With<ActorRoot>, Without<FollowCamera>)>,
+    mut camera: Query<&mut Transform, With<FollowCamera>>,
+) {
+    let Ok(player_transform) = player.single() else {
+        return;
+    };
+    let target = player_transform.translation;
+    for mut camera_transform in camera.iter_mut() {
+        camera_transform.translation = target + FOLLOW_CAMERA_OFFSET;
+        camera_transform.look_at(target, Vec3::Y);
+    }
+}
 
 pub fn apply_graphics_quality_system(
     settings: Res<GraphicsSettings>,

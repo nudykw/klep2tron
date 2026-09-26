@@ -12,6 +12,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
 use std::io::{Cursor, Read};
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
 /// Magic number: `"K2M!"` in little endian.
@@ -227,3 +228,4 @@ mod tests {
         ));
     }
 }
+

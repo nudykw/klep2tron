@@ -13,6 +13,10 @@ This document serves as a technical overview for AI assistance to quickly naviga
   - `src/actor/`: Actor (hero/NPC) support — `.k2m`/`actor.ron` asset loaders and
     hero spawning (`ActorPlugin`, `PlayerActorConfig`, `ActorRoot`). See
     [Actor_Storage_Format.md](Actor_Storage_Format.md).
+  - `src/physics/`: Avian integration and static tile colliders
+    (`GamePhysicsPlugin`, `TileCollider`, `PlayerBody`).
+  - `src/input/`: Abstracted player input (`PlayerAction`, `PlayerInputPlugin`)
+    and the character controller (keyboard + gamepad).
   - `src/perf.rs`: Metrics collection and history.
   - `src/transition.rs`: Room switching logic and UI.
   - `src/input.rs`: Global shared controls (fullscreen).
@@ -99,6 +103,9 @@ Defined in `client_core/src/lib.rs`:
 - **Project**: Holds the entire map data (Rooms, Cells).
 - **ClientAssets**: Handles for meshes (`cube`, `wedge`), materials, the font,
   and the player hero (`.k2m` parts + `actor.ron` manifest).
+- **InputMap/`PlayerAction`**: device-agnostic player actions (WASD/arrows +
+  Space, left stick + A/South); physics runs in Avian with `Collider`s derived
+  from [`rendering::tile_geometry`].
 - **TileMap**: Runtime cache of spawned entities mapped to coordinates.
 - **DirtyTiles**: List of coordinates that need re-rendering (optimization).
 - **PerfHistory**: In-memory storage for FPS, CPU, and RAM metrics.
