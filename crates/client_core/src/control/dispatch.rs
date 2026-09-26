@@ -6,9 +6,13 @@
 //! outcomes and completed by the caller, which also lets `/batch` reject them.
 
 use bevy::ecs::system::SystemParam;
+use bevy::input::gamepad::{
+    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
+};
 use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
+use super::gamepad;
 use super::http::{Req, Response};
 use super::scene::ControlScene;
 use super::state::{build_state, build_ui_query, version_body, ControlAction};
@@ -30,6 +34,7 @@ pub(super) struct ControlCtx<'w, 's> {
     pub(super) virtual_time: ResMut<'w, Time<bevy::time::Virtual>>,
     pub(super) actions: MessageWriter<'w, ControlAction>,
     pub(super) keyboard: MessageWriter<'w, KeyboardInput>,
+    pub(super) raw_gamepad: MessageWriter<'w, RawGamepadEvent>,
 }
 
 /// What handling a request produced.
@@ -113,6 +118,41 @@ impl ControlCtx<'_, '_> {
                 Outcome::Reply(text::respond(&text, window, &mut self.keyboard))
             }
             Req::Screenshot { view } => Outcome::Screenshot { view },
+            Req::Gamepad { button, axis, value, action } => {
+                let entity = gamepad::ensure(&mut self.commands, &mut self.state.gamepad);
+                let id = entity.index().index();
+                if let Some(name) = button {
+                    let Some(button) = gamepad::parse_button(&name) else {
+                        return Outcome::Reply(Response::text(400, format!("unknown button: {name}")));
+                    };
+                    let pressed = action != "release";
+                    let magnitude = if pressed { value.max(0.1).min(1.0) } else { 0.0 };
+                    self.raw_gamepad.write(RawGamepadEvent::Button(
+                        RawGamepadButtonChangedEvent::new(entity, button, magnitude),
+                    ));
+                    if action == "tap" {
+                        // Buttons stay pressed until released, so queue the release.
+                        self.state.gamepad_releases.push((button, 2));
+                    }
+                    Outcome::Reply(Response::json(format!(
+                        "{{\"ok\":true,\"gamepad\":{id},\"button\":\"{name}\",\"action\":\"{action}\"}}"
+                    )))
+                } else if let Some(name) = axis {
+                    match gamepad::parse_axis(&name) {
+                        Some(axis) => {
+                            self.raw_gamepad.write(RawGamepadEvent::Axis(
+                                RawGamepadAxisChangedEvent::new(entity, axis, value),
+                            ));
+                            Outcome::Reply(Response::json(format!(
+                                "{{\"ok\":true,\"gamepad\":{id},\"axis\":\"{name}\",\"value\":{value}}}"
+                            )))
+                        }
+                        None => Outcome::Reply(Response::text(400, format!("unknown axis: {name}"))),
+                    }
+                } else {
+                    Outcome::Reply(Response::text(400, "gamepad needs a button or axis".into()))
+                }
+            }
             Req::SceneTree { root, depth } => Outcome::Reply(Response::json(scene.tree(root, depth))),
             Req::EntityDetail { id } => from_result(scene.entity(id)),
             Req::MeshInfo { id } => from_result(scene.mesh(id)),

@@ -12,6 +12,7 @@
 
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::ecs::system::SystemParam;
+use bevy::input::gamepad::GamepadButton;
 use bevy::prelude::*;
 use bevy::ui::{ComputedNode, UiGlobalTransform};
 use std::sync::mpsc::{Receiver, Sender};
@@ -24,6 +25,7 @@ mod batch;
 mod config;
 mod dispatch;
 mod events;
+mod gamepad;
 mod http;
 mod keys;
 pub mod logs;
@@ -181,6 +183,10 @@ struct ControlState {
     binary: String,
     /// Bound port reported by `/version`.
     port: u16,
+    /// The virtual gamepad entity created by `POST /gamepad`.
+    gamepad: Option<Entity>,
+    /// Gamepad buttons to release once their countdown expires.
+    gamepad_releases: Vec<(GamepadButton, u32)>,
 }
 
 /// Read-only world view used by `/state` and `/ui_query`, bundled into one
@@ -238,6 +244,23 @@ fn control_process_system(
             ctx.state.releases.remove(index);
         } else {
             ctx.state.releases[index].1 -= 1;
+            index += 1;
+        }
+    }
+
+    // Gamepad buttons persist until released, so `tap` queues a release.
+    let mut index = 0;
+    while index < ctx.state.gamepad_releases.len() {
+        if ctx.state.gamepad_releases[index].1 == 0 {
+            let button = ctx.state.gamepad_releases[index].0;
+            if let Some(entity) = ctx.state.gamepad {
+                ctx.raw_gamepad.write(bevy::input::gamepad::RawGamepadEvent::Button(
+                    bevy::input::gamepad::RawGamepadButtonChangedEvent::new(entity, button, 0.0),
+                ));
+            }
+            ctx.state.gamepad_releases.remove(index);
+        } else {
+            ctx.state.gamepad_releases[index].1 -= 1;
             index += 1;
         }
     }

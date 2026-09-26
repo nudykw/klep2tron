@@ -133,6 +133,15 @@ enum Cmd {
     },
     /// Type text into the focused field (`\n`, `\t`, `\u{8}` for Enter/Tab/Backspace).
     Text { text: String },
+    /// Inject a gamepad button press (processed on the next frame) or axis value.
+    Gamepad {
+        #[arg(long)]
+        button: Option<String>,
+        #[arg(long)]
+        axis: Option<String>,
+        #[arg(long, default_value_t = 1.0)]
+        value: f32,
+    },
     /// Click a UI button by label.
     Click { label: String },
     /// Hold a UI button hovered.
@@ -289,6 +298,17 @@ fn run(client: &Client, cmd: Cmd) -> ktrl::Result<()> {
         }
         Cmd::Key { key, action } => println!("{}", client.key(&key, &action)?),
         Cmd::Text { text } => println!("{}", client.text(&text)?),
+        Cmd::Gamepad { button, axis, value } => {
+            let mut body = serde_json::Map::new();
+            if let Some(button) = button {
+                body.insert("button".into(), button.into());
+            }
+            if let Some(axis) = axis {
+                body.insert("axis".into(), axis.into());
+            }
+            body.insert("value".into(), value.into());
+            println!("{}", client.gamepad(serde_json::Value::Object(body))?);
+        }
         Cmd::Click { label } => println!("{}", client.ui_click(&label, "click")?),
         Cmd::Hover { label } => println!("{}", client.ui_click(&label, "hover")?),
         Cmd::Unhover => println!("{}", client.ui_click("", "unhover")?),

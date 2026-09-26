@@ -54,6 +54,15 @@ pub enum Step {
     UiClick { label: String },
     UiHover { label: String },
     Unhover,
+    /// Inject a gamepad button/axis (processed on the next frame).
+    Gamepad {
+        #[serde(default)]
+        button: Option<String>,
+        #[serde(default)]
+        axis: Option<String>,
+        #[serde(default = "default_one")]
+        value: f32,
+    },
     Key {
         key: String,
         #[serde(default = "default_tap")]
@@ -83,6 +92,10 @@ pub enum Step {
 
 fn default_tap() -> String {
     "tap".to_string()
+}
+
+fn default_one() -> f32 {
+    1.0
 }
 
 fn default_timeout() -> u64 {
@@ -149,6 +162,17 @@ pub fn run(client: &Client, scenario: &Scenario, verbose: bool) -> Result<usize>
             }
             Step::Unhover => {
                 client.ui_click("", "unhover")?;
+            }
+            Step::Gamepad { button, axis, value } => {
+                let mut body = serde_json::Map::new();
+                if let Some(button) = button {
+                    body.insert("button".into(), button.clone().into());
+                }
+                if let Some(axis) = axis {
+                    body.insert("axis".into(), axis.clone().into());
+                }
+                body.insert("value".into(), (*value).into());
+                client.gamepad(serde_json::Value::Object(body))?;
             }
             Step::Key { key, action } => {
                 client.key(key, action)?;

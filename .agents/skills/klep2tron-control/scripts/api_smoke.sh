@@ -114,6 +114,7 @@ fi
 
 check "$(post /key '{"key":"ArrowUp"}' | jqcheck 'd["ok"]==True')" "POST /key"
 check "$(post /text '{"text":"hi"}' | jqcheck 'd["chars"]==2')" "POST /text"
+check "$(post /gamepad '{"axis":"LeftStickX","value":0.5}' | jqcheck 'd["ok"]==True')" "POST /gamepad"
 
 # --- batch ------------------------------------------------------------------
 

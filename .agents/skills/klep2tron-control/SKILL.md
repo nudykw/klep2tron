@@ -52,6 +52,8 @@ $K shot --view camera:529 -o /tmp/rtt.png
 $K scenario /tmp/scenario.json --verbose
 $K record --out /tmp/frames --frames 120 --every 2
 $K text 'Actor Name'
+$K gamepad --button South
+$K gamepad --axis LeftStickX --value 0.5
 $K step --frames 10 && $K pause --off
 ```
 
@@ -309,6 +311,25 @@ curl -s -X POST http://127.0.0.1:15703/text -d '{"text":"Actor Name"}'
 
 `\n`, `\t` and `\u{8}` map to Enter, Tab and Backspace (Enter/Escape also blur
 a field). Focus a field first (via `/ui_click` or `/mouse`).
+
+### `POST /gamepad` — inject gamepad input
+
+Spawns a virtual gamepad (visible in `/scene_tree` as `KTRL virtual gamepad`)
+and injects the same `RawGamepadEvent`s `bevy_gilrs` emits. Bevy processes them
+on the **next frame**, so follow with `/step`.
+
+```bash
+curl -s -X POST http://127.0.0.1:15703/gamepad -d '{"button":"South"}'            # tap (auto-release)
+curl -s -X POST http://127.0.0.1:15703/gamepad -d '{"button":"DPadDown","action":"press"}'
+curl -s -X POST http://127.0.0.1:15703/gamepad -d '{"button":"DPadDown","action":"release"}'
+curl -s -X POST http://127.0.0.1:15703/gamepad -d '{"axis":"LeftStickX","value":0.5}'
+```
+
+Buttons: `South`/`A`, `East`/`B`, `North`/`Y`, `West`/`X`, `DPadUp/Down/Left/Right`,
+`Start`, `Select`/`Back`, `LeftTrigger`/`LT`, `RightTrigger`/`RT`, thumbs.
+`action` is `tap` (default; queues a release after two frames), `press` or
+`release`. Buttons stay `pressed` until released — use `tap` for discrete
+navigation. Axes persist until overwritten.
 
 ### `POST /mouse`
 ```bash

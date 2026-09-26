@@ -49,6 +49,7 @@ pub(super) enum Req {
     MaterialInfo { id: u32 },
     Key { key: String, action: String },
     Text { text: String },
+    Gamepad { button: Option<String>, axis: Option<String>, value: f32, action: String },
     /// Same-frame sequence of requests (see `batch::parse_batch_step`).
     Batch { steps: Vec<Req> },
     MouseMove { x: f32, y: f32 },
@@ -274,6 +275,12 @@ pub(super) fn parse_request(method: &str, path: &str, body: &[u8]) -> Req {
         },
         ("POST", "/text") => Req::Text {
             text: json.get("text").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
+        },
+        ("POST", "/gamepad") => Req::Gamepad {
+            button: json.get("button").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            axis: json.get("axis").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            value: json.get("value").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32,
+            action: json.get("action").and_then(|v| v.as_str()).unwrap_or("tap").to_string(),
         },
         ("POST", "/ui_click") | ("POST", "/ui_hover") => Req::UiClick {
             label: label_param.unwrap_or_default(),

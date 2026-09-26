@@ -310,6 +310,11 @@ impl Client {
         Ok(serde_json::from_str(&text)?)
     }
 
+    /// Inject a gamepad button press (processed on the next frame) or axis value.
+    pub fn gamepad(&self, body: serde_json::Value) -> Result<String> {
+        self.post("/gamepad", &body.to_string())
+    }
+
     pub fn pause(&self, on: bool) -> Result<String> {
         self.post("/pause", &format!("{{\"on\":{on}}}"))
     }
