@@ -1,0 +1,111 @@
+use bevy::prelude::*;
+use bevy_panorbit_camera::PanOrbitCamera;
+use super::{MainEditorCamera, ViewportSettings, ResetCameraEvent};
+
+pub fn setup_navigation(
+    mut commands: Commands,
+    camera_query: Query<Entity, With<MainEditorCamera>>,
+) {
+    if let Ok(entity) = camera_query.single() {
+        commands.entity(entity).insert(PanOrbitCamera {
+            focus: Vec3::new(0.0, 1.0, 0.0),
+            radius: Some(4.0),
+            button_orbit: MouseButton::Left,
+            button_pan: MouseButton::Right,
+            enabled: true,
+            ..default()
+        });
+    }
+}
+
+pub fn grid_system(
+    mut gizmos: Gizmos,
+    settings: Res<ViewportSettings>,
+) {
+    if !settings.grid { return; }
+
+    let color = Color::srgba(1.0, 1.0, 1.0, 0.1);
+    let half_size = 5.0;
+    let step = 1.0;
+
+    for i in -5..=5 {
+        let x = i as f32 * step;
+        gizmos.line(
+            Vec3::new(x, 0.0, -half_size),
+            Vec3::new(x, 0.0, half_size),
+            color,
+        );
+        
+        let z = i as f32 * step;
+        gizmos.line(
+            Vec3::new(-half_size, 0.0, z),
+            Vec3::new(half_size, 0.0, z),
+            color,
+        );
+    }
+}
+
+pub fn camera_reset_handler(
+    mut reset_events: MessageReader<ResetCameraEvent>,
+    mut camera_query: Query<&mut PanOrbitCamera, With<MainEditorCamera>>,
+) {
+    for _ in reset_events.read() {
+        if let Ok(mut pan_orbit) = camera_query.single_mut() {
+            pan_orbit.target_focus = Vec3::new(0.0, 1.0, 0.0);
+            pan_orbit.target_radius = 4.0;
+            pan_orbit.target_yaw = 0.0;
+            pan_orbit.target_pitch = 0.0;
+        }
+    }
+}
+
+pub fn camera_control_blocking_system(
+    mut camera_query: Query<&mut PanOrbitCamera, With<MainEditorCamera>>,
+    ui_query: Query<&Interaction, With<Node>>,
+    input_query: Query<&super::widgets::TextInput>,
+    gizmo_busy: Res<super::GizmoBusy>,
+    editor_mode: Res<super::EditorMode>,
+    slicing_settings: Res<super::SlicingSettings>,
+    _lasso_state: Res<super::LassoState>,
+) {
+    let mut blocked = false;
+
+    // 1. Block if hovering UI
+    for interaction in ui_query.iter() {
+        if *interaction != Interaction::None {
+            blocked = true;
+            break;
+        }
+    }
+    
+    // 2. Block if hovering Gizmo Axis
+    if !blocked && gizmo_busy.0 {
+        blocked = true;
+    }
+
+    // 3. Block if any text input is focused
+    if !blocked {
+        for input in input_query.iter() {
+            if input.is_focused {
+                blocked = true;
+                break;
+            }
+        }
+    }
+
+    if let Ok(mut camera) = camera_query.single_mut() {
+        if camera.enabled == blocked {
+            camera.enabled = !blocked;
+        }
+        
+        let target_orbit_button = if *editor_mode == super::EditorMode::Slicing && slicing_settings.manual_mode {
+            MouseButton::Middle
+        } else {
+            MouseButton::Left
+        };
+        
+        if camera.button_orbit != target_orbit_button {
+            camera.button_orbit = target_orbit_button;
+        }
+    }
+}

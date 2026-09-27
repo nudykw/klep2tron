@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use crate::{Project, ClientAssets, TileMap, DirtyTiles, TileType, TileEntity};
 
+pub mod tile_geometry;
+use tile_geometry as tile_geom;
+
 #[derive(Resource, Default)]
 pub struct MaterialCache {
     pub map: std::collections::HashMap<(i32, bool), (Handle<StandardMaterial>, Handle<StandardMaterial>)>,
@@ -19,7 +22,7 @@ pub fn map_rendering_system(
     mut dirty: ResMut<DirtyTiles>,
 ) {
     if assets.cube_mesh == Handle::default() { return; } 
-    let room_changed = last_room.map_or(true, |r| r != project.current_room_idx);
+    let room_changed = last_room.is_none_or(|r| r != project.current_room_idx);
     
     if !*first_run || room_changed || dirty.full_rebuild || project.is_changed() {
         if !*first_run || room_changed || dirty.full_rebuild {
@@ -29,8 +32,8 @@ pub fn map_rendering_system(
             dirty.tiles.clear();
             
             for entity in _tile_query.iter() {
-                if let Some(ec) = commands.get_entity(entity) {
-                    ec.despawn_recursive();
+                if let Ok(mut ec) = commands.get_entity(entity) {
+                    ec.despawn();
                 }
             }
             tile_map.entities.clear();
@@ -49,8 +52,8 @@ pub fn map_rendering_system(
     for (x, z) in tiles_to_process {
         if let Some(entities) = tile_map.entities.remove(&(x, z)) {
             for entity in entities { 
-                if let Some(ec) = commands.get_entity(entity) {
-                    ec.despawn_recursive();
+                if let Ok(mut ec) = commands.get_entity(entity) {
+                    ec.despawn();
                 }
             }
         }
@@ -72,7 +75,7 @@ pub fn map_rendering_system(
                 _ => break,
             };
             tx += dx; tz += dz;
-            if tx < 0 || tx >= 16 || tz < 0 || tz >= 16 { break; }
+            if !(0..16).contains(&tx) || !(0..16).contains(&tz) { break; }
             
             let c = room.cells[tx as usize][tz as usize];
             if c.tt == initial_tt {
@@ -91,43 +94,35 @@ pub fn map_rendering_system(
             (materials.add(StandardMaterial { base_color, ..default() }), materials.add(StandardMaterial { base_color: side_color, ..default() }))
         }).clone();
 
-        let (mesh, rot) = match cell.tt {
-            TileType::Cube => (assets.cube_mesh.clone(), 0.0),
-            TileType::WedgeN => (assets.wedge_mesh.clone(), 0.0),
-            TileType::WedgeE => (assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
-            TileType::WedgeS => (assets.wedge_mesh.clone(), std::f32::consts::PI),
-            TileType::WedgeW => (assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
-            _ => (assets.cube_mesh.clone(), 0.0),
+        let mesh = if tile_geom::is_wedge(cell.tt) {
+            assets.wedge_mesh.clone()
+        } else {
+            assets.cube_mesh.clone()
         };
 
-        let h_val = cell.h as f32;
-        let total_height = h_val * 0.5;
+        let top = tile_geom::top_placement(x, z, &cell);
         let mut entities = Vec::new();
-        
-        let top_id = commands.spawn((PbrBundle {
-            mesh: mesh.clone(), 
-            material: mat_top,
-            transform: Transform::from_translation(Vec3::new(x as f32, total_height - 0.25, z as f32))
-                .with_scale(Vec3::new(1.0, 0.5, 1.0)).with_rotation(Quat::from_rotation_y(rot)),
-            ..default()
-        }, TileEntity)).id();
+
+        let top_id = commands.spawn((
+            Mesh3d(mesh),
+            MeshMaterial3d(mat_top),
+            Transform::from_translation(top.translation)
+                .with_scale(top.scale)
+                .with_rotation(top.rotation),
+            TileEntity,
+        )).id();
         entities.push(top_id);
 
-        let foundation_bottom = -0.5;
-        let column_top = total_height - 0.5;
-        let column_h = column_top - foundation_bottom;
-        
-        if column_h > 0.01 {
-            let col_id = commands.spawn((PbrBundle {
-                mesh: assets.cube_mesh.clone(), 
-                material: mat_side.clone(),
-                transform: Transform::from_translation(Vec3::new(x as f32, foundation_bottom + column_h * 0.5, z as f32))
-                    .with_scale(Vec3::new(1.0, column_h, 1.0)),
-                ..default()
-            }, TileEntity)).id();
+        if let Some(column) = tile_geom::column_placement(x, z, &cell) {
+            let col_id = commands.spawn((
+                Mesh3d(assets.cube_mesh.clone()),
+                MeshMaterial3d(mat_side.clone()),
+                Transform::from_translation(column.translation).with_scale(column.scale),
+                TileEntity,
+            )).id();
             entities.push(col_id);
         }
-        
+
         tile_map.entities.insert((x, z), entities);
     }
 }

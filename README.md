@@ -24,6 +24,7 @@
 The project is organized as a Cargo Workspace and divided into the following components:
 - `crates/shared` — Shared data structures (maps, tiles, protocols).
 - `crates/server` — Authoritative headless server.
+- `crates/actor_editor` — NPC actor editor (meshes, slicing, sockets); native-only.
 - `crates/editor_client` — Native desktop client and map editor.
 - `crates/editor_client_web` — Web version of the client (WASM).
 - `crates/admin_web` — Server administration panel (Axum).
@@ -122,6 +123,7 @@ Then, go to the desired crate directory and start the server:
 Проєкт організований як Cargo Workspace та розділений на наступні компоненти:
 - `crates/shared` — Спільні структури даних (карти, тайли, протоколи).
 - `crates/server` — Авторитарний headless-сервер.
+- `crates/actor_editor` — Редактор NPC-акторів (меші, розрізання, сокети); лише нативно.
 - `crates/editor_client` — Нативний десктопний клієнт та редактор карт.
 - `crates/editor_client_web` — Веб-версія клієнта (WASM).
 - `crates/admin_web` — Панель керування сервером (Axum).

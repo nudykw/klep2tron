@@ -1,3 +1,4 @@
+pub mod k2m;
 pub mod map;
 pub mod npc;
 

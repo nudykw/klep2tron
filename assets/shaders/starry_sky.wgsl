@@ -1,7 +1,7 @@
 #import bevy_pbr::mesh_view_bindings::globals
 #import bevy_pbr::forward_io::VertexOutput
 
-@group(2) @binding(0) var<uniform> sky_color: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> sky_color: vec4<f32>;
 
 fn hash(p: vec3<f32>) -> f32 {
     var p3 = fract(p * 0.1031);

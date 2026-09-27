@@ -26,7 +26,7 @@ impl Plugin for MenuPlugin {
         app.add_systems(Update, (
                 device_detection_system,
                 menu_item_system,
-                apply_deferred,
+                bevy::ecs::schedule::ApplyDeferred,
                 menu_input_system,
                 menu_navigation_system,
                 menu_scrolling_system,
@@ -34,7 +34,7 @@ impl Plugin for MenuPlugin {
                 tooltip_system,
                 input_hint_system,
                 menu_tooltip_system,
-           ).chain().run_if(menu_cond.clone()))
+           ).chain().run_if(menu_cond))
 
            .add_systems(Update, sync_pending_settings.run_if(in_state(GameState::Menu)));
     }

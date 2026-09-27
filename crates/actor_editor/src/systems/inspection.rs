@@ -1,0 +1,332 @@
+use bevy::prelude::*;
+use bevy::camera::primitives::MeshAabb;
+use super::super::{InspectionSettings, ActorPart, InspectionFocusEvent};
+use super::super::ui::inspector::{PartFocusButton, PartSoloButton, InspectionToggle, InspectionToggleType, InspectionMasterToggle, PartsSectionMarker};
+use super::super::widgets::CollapsibleSection;
+use bevy_panorbit_camera::PanOrbitCamera;
+
+pub fn inspection_input_system(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut settings: ResMut<InspectionSettings>,
+    mut focus_events: MessageWriter<InspectionFocusEvent>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyI) && !keyboard.pressed(KeyCode::ControlLeft) && !keyboard.pressed(KeyCode::ControlRight) {
+        settings.is_active = true;
+        
+        // Cycle through parts: None -> Head -> Body -> Engine -> None
+        let next = match settings.isolated_part {
+            None => Some(ActorPart::Head),
+            Some(ActorPart::Head) => Some(ActorPart::Body),
+            Some(ActorPart::Body) => Some(ActorPart::Engine),
+            Some(ActorPart::Engine) => None,
+        };
+        settings.isolated_part = next;
+        
+        if let Some(part) = next {
+            focus_events.write(InspectionFocusEvent(part));
+        }
+    }
+}
+
+pub fn inspection_visibility_system(
+    settings: Res<InspectionSettings>,
+    mut part_query: Query<(&ActorPart, &mut Visibility, &MeshMaterial3d<StandardMaterial>)>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if !settings.is_changed() { return; }
+
+    for (part, mut visibility, mat_handle) in part_query.iter_mut() {
+        if !settings.is_active {
+            // Restore default visibility
+            *visibility = Visibility::Visible;
+            if let Some(mut mat) = materials.get_mut(mat_handle) {
+                mat.base_color = mat.base_color.with_alpha(1.0);
+                mat.alpha_mode = AlphaMode::Opaque;
+            }
+            continue;
+        }
+
+        if let Some(isolated) = settings.isolated_part {
+            if *part == isolated {
+                *visibility = Visibility::Visible;
+                if let Some(mut mat) = materials.get_mut(mat_handle) {
+                    mat.base_color = mat.base_color.with_alpha(1.0);
+                    mat.alpha_mode = AlphaMode::Opaque;
+                }
+            } else {
+                if settings.ghost_mode {
+                    *visibility = Visibility::Visible;
+                    if let Some(mut mat) = materials.get_mut(mat_handle) {
+                        mat.base_color = mat.base_color.with_alpha(0.1);
+                        mat.alpha_mode = AlphaMode::Blend;
+                    }
+                } else {
+                    *visibility = Visibility::Hidden;
+                }
+            }
+        } else {
+            *visibility = Visibility::Visible;
+            if let Some(mut mat) = materials.get_mut(mat_handle) {
+                mat.base_color = mat.base_color.with_alpha(1.0);
+                mat.alpha_mode = AlphaMode::Opaque;
+            }
+        }
+    }
+}
+
+pub fn inspection_camera_focus_system(
+    mut focus_events: MessageReader<InspectionFocusEvent>,
+    mut camera_query: Query<&mut PanOrbitCamera>,
+    actor_query: Query<(&ActorPart, &GlobalTransform, &Mesh3d)>,
+    meshes: Res<Assets<Mesh>>,
+) {
+    let mut camera = match camera_query.single_mut() {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    for event in focus_events.read() {
+        let target_part = event.0;
+        
+        // Find the bounding box of the target part
+        let mut min = Vec3::splat(f32::MAX);
+        let mut max = Vec3::splat(f32::MIN);
+        let mut found = false;
+
+        for (part, transform, mesh_handle) in actor_query.iter() {
+            if *part == target_part {
+                if let Some(mesh) = meshes.get(mesh_handle) {
+                    if let Some(aabb) = mesh.compute_aabb() {
+                        let center = Vec3::from(aabb.center);
+                        let half_extents = Vec3::from(aabb.half_extents);
+                        
+                        let world_center = transform.transform_point(center);
+                        // Simplified AABB expansion in world space
+                        let world_half_extents = transform.to_scale_rotation_translation().0 * half_extents;
+                        
+                        min = min.min(world_center - world_half_extents);
+                        max = max.max(world_center + world_half_extents);
+                        found = true;
+                    }
+                }
+            }
+        }
+
+        if found {
+            let center = (min + max) / 2.0;
+            let size = (max - min).length();
+            
+            camera.target_focus = center;
+            camera.target_radius = size * 1.5;
+        }
+    }
+}
+
+pub fn inspection_highlight_system(
+    settings: Res<InspectionSettings>,
+    mut part_query: Query<(&ActorPart, &MeshMaterial3d<StandardMaterial>)>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Only update if settings changed
+    if !settings.is_changed() { return; }
+
+    for (part, mat_handle) in part_query.iter_mut() {
+        if let Some(mut mat) = materials.get_mut(mat_handle) {
+            if settings.is_active && settings.hovered_part == Some(*part) {
+                mat.emissive = LinearRgba::from(Color::srgb(0.3, 0.6, 1.0)) * 0.2;
+            } else {
+                mat.emissive = LinearRgba::BLACK;
+            }
+        }
+    }
+}
+
+pub fn inspection_debug_draw_system(
+    settings: Res<InspectionSettings>,
+    mut gizmos: Gizmos,
+    part_query: Query<(&ActorPart, &Mesh3d, &GlobalTransform)>,
+    meshes: Res<Assets<Mesh>>,
+) {
+    if !settings.is_active { return; }
+    if !settings.show_normals && !settings.wireframe { return; }
+
+    for (part, mesh_handle, transform) in part_query.iter() {
+        // Only draw for isolated part or all if none isolated
+        if let Some(isolated) = settings.isolated_part {
+            if *part != isolated { continue; }
+        }
+
+        if let Some(mesh) = meshes.get(mesh_handle) {
+            // Real wireframe is now handled by wireframe_sync_system using bevy_mod_wireframe
+
+            if settings.show_normals {
+                if let Some(positions) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+                    if let Some(normals) = mesh.attribute(Mesh::ATTRIBUTE_NORMAL) {
+                        let pos_values = positions.as_float3().unwrap();
+                        let norm_values = normals.as_float3().unwrap();
+                        
+                        for (i, (p, n)) in pos_values.iter().zip(norm_values.iter()).enumerate() {
+                            if i % 100 != 0 { continue; }
+                            let start = transform.transform_point(Vec3::from(*p));
+                            let end = start + transform.to_scale_rotation_translation().1 * Vec3::from(*n) * 0.05;
+                            gizmos.line(start, end, Color::srgb(0.3, 1.0, 0.3));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn inspection_ui_logic_system(
+    mut settings: ResMut<InspectionSettings>,
+    mut focus_events: MessageWriter<InspectionFocusEvent>,
+    focus_query: Query<(&Interaction, &PartFocusButton), (Changed<Interaction>, With<PartFocusButton>)>,
+    solo_query: Query<(&Interaction, &PartSoloButton), (Changed<Interaction>, With<PartSoloButton>)>,
+    toggle_query: Query<(&Interaction, &InspectionToggle), (Changed<Interaction>, With<InspectionToggle>)>,
+    master_query: Query<&Interaction, (Changed<Interaction>, With<InspectionMasterToggle>)>,
+    hover_query: Query<(&Interaction, Option<&PartFocusButton>, Option<&PartSoloButton>)>,
+    mut btn_query: Query<(&mut BackgroundColor, Option<&PartSoloButton>, Option<&InspectionToggle>, Option<&InspectionMasterToggle>, Option<&Interaction>)>,
+) {
+    // Update hovered_part (only if not already None to avoid constant Change detection)
+    if settings.hovered_part.is_some() {
+        settings.hovered_part = None;
+    }
+    for (interaction, focus_opt, solo_opt) in hover_query.iter() {
+        if *interaction == Interaction::Hovered {
+            if let Some(focus) = focus_opt { settings.hovered_part = Some(focus.0); }
+            if let Some(solo) = solo_opt { settings.hovered_part = Some(solo.0); }
+        }
+    }
+
+    // Handle Master Toggle
+    for interaction in master_query.iter() {
+        if *interaction == Interaction::Pressed {
+            settings.is_active = !settings.is_active;
+        }
+    }
+
+    // Handle Focus Buttons
+    for (interaction, focus_btn) in focus_query.iter() {
+        if *interaction == Interaction::Pressed {
+            settings.is_active = true;
+            focus_events.write(InspectionFocusEvent(focus_btn.0));
+        }
+    }
+
+    // Handle Solo Buttons
+    for (interaction, solo_btn) in solo_query.iter() {
+        if *interaction == Interaction::Pressed {
+            settings.is_active = true;
+            if settings.isolated_part == Some(solo_btn.0) {
+                settings.isolated_part = None;
+            } else {
+                settings.isolated_part = Some(solo_btn.0);
+            }
+        }
+    }
+
+    // Handle Toggle Buttons
+    for (interaction, toggle) in toggle_query.iter() {
+        if *interaction == Interaction::Pressed {
+            settings.is_active = true;
+            match toggle.0 {
+                InspectionToggleType::Ghost => settings.ghost_mode = !settings.ghost_mode,
+                InspectionToggleType::Wireframe => settings.wireframe = !settings.wireframe,
+                InspectionToggleType::Normals => settings.show_normals = !settings.show_normals,
+            }
+        }
+    }
+
+    // Update Button Backgrounds to show active state
+    for (mut bg, solo_opt, toggle_opt, master_opt, interaction_opt) in btn_query.iter_mut() {
+        // ONLY update if it's actually one of our inspection buttons
+        if solo_opt.is_none() && toggle_opt.is_none() && master_opt.is_none() {
+            continue;
+        }
+
+        let active = if let Some(solo) = solo_opt {
+            settings.is_active && settings.isolated_part == Some(solo.0)
+        } else if let Some(toggle) = toggle_opt {
+            settings.is_active && match toggle.0 {
+                InspectionToggleType::Ghost => settings.ghost_mode,
+                InspectionToggleType::Wireframe => settings.wireframe,
+                InspectionToggleType::Normals => settings.show_normals,
+            }
+        } else if master_opt.is_some() {
+            settings.is_active
+        } else {
+            false
+        };
+
+        let hovered = interaction_opt.is_some_and(|i| *i == Interaction::Hovered);
+
+        if active {
+            *bg = Color::srgba(0.3, 0.6, 1.0, 0.6).into();
+        } else if hovered {
+            *bg = Color::srgba(1.0, 1.0, 1.0, 0.1).into();
+        } else {
+            *bg = Color::srgba(0.0, 0.0, 0.0, 0.3).into();
+        }
+    }
+}
+
+pub fn inspection_ui_sync_system(
+    mut settings: ResMut<InspectionSettings>,
+    mut viewport_settings: ResMut<super::super::ViewportSettings>,
+    mut last_is_active: Local<bool>,
+    marker_query: Query<&ChildOf, With<PartsSectionMarker>>,
+    mut section_query: Query<&mut CollapsibleSection>,
+) {
+    let Ok(parent) = marker_query.single() else { return; };
+    let Ok(mut section) = section_query.get_mut(parent.0) else { return; };
+
+    let current_active = settings.is_active;
+    let current_open = section.is_open;
+
+    // 1. If section was toggled manually (by clicking the header)
+    // We detect this by checking if the visual state (current_open) differs from our model (last_is_active)
+    // but ONLY if settings.is_active hasn't changed this frame via other means.
+    if current_open != *last_is_active && current_active == *last_is_active {
+        settings.is_active = current_open;
+    }
+    // 2. If settings.is_active was toggled (by master button, hotkey, or solo/focus
+    //    buttons), or the visual state drifted from the model, sync the section.
+    else if current_active != *last_is_active || current_open != current_active {
+        section.is_open = current_active;
+    }
+
+    // Auto-turn off X-Ray if inspection just became active (regardless of HOW)
+    if settings.is_active && !*last_is_active {
+        viewport_settings.xray = false;
+    }
+
+    *last_is_active = settings.is_active;
+}
+
+pub fn wireframe_sync_system(
+    settings: Res<InspectionSettings>,
+    opt_settings: Res<super::optimization::OptimizationSettings>,
+    mut commands: Commands,
+    query: Query<(Entity, &ActorPart), With<Mesh3d>>,
+) {
+    let show = (settings.is_active && settings.wireframe) || opt_settings.wireframe;
+    
+    for (entity, part) in query.iter() {
+        let is_isolated = if settings.is_active {
+            settings.isolated_part.is_none_or(|p| p == *part)
+        } else {
+            true
+        };
+        
+        let should_have = show && is_isolated;
+        
+        if let Ok(mut e) = commands.get_entity(entity) {
+            if should_have {
+                e.insert(bevy::pbr::wireframe::Wireframe);
+            } else {
+                e.remove::<bevy::pbr::wireframe::Wireframe>();
+            }
+        }
+    }
+}

@@ -1,11 +1,13 @@
 use bevy::prelude::*;
+use client_core::ui::widgets::*;
 pub use client_core::{ClientCorePlugin, ClientCoreOptions, Project, Room, TileType, GameState, MapEntity, ExtraMenuButtons, MenuAction, MenuItemType, HudText, Selection, ClientAssets, DirtyTiles, CommandHistory, HelpState, RoomTransition, EditorMode};
 use bevy::asset::AssetMetaCheck;
 use bevy::render::render_resource::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
-use bevy::render::camera::RenderTarget;
-use bevy::render::view::RenderLayers;
+use bevy::camera::RenderTarget;
+use bevy::camera::visibility::RenderLayers;
 
 pub mod camera;
+pub mod control_actions;
 pub mod ui;
 pub mod logic;
 
@@ -14,7 +16,7 @@ pub use crate::ui::*;
 pub use crate::logic::*;
 
 #[derive(Component)] pub struct SelectionHighlight;
-#[derive(Component)] pub struct UiPreview;
+#[derive(Component)] pub struct SelectionPreview;
 #[derive(Component)] pub struct OverlayCamera;
 #[derive(Component)] pub struct RttCamera;
 #[derive(Component)] pub struct RttCameraTarget(pub Vec3);
@@ -50,8 +52,8 @@ impl Default for EditorState {
 
 pub fn run_game() {
     client_core::pre_init_gpu_settings();
-    App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window { 
@@ -65,16 +67,39 @@ pub fn run_game() {
                 ..default()
             })
             .set(bevy::render::RenderPlugin {
-                render_creation: bevy::render::settings::RenderCreation::Automatic(client_core::get_wgpu_settings()),
+                render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(client_core::get_wgpu_settings())),
+                ..default()
+            })
+            .set(bevy::log::LogPlugin {
+                custom_layer: client_core::control::logs::log_layer,
                 ..default()
             })
         )
-        .add_plugins(bevy_obj::ObjPlugin)
-        .add_plugins(ClientCorePlugin {
+        .add_plugins(bevy_obj::ObjPlugin);
+
+    // Must be added *after* `DefaultPlugins` (its sub-plugins need `AssetServer`).
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(actor_editor::ActorEditorPlugin);
+
+    app.add_plugins(ClientCorePlugin {
             options: ClientCoreOptions { title: "Klep2Tron Editor".to_string() }
         })
         .insert_resource(ExtraMenuButtons {
-            buttons: vec![("LEVEL EDITOR".to_string(), MenuAction::StartEditor)]
+            buttons: {
+                #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
+                let mut buttons = vec![
+                    ("LEVEL EDITOR".to_string(), MenuAction::StartEditor, None),
+                ];
+                // The actor editor is native-only (native file dialogs), so only offer
+                // its entry point when the plugin is actually registered (see above).
+                #[cfg(not(target_arch = "wasm32"))]
+                buttons.push((
+                    "ACTOR EDITOR".to_string(),
+                    MenuAction::OpenActorEditor,
+                    Some("Modular character editor".to_string()),
+                ));
+                buttons
+            }
         })
         .init_resource::<EditorState>()
         .init_resource::<EditorMode>()
@@ -85,6 +110,7 @@ pub fn run_game() {
         .add_systems(Update, (
             update_window_title, 
             handle_menu_input, 
+            crate::control_actions::handle_editor_control_actions,
             sync_rtt_cameras_system,
             camera_control_system,
             sync_overlay_camera_system,
@@ -92,6 +118,7 @@ pub fn run_game() {
             mouse_selection_system,
             editor_ui_system,
             selection_highlight_system,
+            selection_preview_system,
             room_switching_system,
             auto_save_system,
             undo_redo_system,
@@ -133,6 +160,7 @@ pub fn setup_editor(
     mut config_store: ResMut<GizmoConfigStore>,
     mut history: ResMut<CommandHistory>,
     mut editor_state: ResMut<EditorState>,
+    mut selection: ResMut<Selection>,
     editor_mode: Res<EditorMode>,
 ) {
     if !editor_mode.is_active { return; }
@@ -154,37 +182,48 @@ pub fn setup_editor(
     }
 
     let room_idx = project.current_room_idx;
-    editor_state.last_selected_cell = project.rooms[room_idx].cells[0][0];
+
+    // Start on the near-right solid tile so that the selection highlight is
+    // immediately visible in the default view.
+    if let Some(room) = project.rooms.get(room_idx) {
+        'find_start: for x in (0..16).rev() {
+            for z in (0..16).rev() {
+                if room.cells[x][z].h >= 0 {
+                    selection.x = x;
+                    selection.z = z;
+                    break 'find_start;
+                }
+            }
+        }
+    }
+    editor_state.last_selected_cell = project.rooms[room_idx].cells[selection.x][selection.z];
 
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
     
     client_assets.highlight_material = materials.add(StandardMaterial {
-        base_color: Color::srgba(0.0, 1.0, 1.0, 0.1),
+        base_color: Color::srgba(0.2, 1.0, 1.0, 0.35),
         unlit: true,
         alpha_mode: AlphaMode::Blend,
         ..default()
     });
 
     let config = config_store.config_mut::<DefaultGizmoConfigGroup>().0;
-    config.line_width = 6.0;
+    config.line.width = 6.0;
     config.depth_bias = -0.01; 
 
     let hidden_config = config_store.config_mut::<HiddenGizmos>().0;
-    hidden_config.line_width = 2.5;
+    hidden_config.line.width = 2.5;
     hidden_config.depth_bias = -0.01;
 
     let box_config = config_store.config_mut::<BoxGizmos>().0;
-    box_config.line_width = 3.0;
+    box_config.line.width = 3.0;
     box_config.depth_bias = -0.01; 
     box_config.render_layers = RenderLayers::layer(1);
     
     // HUD
-    commands.spawn((NodeBundle {
-        style: Style { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(10.0)), flex_direction: FlexDirection::Column, row_gap: Val::Px(5.0), ..default() },
-        background_color: Color::srgba(0.0, 0.0, 0.0, 0.8).into(), ..default()
-    }, MapEntity)).with_children(|p| {
-        p.spawn((TextBundle::from_section("CAM:", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }), CameraDebugText));
-        p.spawn((TextBundle::from_section("FPS: 0", TextStyle { font: font.clone(), font_size: 16.0, color: Color::srgb(1.0, 1.0, 0.0) }), HudText));
+    commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(10.0), padding: UiRect::all(Val::Px(10.0)), flex_direction: FlexDirection::Column, row_gap: Val::Px(5.0), ..default() }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)), ..default() }, MapEntity)).with_children(|p| {
+        p.spawn((ui_text("CAM:", &font.clone(), 16.0, Color::WHITE), CameraDebugText));
+        p.spawn((ui_text("FPS: 0", &font.clone(), 16.0, Color::srgb(1.0, 1.0, 0.0)), HudText));
     });
 
     // RTT Previews
@@ -202,7 +241,7 @@ pub fn setup_editor(
                 label: None, size, dimension: TextureDimension::D2,
                 format: TextureFormat::Bgra8UnormSrgb,
                 mip_level_count: 1, sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
             ..default()
@@ -215,11 +254,7 @@ pub fn setup_editor(
         let pos = Vec3::new(100.0 + (*idx as f32 * 10.0), 1000.0, 0.0);
 
         commands.spawn((
-            Camera3dBundle {
-                camera: Camera { target: RenderTarget::Image(handle), clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() },
-                transform: Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y),
-                ..default()
-            },
+            (Camera3d::default(), Camera { order: -1 - *idx as isize, clear_color: Color::srgba(0.1, 0.1, 0.1, 1.0).into(), ..default() }, RenderTarget::Image(handle.clone().into()), Transform::from_xyz(pos.x + 1.2, pos.y + 0.8, pos.z + 1.2).looking_at(pos, Vec3::Y)),
             layer.clone(),
             RttCamera,
             RttCameraTarget(pos),
@@ -227,11 +262,7 @@ pub fn setup_editor(
         ));
 
         commands.spawn((
-            DirectionalLightBundle {
-                directional_light: DirectionalLight { illuminance: 10000.0, shadows_enabled: false, ..default() },
-                transform: Transform::from_xyz(pos.x + 1.0, pos.y + 2.0, pos.z + 1.0).looking_at(pos, Vec3::Y),
-                ..default()
-            },
+            (DirectionalLight { illuminance: 10000.0, shadow_maps_enabled: false, ..default() }, Transform::from_xyz(pos.x + 1.0, pos.y + 2.0, pos.z + 1.0).looking_at(pos, Vec3::Y)),
             layer.clone(),
             MapEntity,
         ));
@@ -245,23 +276,16 @@ pub fn setup_editor(
             _ => (client_assets.cube_mesh.clone(), 0.0),
         };
         commands.spawn((
-            PbrBundle {
-                mesh: mesh.clone(), material: top_mat.clone(),
-                transform: Transform::from_translation(pos)
+            (Mesh3d(mesh.clone()), MeshMaterial3d(top_mat.clone()), Transform::from_translation(pos)
                     .with_scale(Vec3::new(1.0, 0.5, 1.0))
-                    .with_rotation(Quat::from_rotation_y(rot)),
-                ..default()
-            },
+                    .with_rotation(Quat::from_rotation_y(rot))),
             layer.clone(),
             MapEntity,
         ));
     }
 
     // Top Panel
-    commands.spawn((NodeBundle {
-        style: Style { position_type: PositionType::Absolute, top: Val::Px(0.0), left: Val::Percent(30.0), width: Val::Percent(40.0), height: Val::Px(85.0), justify_content: JustifyContent::SpaceEvenly, align_items: AlignItems::Center, ..default() },
-        background_color: Color::srgba(0.05, 0.05, 0.05, 0.95).into(), ..default()
-    }, MapEntity)).with_children(|p| {
+    commands.spawn((UiNode { node: Node { position_type: PositionType::Absolute, top: Val::Px(0.0), left: Val::Percent(30.0), width: Val::Percent(40.0), height: Val::Px(85.0), justify_content: JustifyContent::SpaceEvenly, align_items: AlignItems::Center, ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.95)), ..default() }, MapEntity)).with_children(|p| {
         for (idx, (tt, _)) in types.iter().enumerate() {
             let label = match tt {
                 TileType::Cube => "Cube",
@@ -271,59 +295,32 @@ pub fn setup_editor(
                 TileType::WedgeW => "Wedge W",
                 _ => "Tile",
             };
-            p.spawn((ButtonBundle {
-                style: Style { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
-                background_color: Color::srgb(0.2, 0.2, 0.2).into(),
-                border_color: Color::srgb(0.4, 0.4, 0.4).into(),
-                ..default()
-            }, TileTypeButton(*tt), TooltipText(label.to_string()))).with_children(|p| {
-                p.spawn(ImageBundle {
-                    image: UiImage::new(preview_handles[idx].clone()),
-                    style: Style { width: Val::Px(60.0), height: Val::Px(60.0), ..default() },
-                    ..default()
-                });
+            p.spawn(((Button, UiNode { node: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() }, background_color: BackgroundColor(Color::srgb(0.2, 0.2, 0.2)), border_color: BorderColor::all(Color::srgb(0.4, 0.4, 0.4)), ..default() }), TileTypeButton(*tt), TooltipText(label.to_string()), Name::new(label.to_string()))).with_children(|p| {
+                p.spawn((ImageNode::new(preview_handles[idx].clone()), UiNode { node: Node { width: Val::Px(60.0), height: Val::Px(60.0), ..default() }, ..default() }));
             });
         }
         
-        p.spawn((ButtonBundle {
-            style: Style { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() },
-            background_color: Color::srgb(0.1, 0.3, 0.3).into(),
-            border_color: Color::srgb(0.0, 0.8, 0.8).into(),
-            ..default()
-        }, HelpButton, TooltipText("Help (F1)".to_string()))).with_children(|p| {
-            p.spawn(TextBundle::from_section("?", TextStyle { font: font.clone(), font_size: 40.0, color: Color::WHITE }));
+        p.spawn(((Button, UiNode { node: Node { width: Val::Px(70.0), height: Val::Px(70.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(Val::Px(2.0)), ..default() }, background_color: BackgroundColor(Color::srgb(0.1, 0.3, 0.3)), border_color: BorderColor::all(Color::srgb(0.0, 0.8, 0.8)), ..default() }), HelpButton, TooltipText("Help (F1)".to_string()), Name::new("Help (F1)".to_string()))).with_children(|p| {
+            p.spawn(ui_text("?", &font.clone(), 40.0, Color::WHITE));
         });
     });
 
-    commands.spawn((NodeBundle {
-        style: Style {
+    commands.spawn((UiNode { node: Node {
             position_type: PositionType::Absolute,
             display: Display::None,
             padding: UiRect::all(Val::Px(5.0)),
             border: UiRect::all(Val::Px(1.0)),
             ..default()
-        },
-        background_color: Color::srgba(0.0, 0.0, 0.0, 0.9).into(),
-        border_color: Color::WHITE.into(),
-        z_index: ZIndex::Global(200),
-        ..default()
-    }, TooltipUi)).with_children(|p| {
-        p.spawn(TextBundle::from_section("", TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE }));
+        }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.9)), border_color: BorderColor::all(Color::WHITE), ..default() }, GlobalZIndex(200), TooltipUi)).with_children(|p| {
+        p.spawn(ui_text("", &font.clone(), 16.0, Color::WHITE));
     });
 
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera { 
+        (Camera3d::default(), Camera { 
                 order: 2, 
                 clear_color: ClearColorConfig::None,
                 ..default() 
-            },
-            camera_3d: Camera3d {
-                depth_load_op: bevy::core_pipeline::core_3d::Camera3dDepthLoadOp::Clear(0.0),
-                ..default()
-            },
-            ..default()
-        },
+            }),
         OverlayCamera,
         RenderLayers::layer(1),
         MapEntity,

@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub mod ui;
 pub mod rendering;
 pub mod assets;
+pub mod actor;
+pub mod physics;
 pub mod world;
 pub mod perf;
 pub mod transition;
@@ -12,10 +14,10 @@ pub mod input;
 pub mod history;
 pub mod settings;
 pub mod benchmark;
-pub mod actor_editor;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod control;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::winit::WinitWindows;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::window::Icon;
 
@@ -24,6 +26,8 @@ pub use crate::ui::menu::*;
 pub use crate::ui::help::*;
 pub use crate::ui::hud::*;
 pub use crate::assets::*;
+pub use crate::actor::*;
+pub use crate::physics::*;
 pub use crate::rendering::*;
 pub use crate::world::*;
 pub use crate::perf::*;
@@ -31,7 +35,6 @@ pub use crate::transition::*;
 pub use crate::input::*;
 pub use crate::history::*;
 pub use crate::settings::*;
-pub use crate::actor_editor::*;
 
 // --- Core Data Structures (The "Project Contract") ---
 
@@ -72,8 +75,6 @@ pub enum GameState {
     ActorEditor,
 }
 
-#[derive(Component)]
-pub struct ActorEditorEntity;
 
 
 
@@ -88,6 +89,7 @@ pub struct ProgressBar;
 #[derive(Component)]
 pub struct HudText;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 struct AppIconHandle {
     handle: Handle<Image>,
@@ -119,14 +121,7 @@ pub struct Room {
 
 impl Default for Room {
     fn default() -> Self {
-        let mut cells = [[Cell::default(); 16]; 16];
-        for x in 0..16 {
-            for z in 0..16 {
-                cells[x][z].h = 0;
-                cells[x][z].tt = TileType::Cube;
-            }
-        }
-        Self { cells }
+        Self { cells: [[Cell { h: 0, tt: TileType::Cube }; 16]; 16] }
     }
 }
 
@@ -136,6 +131,28 @@ pub enum TileType {
     Empty,
     Cube,
     WedgeN, WedgeE, WedgeS, WedgeW,
+}
+
+impl TileType {
+    /// Parse a tile type from a human/agent-supplied string.
+    ///
+    /// Accepts the `Debug` name (`"WedgeN"`), a spaced name (`"Wedge N"`),
+    /// the bare direction (`"n"`, `"e"`, …) and `"empty"`/`"air"`.
+    pub fn parse(s: &str) -> Option<Self> {
+        let compact: String = s
+            .chars()
+            .filter(|c| !c.is_whitespace() && *c != '_' && *c != '-')
+            .collect();
+        Some(match compact.to_ascii_lowercase().as_str() {
+            "empty" | "air" | "none" => TileType::Empty,
+            "cube" | "block" => TileType::Cube,
+            "wedgen" | "n" => TileType::WedgeN,
+            "wedgee" | "e" => TileType::WedgeE,
+            "wedges" | "s" => TileType::WedgeS,
+            "wedgew" | "w" => TileType::WedgeW,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Default)]
@@ -152,8 +169,11 @@ pub struct ClientCorePlugin {
 
 impl Plugin for ClientCorePlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_plugins(control::ControlPlugin);
+
         app.insert_resource(self.options.clone())
-           .add_plugins(FrameTimeDiagnosticsPlugin)
+           .add_plugins(FrameTimeDiagnosticsPlugin::default())
            .init_state::<GameState>()
            .init_resource::<Project>()
            .init_resource::<ClientAssets>()
@@ -168,17 +188,20 @@ impl Plugin for ClientCorePlugin {
            .init_resource::<RoomTransition>()
            .init_resource::<CommandHistory>()
            .init_state::<MenuSubState>()
+           .add_plugins(actor::ActorPlugin)
+           .add_plugins(physics::GamePhysicsPlugin)
+           .add_plugins(input::PlayerInputPlugin)
            .add_plugins(SettingsPlugin)
            .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
            .add_plugins(MaterialPlugin::<StarrySkyMaterial>::default())
            .add_plugins(benchmark::BenchmarkPlugin)
-           .add_plugins(actor_editor::ActorEditorPlugin)
            .init_resource::<ExitConfirmationActive>()
            .add_systems(OnEnter(GameState::Menu), setup_menu)
            .add_systems(Startup, (load_app_icon, setup_starry_sky))
            .add_systems(Update, (
                 set_window_icon,
                 hud_update_system.run_if(in_state(GameState::InGame)),
+                world::follow_player_camera_system.run_if(in_state(GameState::InGame)),
                 map_rendering_system.run_if(in_state(GameState::InGame).or_else(in_state(GameState::Benchmark))),
                 collect_perf_system,
                 help_toggle_system,
@@ -210,18 +233,14 @@ fn global_input_system(
     editor_mode: Res<EditorMode>,
     mut exit_confirm: ResMut<ExitConfirmationActive>,
 ) {
-    if keyboard.just_pressed(KeyCode::Escape) {
-        match *state.get() {
-            GameState::InGame => {
-                if editor_mode.is_active {
-                    next_state.set(GameState::Menu);
-                } else {
-                    exit_confirm.0 = !exit_confirm.0;
-                }
-            },
-            _ => {}
+    if keyboard.just_pressed(KeyCode::Escape)
+        && *state.get() == GameState::InGame {
+            if editor_mode.is_active {
+                next_state.set(GameState::Menu);
+            } else {
+                exit_confirm.0 = !exit_confirm.0;
+            }
         }
-    }
 }
 
 fn exit_confirmation_sync_system(
@@ -246,7 +265,7 @@ fn exit_confirmation_sync_system(
         } else {
             // Cleanup confirmation UI
             for entity in menu_query.iter() {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             }
         }
     }
@@ -265,14 +284,18 @@ fn finish_loading_settings_on_menu(mut settings: ResMut<GraphicsSettings>) {
 
 
 pub fn cleanup_loading(mut commands: Commands, query: Query<Entity, With<LoadingEntity>>) {
-    for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
+    for entity in query.iter() { commands.entity(entity).despawn(); }
 }
 
-pub fn reset_ambient_light(mut commands: Commands) {
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 100.0,
-    });
+pub fn reset_ambient_light(mut commands: Commands, cameras: Query<Entity, With<Camera3d>>) {
+    // `AmbientLight` is a per-camera component in Bevy 0.19.
+    for entity in cameras.iter() {
+        commands.entity(entity).insert(AmbientLight {
+            color: Color::WHITE,
+            brightness: 100.0,
+            affects_lightmapped_meshes: false,
+        });
+    }
 }
 
 pub fn cleanup_game(
@@ -281,8 +304,8 @@ pub fn cleanup_game(
     mut tile_map: ResMut<TileMap>,
 ) {
     for entity in query.iter() { 
-        if let Some(e) = commands.get_entity(entity) {
-            e.despawn_recursive(); 
+        if let Ok(mut e) = commands.get_entity(entity) {
+            e.despawn(); 
         }
     }
     tile_map.entities.clear();
@@ -298,7 +321,6 @@ fn load_app_icon(asset_server: Res<AssetServer>, mut commands: Commands) {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn set_window_icon(
-    windows: NonSend<WinitWindows>,
     images: Res<Assets<Image>>,
     icon_handle: Option<ResMut<AppIconHandle>>,
     mut commands: Commands,
@@ -330,9 +352,12 @@ fn set_window_icon(
             return;
         };
 
-        for window in windows.windows.values() {
-            window.set_window_icon(Some(icon.clone()));
-        }
+        // Bevy 0.19 moved the raw winit windows into a thread-local static.
+        bevy::winit::WINIT_WINDOWS.with_borrow(|windows| {
+            for window in windows.windows.values() {
+                window.set_window_icon(Some(icon.clone()));
+            }
+        });
         
         if icon_handle.retries > 0 {
             icon_handle.retries -= 1;

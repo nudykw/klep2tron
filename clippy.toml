@@ -1,0 +1,8 @@
+# Clippy tuning for a Bevy workspace.
+#
+# Bevy systems legitimately take many parameters, and `Query<...>`/`Or<...>`
+# types are inherently complex. Raise the two structural thresholds instead of
+# littering every system with `#[allow]`. All other lints stay at their
+# defaults.
+too-many-arguments-threshold = 16
+type-complexity-threshold = 1000

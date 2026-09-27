@@ -62,9 +62,9 @@ impl Room {
         let terrace_h: [i32; 4] = [0, 2, 4, 6];
 
         let mut hmap = vec![vec![0i32; depth]; width];
-        for x in 0..width {
+        for (x, row) in hmap.iter_mut().enumerate() {
             let t = (x / terrace_w).min(num_terraces - 1);
-            for z in 0..depth { hmap[x][z] = terrace_h[t]; }
+            row.fill(terrace_h[t]);
         }
 
         // Рампы на каждой границе

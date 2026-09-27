@@ -4,23 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.14", features = ["default", "wayland"] }
-bevy_obj = "0.14.0"
+bevy = { version = "0.19", features = ["default", "wayland"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 shared = { path = "../shared" }
 image = "0.25"
 winit = "0.30"
-wgpu = "0.20"
-bevy_framepace = "0.17"
-bevy_panorbit_camera = "0.20"
-bevy_mod_picking = { version = "0.20", features = ["selection", "highlight", "backend_raycast", "backend_bevy_ui"] }
-bevy_hanabi = "0.13"
-rfd = "0.14"
-rayon = "1.10"
+wgpu = "29"
+bevy_framepace = "0.22"
+avian3d = "0.7"
+leafwing-input-manager = "0.21"
 ron = "0.12.1"
-chrono = "0.4"
-meshopt = "0.3"
 futures-lite = "2.6.1"
 
 

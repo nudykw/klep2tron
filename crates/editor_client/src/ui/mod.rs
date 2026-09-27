@@ -12,7 +12,7 @@ pub fn editor_ui_system(
     mut dirty: ResMut<DirtyTiles>,
 ) {
     for (interaction, tt_btn, help_btn, mut color, mut border) in interaction_query.iter_mut() {
-        let is_selected = tt_btn.map_or(false, |b| editor_state.current_type == b.0);
+        let is_selected = tt_btn.is_some_and(|b| editor_state.current_type == b.0);
         match *interaction {
             Interaction::Pressed => {
                 if let Some(tt_btn) = tt_btn {
@@ -56,19 +56,19 @@ pub fn editor_ui_system(
 
 pub fn editor_tooltip_system(
     windows: Query<&Window>,
-    mut tooltip_query: Query<(&mut Style, &mut Visibility, &Children), With<TooltipUi>>,
+    mut tooltip_query: Query<(&mut Node, &mut Visibility, &Children), With<TooltipUi>>,
     mut text_query: Query<&mut Text>,
     interaction_query: Query<(&Interaction, &TooltipText)>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.single() else { return; };
     let mut tooltip_active = false;
 
-    if let Ok((mut style, mut visibility, children)) = tooltip_query.get_single_mut() {
+    if let Ok((mut style, mut visibility, children)) = tooltip_query.single_mut() {
         for (interaction, tooltip) in interaction_query.iter() {
             if *interaction == Interaction::Hovered {
                 tooltip_active = true;
-                if let Some(mut text) = text_query.get_mut(children[0]).ok() {
-                    text.sections[0].value = tooltip.0.clone();
+                if let Ok(mut text) = text_query.get_mut(children[0]) {
+                    text.0 = tooltip.0.clone();
                 }
                 
                 if let Some(cursor_pos) = window.cursor_position() {

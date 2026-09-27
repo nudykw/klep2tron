@@ -5,7 +5,7 @@ use super::super::types::*;
 pub fn menu_navigation_system(
     mut commands: Commands,
     container_query: Query<(Entity, &MenuContainer), Changed<MenuContainer>>,
-    item_query: Query<(Entity, &MenuItem, &Parent)>,
+    item_query: Query<(Entity, &MenuItem, &ChildOf)>,
     children_query: Query<&Children>,
 ) {
     for (container_entity, container) in container_query.iter() {
@@ -14,8 +14,8 @@ pub fn menu_navigation_system(
         while let Some(current) = stack.pop() {
             if let Ok(children) = children_query.get(current) {
                 for child in children.iter() {
-                    descendants.push(*child);
-                    stack.push(*child);
+                    descendants.push(child);
+                    stack.push(child);
                 }
             }
         }
@@ -23,7 +23,7 @@ pub fn menu_navigation_system(
         for (entity, item, _parent) in item_query.iter() {
             if !descendants.contains(&entity) { continue; }
 
-            if let Some(mut e) = commands.get_entity(entity) {
+            if let Ok(mut e) = commands.get_entity(entity) {
                 if item.index == container.current_selection {
                     e.insert(MenuFocus);
                 } else {
@@ -36,12 +36,12 @@ pub fn menu_navigation_system(
 
 pub fn menu_scrolling_system(
     container_query: Query<&MenuContainer, With<MenuItemRoot>>,
-    mut scroll_query: Query<(Entity, &mut Style), With<MenuScrollContainer>>,
+    mut scroll_query: Query<(Entity, &mut Node), With<MenuScrollContainer>>,
     mut commands: Commands,
 ) {
-    let Ok(container) = container_query.get_single() else { return; };
+    let Ok(container) = container_query.single() else { return; };
     for (entity, mut style) in scroll_query.iter_mut() {
-        if commands.get_entity(entity).is_none() { continue; }
+        if commands.get_entity(entity).is_err() { continue; }
         
         let item_height = 60.0; 
         let viewport_height = 420.0;
@@ -58,7 +58,7 @@ pub fn tooltip_system(
 ) {
     for (_entity, mut tooltip, mut visibility) in query.iter_mut() {
         tooltip.timer.tick(time.delta());
-        if tooltip.timer.finished() {
+        if tooltip.timer.is_finished() {
             *visibility = Visibility::Hidden;
         }
     }
@@ -69,15 +69,15 @@ pub fn menu_tooltip_system(
     mut tooltip_query: Query<&mut Text, With<TooltipDisplay>>,
 ) {
     let mut text_val = "".to_string();
-    if let Ok(item) = focus_query.get_single() {
+    if let Ok(item) = focus_query.single() {
         if let Some(tooltip) = &item.tooltip {
             text_val = tooltip.clone();
         }
     }
     
     for mut text in tooltip_query.iter_mut() {
-        if text.sections[0].value != text_val {
-            text.sections[0].value = text_val.clone();
+        if text.0 != text_val {
+            text.0 = text_val.clone();
         }
     }
 }
@@ -93,22 +93,23 @@ pub fn input_hint_system(
             InputDevice::Mouse => "Hover to Focus  Click to Cycle/Select",
             InputDevice::Touch => "Tap to Select  Long Press for Hint",
         };
-        text.sections[0].value = hint.to_string();
+        text.0 = hint.to_string();
     }
 }
 
 pub fn menu_visual_system(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &MenuItem, &mut BackgroundColor, &mut BorderColor, &mut Transform, Option<&MenuFocus>)>,
+    // Bevy 0.19 UI nodes use `UiTransform`, not `Transform`.
+    mut query: Query<(Entity, &MenuItem, &mut BackgroundColor, &mut BorderColor, &mut UiTransform, Option<&MenuFocus>)>,
     settings: Res<GraphicsSettings>,
     pending: Res<PendingGraphicsSettings>,
 ) {
     let has_changes = **pending != *settings;
-    let t = (time.elapsed_seconds() * 3.0).sin() * 0.5 + 0.5;
+    let t = (time.elapsed_secs() * 3.0).sin() * 0.5 + 0.5;
 
     for (entity, item, mut bg, mut border, mut transform, focus) in query.iter_mut() {
-        if commands.get_entity(entity).is_none() { continue; }
+        if commands.get_entity(entity).is_err() { continue; }
 
         let is_apply = item.action == MenuAction::ApplySettings;
         let is_dimmed = item.is_disabled || (is_apply && !has_changes);
@@ -116,17 +117,17 @@ pub fn menu_visual_system(
         if is_dimmed {
             *bg = Color::srgba(0.1, 0.1, 0.1, 0.2).into();
             *border = Color::NONE.into();
-            transform.scale = Vec3::splat(1.0);
+            transform.scale = Vec2::ONE;
         } else if focus.is_some() {
             let bg_alpha = 0.15 + t * 0.15;
             let border_alpha = 0.4 + t * 0.4;
             *bg = Color::srgba(0.3, 0.6, 1.0, bg_alpha).into();
             *border = Color::srgba(0.4, 0.7, 1.0, border_alpha).into();
-            transform.scale = Vec3::splat(1.05);
+            transform.scale = Vec2::splat(1.05);
         } else {
             *bg = Color::srgba(1.0, 1.0, 1.0, 0.05).into();
             *border = Color::NONE.into();
-            transform.scale = Vec3::splat(1.0);
+            transform.scale = Vec2::ONE;
         }
     }
 }

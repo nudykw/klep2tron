@@ -27,6 +27,7 @@ I (the AI) **CATEGORICALLY** do not have the right to execute `git commit`, `git
 * **Iron Rule**: I **MUST** run `cargo check` (or `cargo build / run`) after completing any task and **BEFORE** reporting readiness. 
 * I am not allowed to say "task completed" if the project does not pass the compiler check.
 * This rule helps avoid typos and naming errors that may occur when editing multiple files.
+* **Structured diagnostics**: for a compact, greppable list of compiler errors and warnings, use `scripts/diagnostics.sh` (a wrapper over `cargo check --workspace --message-format=json`; `CARGO_CMD=clippy` switches to clippy). It exits non-zero when there are errors.
 
 ---
 

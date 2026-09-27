@@ -16,7 +16,7 @@ pub fn attach_editor_camera(
 ) {
     if !editor_mode.is_active { return; }
     
-    if let Ok((entity, mut transform)) = camera_query.get_single_mut() {
+    if let Ok((entity, mut transform)) = camera_query.single_mut() {
         let center = Vec3::new(7.5, 0.0, 7.5);
         let orbit = OrbitCamera {
             center,
@@ -40,7 +40,7 @@ pub fn camera_control_system(
     mut query: Query<(&mut Transform, &mut OrbitCamera)>,
     mut text_query: Query<&mut Text, With<CameraDebugText>>
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
     let speed = 10.0;
     let rot_speed = 2.0;
     for (mut transform, mut orbit) in query.iter_mut() {
@@ -56,8 +56,8 @@ pub fn camera_control_system(
         let x = orbit.center.x + orbit.radius * orbit.angle.cos();
         let z = orbit.center.z + orbit.radius * orbit.angle.sin();
         *transform = Transform::from_xyz(x, orbit.height, z).looking_at(orbit.center, Vec3::Y);
-        if let Ok(mut text) = text_query.get_single_mut() {
-            text.sections[0].value = format!("CAM: X:{:.1} Y:{:.1} Z:{:.1} R:{:.1} A:{:.1}", x, orbit.height, z, orbit.radius, orbit.angle);
+        if let Ok(mut text) = text_query.single_mut() {
+            text.0 = format!("CAM: X:{:.1} Y:{:.1} Z:{:.1} R:{:.1} A:{:.1}", x, orbit.height, z, orbit.radius, orbit.angle);
         }
     }
 }
@@ -66,8 +66,8 @@ pub fn sync_overlay_camera_system(
     main_query: Query<&Transform, (With<OrbitCamera>, Without<OverlayCamera>)>,
     mut overlay_query: Query<&mut Transform, With<OverlayCamera>>,
 ) {
-    if let Ok(main_trans) = main_query.get_single() {
-        if let Ok(mut over_trans) = overlay_query.get_single_mut() {
+    if let Ok(main_trans) = main_query.single() {
+        if let Ok(mut over_trans) = overlay_query.single_mut() {
             *over_trans = *main_trans;
         }
     }
@@ -77,7 +77,7 @@ pub fn sync_rtt_cameras_system(
     main_cam_query: Query<&OrbitCamera>,
     mut rtt_query: Query<(&mut Transform, &RttCameraTarget), With<RttCamera>>,
 ) {
-    let Ok(orbit) = main_cam_query.get_single() else { return };
+    let Ok(orbit) = main_cam_query.single() else { return };
     
     for (mut transform, target) in rtt_query.iter_mut() {
         let radius = 2.0; 

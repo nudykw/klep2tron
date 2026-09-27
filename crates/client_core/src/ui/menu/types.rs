@@ -98,7 +98,8 @@ pub struct TooltipDisplay;
 
 #[derive(Resource, Default)]
 pub struct ExtraMenuButtons {
-    pub buttons: Vec<(String, MenuAction)>,
+    /// `(label, action, tooltip)`
+    pub buttons: Vec<(String, MenuAction, Option<String>)>,
 }
 
 #[derive(Resource, Default)]

@@ -14,10 +14,10 @@ pub fn hud_update_system(
             if project.current_room_idx < project.rooms.len() {
                 let room = &project.rooms[project.current_room_idx];
                 let cell = room.cells[sel.x][sel.z];
-                text.sections[0].value = format!("FPS: {:.0} | ROOM: {} | POS: {}, {}, {}", fps, project.current_room_idx, sel.x, sel.z, cell.h);
+                text.0 = format!("FPS: {:.0} | ROOM: {} | POS: {}, {}, {}", fps, project.current_room_idx, sel.x, sel.z, cell.h);
             }
         } else {
-            text.sections[0].value = format!("FPS: {:.0} | ROOM: {}", fps, project.current_room_idx);
+            text.0 = format!("FPS: {:.0} | ROOM: {}", fps, project.current_room_idx);
         }
     }
 }

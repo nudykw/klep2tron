@@ -1,9 +1,10 @@
 use bevy::prelude::*;
+use crate::ui::widgets::*;
 use crate::{GameState, GraphicsSettings};
 use super::types::*;
 
 pub fn spawn_menu_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     text: &str,
     value: Option<String>,
@@ -14,8 +15,7 @@ pub fn spawn_menu_button(
     is_disabled: bool,
 ) {
     parent.spawn((
-        ButtonBundle {
-            style: Style {
+        UiNode { node: Node {
                 width: Val::Px(460.0),
                 height: Val::Px(50.0),
                 margin: UiRect::vertical(Val::Px(5.0)),
@@ -23,32 +23,18 @@ pub fn spawn_menu_button(
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
                 border: UiRect::all(Val::Px(1.5)),
-                ..default()
-            },
-            background_color: if is_disabled { Color::srgba(0.1, 0.1, 0.1, 0.3).into() } else { Color::srgba(1.0, 1.0, 1.0, 0.05).into() },
-            border_color: Color::NONE.into(),
-            border_radius: BorderRadius::all(Val::Px(10.0)),
-            ..default()
-        },
+                border_radius: BorderRadius::all(Val::Px(10.0)), ..default() }, background_color: if is_disabled { Color::srgba(0.1, 0.1, 0.1, 0.3).into() } else { Color::srgba(1.0, 1.0, 1.0, 0.05).into() }, border_color: BorderColor::all(Color::NONE), ..default() },
+        Interaction::None,
         MenuItem { index, item_type, action, tooltip, is_disabled },
     )).with_children(|p| {
         let text_color = if is_disabled { Color::srgb(0.4, 0.4, 0.4) } else { Color::srgb(0.9, 0.9, 0.9) };
 
-        p.spawn(TextBundle::from_section(
-            text,
-            TextStyle { font: font.clone(), font_size: 26.0, color: text_color },
-        ).with_text_justify(JustifyText::Left));
+        p.spawn( (ui_text(text, &font.clone(), 26.0, text_color), TextLayout { justify: Justify::Left, ..default() }));
 
         if let Some(val) = value {
-            p.spawn(TextBundle::from_section(
-                format!("< {} >", val),
-                TextStyle { font: font.clone(), font_size: 26.0, color: text_color },
-            ).with_text_justify(JustifyText::Right));
+            p.spawn( (ui_text(format!("< {} >", val), &font.clone(), 26.0, text_color), TextLayout { justify: Justify::Right, ..default() }));
         } else if item_type == MenuItemType::Submenu {
-            p.spawn(TextBundle::from_section(
-                ">",
-                TextStyle { font: font.clone(), font_size: 26.0, color: text_color },
-            ).with_text_justify(JustifyText::Right));
+            p.spawn( (ui_text(">", &font.clone(), 26.0, text_color), TextLayout { justify: Justify::Right, ..default() }));
         }
     });
 }
@@ -67,51 +53,36 @@ pub fn setup_menu(
     
     if camera_query.is_empty() {
         commands.spawn((
-            Camera3dBundle {
-                camera: Camera { order: -1, ..default() },
-                transform: Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(1.0, 0.0, 0.0), Vec3::Y),
-                ..default()
-            },
+            (Camera3d::default(), Camera { order: -1, ..default() }, Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(1.0, 0.0, 0.0), Vec3::Y)),
             MenuEntity,
         ));
 
         commands.spawn((
-            Camera2dBundle {
-                camera: Camera {
+            (Camera2d, Camera {
                     order: 10,
                     clear_color: ClearColorConfig::None,
                     ..default()
-                },
-                ..default()
-            },
+                }),
             MenuEntity,
         ));
     }
     
     let font = asset_server.load("fonts/Roboto-Regular.ttf");
 
-    commands.spawn((NodeBundle {
-        style: Style {
+    commands.spawn((UiNode { node: Node {
             width: Val::Percent(100.0), height: Val::Percent(100.0),
             display: Display::Flex, flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center, justify_content: JustifyContent::FlexStart,
             position_type: PositionType::Absolute,
             padding: UiRect::top(Val::Px(60.0)),
             ..default()
-        },
-        background_color: if exit_confirm.0 { Color::srgba(0.0, 0.0, 0.05, 0.6).into() } else { Color::NONE.into() },
-        ..default()
-    }, MenuEntity, MenuItemRoot)).with_children(|p| {
-        p.spawn((TextBundle::from_section(
-            "Klep2tron",
-            TextStyle { font: font.clone(), font_size: 70.0, color: Color::WHITE },
-        ).with_style(Style { 
+        }, background_color: if exit_confirm.0 { Color::srgba(0.0, 0.0, 0.05, 0.6).into() } else { Color::NONE.into() }, ..default() }, MenuEntity, MenuItemRoot)).with_children(|p| {
+        p.spawn(((ui_text("Klep2tron", &font.clone(), 70.0, Color::WHITE), Node { 
             margin: UiRect::bottom(Val::Px(20.0)),
             ..default()
         }), MenuTitleDisplay));
 
-        p.spawn((NodeBundle {
-            style: Style {
+        p.spawn((UiNode { node: Node {
                 width: Val::Px(500.0),
                 height: Val::Px(420.0), 
                 display: Display::Flex,
@@ -122,36 +93,20 @@ pub fn setup_menu(
                 margin: UiRect::top(Val::Px(20.0)),
                 border: UiRect::all(Val::Px(1.0)),
                 padding: UiRect::vertical(Val::Px(10.0)),
-                ..default()
-            },
-            background_color: Color::srgba(0.05, 0.05, 0.15, 0.4).into(),
-            border_color: Color::srgba(0.3, 0.5, 1.0, 0.2).into(),
-            border_radius: BorderRadius::all(Val::Px(12.0)),
-            ..default()
-        }, MenuViewport));
+                border_radius: BorderRadius::all(Val::Px(12.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.15, 0.4)), border_color: BorderColor::all(Color::srgba(0.3, 0.5, 1.0, 0.2)), ..default() }, MenuViewport));
     });
 
-    commands.spawn((NodeBundle {
-        style: Style {
+    commands.spawn((UiNode { node: Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             width: Val::Percent(100.0),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             ..default()
-        },
-        z_index: ZIndex::Global(100),
-        ..default()
-    }, MenuEntity)).with_children(|p| {
-        p.spawn((TextBundle::from_section(
-            "",
-            TextStyle { font_size: 20.0, color: Color::srgb(0.9, 0.9, 0.6), ..default() },
-        ).with_style(Style { margin: UiRect::bottom(Val::Px(10.0)), ..default() }), TooltipDisplay));
+        }, ..default() }, GlobalZIndex(100), MenuEntity)).with_children(|p| {
+        p.spawn(((ui_text("", &default(), 20.0, Color::srgb(0.9, 0.9, 0.6)), Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() }), TooltipDisplay));
 
-        p.spawn((TextBundle::from_section(
-            "",
-            TextStyle { font_size: 18.0, color: Color::srgb(0.7, 0.7, 0.7), ..default() },
-        ), InputHintFooter));
+        p.spawn((ui_text("", &default(), 18.0, Color::srgb(0.7, 0.7, 0.7)), InputHintFooter));
     });
 }
 
@@ -172,8 +127,8 @@ pub fn menu_item_system(
     overlay_query: Query<Entity, With<crate::ConfirmationOverlay>>,
     focus_query: Query<Entity, With<MenuFocus>>,
 ) {
-    let Ok((root, _root_children)) = root_query.get_single() else { return; };
-    let viewport_entity = viewport_query.get_single().ok();
+    let Ok((root, _root_children)) = root_query.single() else { return; };
+    let viewport_entity = viewport_query.single().ok();
     
     let is_empty = if let Some(v) = viewport_entity {
         if let Ok(children) = viewport_children_query.get(v) {
@@ -190,24 +145,24 @@ pub fn menu_item_system(
     let is_confirmation = *menu_state.get() == MenuSubState::Confirmation;
 
     if !is_confirmation {
-        if let Ok(mut text) = title_query.get_single_mut() {
-            text.sections[0].value = match *menu_state.get() {
+        if let Ok(mut text) = title_query.single_mut() {
+            text.0 = match *menu_state.get() {
                 MenuSubState::Main => "Klep2tron".to_string(),
                 MenuSubState::Settings => "Settings".to_string(),
                 MenuSubState::Advanced => "Advanced".to_string(),
-                _ => text.sections[0].value.clone(),
+                _ => text.0.clone(),
             };
         }
     }
     
     if !is_confirmation {
         for entity in overlay_query.iter() {
-            if commands.get_entity(entity).is_some() {
-                commands.entity(entity).despawn_recursive();
+            if commands.get_entity(entity).is_ok() {
+                commands.entity(entity).despawn();
             }
         }
     } else {
-        if commands.get_entity(root).is_some() {
+        if commands.get_entity(root).is_ok() {
             commands.entity(root).remove::<MenuContainer>();
         }
         for focus_entity in focus_query.iter() {
@@ -220,32 +175,25 @@ pub fn menu_item_system(
     
     if let Some(v) = viewport_entity {
         if !is_confirmation {
-            if commands.get_entity(v).is_some() {
-                commands.entity(v).despawn_descendants();
+            if commands.get_entity(v).is_ok() {
+                commands.entity(v).despawn_related::<Children>();
             }
             
             commands.entity(v).with_children(|parent| {
-                parent.spawn((NodeBundle {
-                    style: Style {
+                parent.spawn((UiNode { node: Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
                         row_gap: Val::Px(20.0),
                         position_type: PositionType::Relative,
                         ..default()
-                    },
-                    ..default()
-                }, MenuScrollContainer)).with_children(|scroll_p| {
+                    }, ..default() }, MenuScrollContainer)).with_children(|scroll_p| {
                     match *menu_state.get() {
                         MenuSubState::Main => {
                             spawn_menu_button(scroll_p, &font, "START GAME", None, 0, MenuItemType::Action, MenuAction::StartGame, Some("Start a new game session".to_string()), false);
                             let mut count = 1;
-                            #[cfg(not(target_arch = "wasm32"))]
-                            {
-                                spawn_menu_button(scroll_p, &font, "ACTOR EDITOR", None, count, MenuItemType::Action, MenuAction::OpenActorEditor, Some("Modular character editor".to_string()), false);
-                                count += 1;
-                            }
-                            for (_i, (name, action)) in extra_buttons.buttons.iter().enumerate() {
-                                spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), None, false);
+                            // Buttons contributed by plugins/binaries (e.g. level editor, actor editor).
+                            for (name, action, tooltip) in extra_buttons.buttons.iter() {
+                                spawn_menu_button(scroll_p, &font, name, None, count, MenuItemType::Action, action.clone(), tooltip.clone(), false);
                                 count += 1;
                             }
                             spawn_menu_button(scroll_p, &font, "SETTINGS", None, count, MenuItemType::Submenu, MenuAction::OpenSettings, Some("Configure graphics and input".to_string()), false);
@@ -296,35 +244,20 @@ pub fn menu_item_system(
         let mut count = 2;
         if confirmation.has_cancel { count = 3; }
 
-        let overlay_id = commands.spawn((NodeBundle {
-            style: Style {
+        let overlay_id = commands.spawn((UiNode { node: Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0), height: Val::Percent(100.0),
                 align_items: AlignItems::Center, justify_content: JustifyContent::Center,
                 ..default()
-            },
-            background_color: Color::srgba(0.0, 0.0, 0.0, 0.7).into(),
-            z_index: ZIndex::Global(1000),
-            ..default()
-        }, MenuEntity, crate::ConfirmationOverlay)).with_children(|p| {
-            p.spawn((NodeBundle {
-                style: Style {
+            }, background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)), ..default() }, GlobalZIndex(1000), MenuEntity, crate::ConfirmationOverlay)).with_children(|p| {
+            p.spawn((UiNode { node: Node {
                     width: Val::Px(550.0), height: Val::Auto,
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     padding: UiRect::all(Val::Px(30.0)),
                     border: UiRect::all(Val::Px(1.5)),
-                    ..default()
-                },
-                background_color: Color::srgba(0.05, 0.08, 0.15, 0.95).into(),
-                border_color: Color::srgba(0.3, 0.5, 1.0, 0.5).into(),
-                border_radius: BorderRadius::all(Val::Px(15.0)),
-                ..default()
-            },)).with_children(|inner| {
-                inner.spawn(TextBundle::from_section(
-                    &confirmation.message,
-                    TextStyle { font: font.clone(), font_size: 32.0, color: Color::WHITE },
-                ).with_style(Style { margin: UiRect::bottom(Val::Px(40.0)), ..default() }).with_text_justify(JustifyText::Center));
+                    border_radius: BorderRadius::all(Val::Px(15.0)), ..default() }, background_color: BackgroundColor(Color::srgba(0.05, 0.08, 0.15, 0.95)), border_color: BorderColor::all(Color::srgba(0.3, 0.5, 1.0, 0.5)), ..default() },)).with_children(|inner| {
+                inner.spawn( ((ui_text(&confirmation.message, &font.clone(), 32.0, Color::WHITE), Node { margin: UiRect::bottom(Val::Px(40.0)), ..default() }), TextLayout { justify: Justify::Center, ..default() }));
 
                 spawn_menu_button(inner, &font, "YES", None, 0, MenuItemType::Action, MenuAction::ConfirmYes, None, false);
                 spawn_menu_button(inner, &font, "NO", None, 1, MenuItemType::Action, MenuAction::ConfirmNo, None, false);
@@ -349,7 +282,7 @@ pub fn menu_item_system(
 }
 
 pub fn cleanup_menu(mut commands: Commands, query: Query<Entity, With<MenuEntity>>) {
-    for entity in query.iter() { commands.entity(entity).despawn_recursive(); }
+    for entity in query.iter() { commands.entity(entity).despawn(); }
 }
 
 pub fn sync_pending_settings(

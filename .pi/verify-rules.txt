@@ -1,0 +1,7 @@
+# Klep2tron — rules for `verify(mode="rules")`
+# Format: optional `@path <dir>`, then one rule per line: <regex> or <regex> ## <label>
+@path crates
+
+GlobalZIndex ## GlobalZIndex on nodes: allowed only on genuine overlays/tooltips/toasts/modals (Bevy #25410)
+h *\* *0\.5|0\.5 *\* *h ## duplicated tile formula: reuse rendering::tile_geometry instead
+Vec3::(min|max)\( ## Vec3::min/max on vertex buffers: use per-component f32::min/max

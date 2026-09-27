@@ -1,0 +1,397 @@
+use bevy::prelude::*;
+use super::super::{MainEditorCamera, GizmoCamera, SlicingSettings, ViewportSettings, SlicingContours, PreviewContours, ActorBounds, SlicingGizmoType, SlicingGizmo, EditorHelper, SlicingTopCutInput, SlicingBottomCutInput, SlicingRimThicknessSlider, SlicingAutoManualToggle, SlicingAutoModeContainer};
+
+pub fn gizmo_sync_system(
+    main_camera: Query<&Transform, (With<MainEditorCamera>, Without<GizmoCamera>)>,
+    mut gizmo_camera: Query<&mut Transform, With<GizmoCamera>>,
+) {
+    if let Ok(main_transform) = main_camera.single() {
+        if let Ok(mut gizmo_transform) = gizmo_camera.single_mut() {
+            let distance = 3.0;
+            let rotation = main_transform.rotation;
+            gizmo_transform.translation = rotation * (Vec3::Z * distance);
+            gizmo_transform.look_at(Vec3::ZERO, Vec3::Y);
+        }
+    }
+}
+
+pub fn gizmo_viewport_system(
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    viewport_settings: Res<ViewportSettings>,
+    mut gizmo_camera: Query<&mut Camera, With<GizmoCamera>>,
+) {
+    let Ok(window) = window_query.single() else { return; };
+    let Ok(mut camera) = gizmo_camera.single_mut() else { return; };
+    
+    if camera.is_active != viewport_settings.gizmos {
+        camera.is_active = viewport_settings.gizmos;
+    }
+    
+    if !camera.is_active { return; }
+    
+    let size = 120;
+    let padding = 20;
+    
+    camera.viewport = Some(bevy::camera::Viewport {
+        physical_position: UVec2::new(padding, window.physical_height().saturating_sub(size + padding)),
+        physical_size: UVec2::new(size, size),
+        depth: 0.0..1.0,
+    });
+}
+
+
+pub fn slicing_ui_sync_system(
+    mut slicing_settings: ResMut<SlicingSettings>,
+    mut range_slider_query: Query<&mut super::super::widgets::RangeSlider>,
+    mut top_input_query: Query<&mut super::super::widgets::TextInput, (With<SlicingTopCutInput>, Without<SlicingBottomCutInput>)>,
+    mut bottom_input_query: Query<&mut super::super::widgets::TextInput, (With<SlicingBottomCutInput>, Without<SlicingTopCutInput>)>,
+    rim_slider_query: Query<&super::super::widgets::Slider, (With<SlicingRimThicknessSlider>, Changed<super::super::widgets::Slider>)>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    // 1. Sync with RangeSlider (Viewport)
+    for mut slider in range_slider_query.iter_mut() {
+        if (slicing_settings.bottom_cut - slider.min_value).abs() > 0.001 ||
+           (slicing_settings.top_cut - slider.max_value).abs() > 0.001 {
+            
+            if slider.hovered_thumb.is_none() {
+                slider.min_value = slicing_settings.bottom_cut;
+                slider.max_value = slicing_settings.top_cut;
+            } else {
+                slicing_settings.bottom_cut = slider.min_value;
+                slicing_settings.top_cut = slider.max_value;
+            }
+        }
+        
+        let hovered = slider.hovered_thumb.map(|t| match t {
+            super::super::widgets::RangeSliderThumb::Min => SlicingGizmoType::Bottom,
+            super::super::widgets::RangeSliderThumb::Max => SlicingGizmoType::Top,
+        });
+        if slicing_settings.hovered_gizmo != hovered { slicing_settings.hovered_gizmo = hovered; }
+    }
+
+    // 2. Sync with Precision Text Inputs (Right Panel)
+    if let Ok(mut top_input) = top_input_query.single_mut() {
+        if top_input.is_focused {
+            // Nudge with Arrow Keys
+            let mut nudged = false;
+            if keyboard.just_pressed(KeyCode::ArrowUp) {
+                slicing_settings.top_cut = (slicing_settings.top_cut + 0.001).clamp(slicing_settings.bottom_cut + 0.01, 1.0);
+                nudged = true;
+            } else if keyboard.just_pressed(KeyCode::ArrowDown) {
+                slicing_settings.top_cut = (slicing_settings.top_cut - 0.001).clamp(slicing_settings.bottom_cut + 0.01, 1.0);
+                nudged = true;
+            }
+
+            if nudged {
+                top_input.value = format!("{:.3}", slicing_settings.top_cut);
+            } else {
+                if let Ok(val) = top_input.value.parse::<f32>() {
+                    let clamped = val.clamp(slicing_settings.bottom_cut + 0.01, 1.0);
+                    if (slicing_settings.top_cut - clamped).abs() > 0.0001 {
+                        slicing_settings.top_cut = clamped;
+                    }
+                }
+            }
+        } else {
+            let current_str = format!("{:.3}", slicing_settings.top_cut);
+            if top_input.value != current_str {
+                top_input.value = current_str;
+            }
+        }
+    }
+
+    if let Ok(mut bot_input) = bottom_input_query.single_mut() {
+        if bot_input.is_focused {
+            // Nudge with Arrow Keys
+            let mut nudged = false;
+            if keyboard.just_pressed(KeyCode::ArrowUp) {
+                slicing_settings.bottom_cut = (slicing_settings.bottom_cut + 0.001).clamp(0.0, slicing_settings.top_cut - 0.01);
+                nudged = true;
+            } else if keyboard.just_pressed(KeyCode::ArrowDown) {
+                slicing_settings.bottom_cut = (slicing_settings.bottom_cut - 0.001).clamp(0.0, slicing_settings.top_cut - 0.01);
+                nudged = true;
+            }
+
+            if nudged {
+                bot_input.value = format!("{:.3}", slicing_settings.bottom_cut);
+            } else {
+                if let Ok(val) = bot_input.value.parse::<f32>() {
+                    let clamped = val.clamp(0.0, slicing_settings.top_cut - 0.01);
+                    if (slicing_settings.bottom_cut - clamped).abs() > 0.0001 {
+                        slicing_settings.bottom_cut = clamped;
+                    }
+                }
+            }
+        } else {
+            let current_str = format!("{:.3}", slicing_settings.bottom_cut);
+            if bot_input.value != current_str {
+                bot_input.value = current_str;
+            }
+        }
+    }
+
+    // 3. Sync with Rim Thickness Slider
+    for slider in rim_slider_query.iter() {
+        let (new_rim, new_caps) = if slider.value < 0.01 {
+            (0.0, true) // Solid
+        } else if slider.value > 0.99 {
+            (0.0, false) // Hollow
+        } else {
+            let t = (1.0 - slider.value) * 0.15;
+            (t.max(0.001), true)
+        };
+
+        if (slicing_settings.rim_thickness - new_rim).abs() > 0.0001 || slicing_settings.show_caps != new_caps {
+            slicing_settings.rim_thickness = new_rim;
+            slicing_settings.show_caps = new_caps;
+            slicing_settings.trigger_slice = true;
+        }
+    }
+}
+
+pub fn slicing_manual_mode_system(
+    mut slicing_settings: ResMut<SlicingSettings>,
+    interaction_query: Query<(&Interaction, &Children), (With<SlicingAutoManualToggle>, Changed<Interaction>)>,
+    text_query: Query<&Text>,
+) {
+    for (interaction, children) in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            if let Ok(text) = text_query.get(children[0]) {
+                let label = text.0.trim();
+                let target_manual = label == "MANUAL";
+                if slicing_settings.manual_mode != target_manual {
+                    slicing_settings.manual_mode = target_manual;
+                    // При переходе Auto → Manual с Keep Caps = OFF — удалить крышки
+                    if target_manual && !slicing_settings.show_caps {
+                        slicing_settings.trigger_caps_cleanup = true;
+                    }
+                    info!("Slicing Manual Mode: {}", target_manual);
+                }
+            }
+        }
+    }
+}
+
+pub fn slicing_manual_mode_visual_sync_system(
+    slicing_settings: Res<SlicingSettings>,
+    mut btn_query: Query<(&mut BackgroundColor, &Interaction, &Children), With<SlicingAutoManualToggle>>,
+    text_query: Query<&Text>,
+) {
+    for (mut bg, interaction, children) in btn_query.iter_mut() {
+        if let Ok(text) = text_query.get(children[0]) {
+            let label = text.0.trim();
+            let is_manual_btn = label == "MANUAL";
+            let is_active = slicing_settings.manual_mode == is_manual_btn;
+
+            let base_color = if is_active {
+                Color::srgba(0.3, 0.6, 1.0, 0.4) // Active Blue
+            } else {
+                Color::srgba(1.0, 1.0, 1.0, 0.05) // Inactive
+            };
+
+            let final_color = if *interaction == Interaction::Hovered {
+                match base_color {
+                    Color::Srgba(c) => Color::Srgba(bevy::color::Srgba { alpha: (c.alpha * 1.5).min(1.0), ..c }),
+                    _ => base_color,
+                }
+            } else {
+                base_color
+            };
+            *bg = final_color.into();
+        }
+    }
+}
+
+pub fn slicing_ui_visibility_sync_system(
+    slicing_settings: Res<SlicingSettings>,
+    mut auto_container_query: Query<&mut Node, (With<SlicingAutoModeContainer>, Without<super::super::SlicingManualModeContainer>)>,
+    mut manual_container_query: Query<&mut Node, (With<super::super::SlicingManualModeContainer>, Without<SlicingAutoModeContainer>)>,
+) {
+    for mut style in auto_container_query.iter_mut() {
+        let display = if slicing_settings.manual_mode { Display::None } else { Display::Flex };
+        if style.display != display { style.display = display; }
+    }
+    for mut style in manual_container_query.iter_mut() {
+        let display = if slicing_settings.manual_mode { Display::Flex } else { Display::None };
+        if style.display != display { style.display = display; }
+    }
+}
+
+pub fn draw_slicing_contours_system(
+    preview_query: Query<(&PreviewContours, &GlobalTransform)>,
+    final_query: Query<(&SlicingContours, &GlobalTransform)>,
+    slicing_settings: Res<SlicingSettings>,
+    viewport_settings: Res<ViewportSettings>,
+    mut gizmos: Gizmos,
+) {
+    if !viewport_settings.slices || slicing_settings.manual_mode { return; }
+    
+    if slicing_settings.dragging_gizmo.is_some() {
+        // Во время перетаскивания показываем ОБА контура:
+        // 1. Черные - текущая (старая) позиция разреза
+        for (contours, transform) in final_query.iter() {
+            let matrix = transform.to_matrix();
+            for segment in &contours.segments {
+                let start = matrix.transform_point3(segment[0]);
+                let end = matrix.transform_point3(segment[1]);
+                gizmos.line(start, end, Color::srgb(0.0, 0.0, 0.0)); // Черный
+            }
+        }
+        
+        // 2. Оранжевые - новая (preview) позиция разреза
+        for (preview, transform) in preview_query.iter() {
+            let matrix = transform.to_matrix();
+            for segment in &preview.segments {
+                let start = matrix.transform_point3(segment[0]);
+                let end = matrix.transform_point3(segment[1]);
+                gizmos.line(start, end, Color::srgb(1.0, 0.5, 0.0)); // Оранжевый яркий
+            }
+        }
+    } else {
+        // Без перетаскивания - только финальные красные контуры
+        for (contours, transform) in final_query.iter() {
+            let matrix = transform.to_matrix();
+            for segment in &contours.segments {
+                let start = matrix.transform_point3(segment[0]);
+                let end = matrix.transform_point3(segment[1]);
+                gizmos.line(start, end, Color::srgb(1.0, 0.0, 0.0)); // Красный яркий
+            }
+        }
+    }
+}
+
+pub fn init_gizmos_system(
+    mut config_store: ResMut<GizmoConfigStore>,
+) {
+    let config = config_store.config_mut::<DefaultGizmoConfigGroup>();
+    config.0.depth_bias = -0.01;
+}
+
+pub fn draw_actor_bounds_debug_system(
+    query: Query<(&ActorBounds, &GlobalTransform)>,
+    mut gizmos: Gizmos,
+) {
+    for (bounds, transform) in query.iter() {
+        let center = (bounds.max + bounds.min) / 2.0;
+        let size = bounds.max - bounds.min;
+        let (root_scale, root_rotation, _root_translation) = transform.to_scale_rotation_translation();
+        
+        gizmos.cube(
+            Transform::from_translation(transform.transform_point(center))
+                .with_scale(size * root_scale)
+                .with_rotation(root_rotation),
+            Color::srgba(1.0, 1.0, 1.0, 0.5)
+        );
+    }
+}
+
+pub fn slicing_ui_visibility_system(
+    actor_query: Query<&ActorBounds>,
+    mut container_query: Query<&mut Visibility, With<super::super::widgets::SlicerContainer>>,
+    mut gizmo_query: Query<&mut Visibility, (With<SlicingGizmo>, Without<super::super::widgets::SlicerContainer>)>,
+    viewport_settings: Res<ViewportSettings>,
+    slicing_settings: Res<SlicingSettings>,
+) {
+    let has_model = actor_query.single().is_ok();
+    let show_slicer = has_model && viewport_settings.slices && !slicing_settings.manual_mode;
+    let target_visibility = if show_slicer { Visibility::Visible } else { Visibility::Hidden };
+    
+    if let Ok(mut vis) = container_query.single_mut() {
+        if *vis != target_visibility { *vis = target_visibility; }
+    }
+    for mut vis in gizmo_query.iter_mut() {
+        if *vis != target_visibility { *vis = target_visibility; }
+    }
+}
+
+pub fn slicing_gizmo_manager_system(
+    mut commands: Commands,
+    viewport_settings: Res<ViewportSettings>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    gizmo_query: Query<Entity, With<SlicingGizmo>>,
+) {
+    let gizmo_count = gizmo_query.iter().count();
+    
+    if viewport_settings.slices && gizmo_count == 0 {
+        for gizmo_type in [SlicingGizmoType::Top, SlicingGizmoType::Bottom] {
+            let color = match gizmo_type {
+                SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, 0.05),
+                SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, 0.05),
+            };
+            
+            // Spawn Main Slicing Plane Gizmo
+            commands.spawn((
+                (Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.0)))), MeshMaterial3d(materials.add(StandardMaterial {
+                        base_color: color,
+                        alpha_mode: AlphaMode::Blend,
+                        unlit: false, // Make it respect lighting and depth better
+                        double_sided: true,
+                        cull_mode: None,
+                        ..default()
+                    })), Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))),
+                gizmo_type, 
+                SlicingGizmo, 
+                EditorHelper,
+            ));
+        }
+    } else if !viewport_settings.slices && gizmo_count > 0 {
+
+        for entity in gizmo_query.iter() { commands.entity(entity).despawn(); }
+    }
+}
+
+
+pub fn slicing_gizmo_sync_system(
+    slicing_settings: Res<SlicingSettings>,
+    actor_query: Query<(&ActorBounds, &GlobalTransform)>,
+    mut gizmo_query: Query<(&mut Transform, &SlicingGizmoType, &MeshMaterial3d<StandardMaterial>)>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let Ok((bounds, transform)) = actor_query.single() else { return; };
+    
+    let height = bounds.max.y - bounds.min.y;
+    let radius = (bounds.max.x - bounds.min.x).max(bounds.max.z - bounds.min.z) * 0.7;
+
+    for (mut gizmo_transform, gizmo_type, mat_handle) in gizmo_query.iter_mut() {
+        let ratio = match *gizmo_type {
+            SlicingGizmoType::Top => slicing_settings.top_cut,
+            SlicingGizmoType::Bottom => slicing_settings.bottom_cut,
+        };
+
+        let y = transform.transform_point(Vec3::Y * (bounds.min.y + ratio * height)).y;
+        let pos = Vec3::new(transform.translation().x, y, transform.translation().z);
+        gizmo_transform.translation = pos;
+        
+        let (root_scale, _, _) = transform.to_scale_rotation_translation();
+        gizmo_transform.scale = Vec3::splat(radius * root_scale.x.max(root_scale.z));
+        gizmo_transform.rotation = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
+
+        let is_hovered = slicing_settings.hovered_gizmo == Some(*gizmo_type);
+        
+        // Draw an "Always Visible" outline using Gizmos
+        // The intersection effect is now achieved naturally by depth testing against the opaque model.
+        // No gizmo outlines are needed as they would draw on top of everything.
+
+        if let Some(mut mat) = materials.get_mut(&mat_handle.0) {
+            let alpha = if is_hovered { 0.7 } else { 0.3 }; 
+            let color = match *gizmo_type {
+                SlicingGizmoType::Top => Color::srgba(0.3, 0.6, 1.0, alpha),
+                SlicingGizmoType::Bottom => Color::srgba(1.0, 0.6, 0.2, alpha),
+            };
+            mat.base_color = color;
+        }
+    }
+}
+
+pub fn socket_visibility_system(
+    viewport_settings: Res<ViewportSettings>,
+    mut socket_query: Query<&mut Visibility, With<super::super::ActorSocket>>,
+) {
+    let target_visibility = if viewport_settings.sockets { Visibility::Visible } else { Visibility::Hidden };
+    for mut vis in socket_query.iter_mut() {
+        if *vis != target_visibility {
+            *vis = target_visibility;
+        }
+    }
+}

@@ -1,6 +1,57 @@
 use bevy::prelude::*;
 use client_core::{Project, Selection, DirtyTiles, CommandHistory, RoomTransition, Room, TileType};
-use crate::{EditorState, OrbitCamera, BoxGizmos, TILE_SIZE, TILE_H};
+use client_core::{ClientAssets, MapEntity};
+use crate::{EditorState, OrbitCamera, BoxGizmos, SelectionPreview, TILE_SIZE, TILE_H};
+
+/// Spawns and keeps a translucent “ghost” of the tile type that would be
+/// placed at the current selection, so the preview is visible immediately.
+pub fn selection_preview_system(
+    mut commands: Commands,
+    selection: Res<Selection>,
+    project: Res<Project>,
+    editor_state: Res<EditorState>,
+    client_assets: Res<ClientAssets>,
+    mut preview: Query<(Entity, &mut Mesh3d, &mut Transform), With<SelectionPreview>>,
+) {
+    if project.rooms.is_empty() {
+        return;
+    }
+    let room_idx = project.current_room_idx;
+    let cell = project.rooms[room_idx].cells[selection.x][selection.z];
+
+    let (mesh, rot) = match editor_state.current_type {
+        TileType::WedgeN => (client_assets.wedge_mesh.clone(), 0.0),
+        TileType::WedgeE => (client_assets.wedge_mesh.clone(), -std::f32::consts::FRAC_PI_2),
+        TileType::WedgeS => (client_assets.wedge_mesh.clone(), std::f32::consts::PI),
+        TileType::WedgeW => (client_assets.wedge_mesh.clone(), std::f32::consts::FRAC_PI_2),
+        _ => (client_assets.cube_mesh.clone(), 0.0),
+    };
+
+    let top_y = (cell.h as f32 - 0.5) * TILE_H;
+    let transform = Transform::from_translation(Vec3::new(
+        selection.x as f32,
+        top_y,
+        selection.z as f32,
+    ))
+    .with_scale(Vec3::new(TILE_SIZE, TILE_H, TILE_SIZE))
+    .with_rotation(Quat::from_rotation_y(rot));
+
+    if let Ok((_, mut current_mesh, mut current_transform)) = preview.single_mut() {
+        if current_mesh.0 != mesh {
+            current_mesh.0 = mesh;
+        }
+        *current_transform = transform;
+    } else {
+        commands.spawn((
+            SelectionPreview,
+            Mesh3d(mesh),
+            MeshMaterial3d(client_assets.highlight_material.clone()),
+            transform,
+            bevy::light::NotShadowCaster,
+            MapEntity,
+        ));
+    }
+}
 
 pub fn selection_system(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -16,7 +67,7 @@ pub fn selection_system(
     let mut move_dx = 0i32;
     let mut move_dz = 0i32;
 
-    if let Ok(cam_transform) = camera_query.get_single() {
+    if let Ok(cam_transform) = camera_query.single() {
         let forward = cam_transform.forward();
         let forward_h = Vec2::new(forward.x, forward.z).normalize_or_zero();
         
@@ -86,11 +137,11 @@ pub fn mouse_selection_system(
     for interaction in interaction_query.iter() {
         if *interaction != Interaction::None { return; }
     }
-    let Ok(window) = windows.get_single() else { return; };
-    let Ok((camera, camera_transform)) = camera_query.get_single() else { return; };
+    let Ok(window) = windows.single() else { return; };
+    let Ok((camera, camera_transform)) = camera_query.single() else { return; };
 
     if let Some(cursor_pos) = window.cursor_position() {
-        if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
+        if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
             let mut best_hit: Option<(usize, usize, f32)> = None;
             let room = &project.rooms[project.current_room_idx];
 
@@ -137,12 +188,11 @@ pub fn room_switching_system(
         if next_idx >= project.rooms.len() { project.rooms.push(Room::default()); }
         transition.start(next_idx);
     }
-    if keyboard.just_pressed(KeyCode::BracketLeft) {
-        if project.current_room_idx > 0 { 
+    if keyboard.just_pressed(KeyCode::BracketLeft)
+        && project.current_room_idx > 0 { 
             history.push_undo(&project);
             transition.start(project.current_room_idx - 1);
         }
-    }
 }
 
 pub fn auto_save_system(project: Res<Project>) {
@@ -185,8 +235,8 @@ pub fn selection_highlight_system(
 ) {
     let room_idx = project.current_room_idx;
     let cell = project.rooms[room_idx].cells[selection.x][selection.z];
-    let cam_pos = camera_query.get_single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
-    let is_on = (time.elapsed_seconds() * 5.0).sin() > 0.0;
+    let cam_pos = camera_query.single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
+    let is_on = (time.elapsed_secs() * 5.0).sin() > 0.0;
     if !is_on { return; }
 
     if cell.h > 0 {
