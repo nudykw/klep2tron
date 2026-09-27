@@ -49,6 +49,13 @@ otherwise Bevy looks in `target/debug/assets`:
 BEVY_ASSET_ROOT=$PWD ./target/debug/editor_client
 ```
 
+## Verification workflow
+
+Before declaring a code change done: run the deterministic `verify` tool, and when it reports
+candidates, delegate their classification to the `reviewer` subagent. The full workflow and the
+rule sources are in the user-level `verify-change` skill (`/skill:verify-change`); this repo's rule
+patterns live in `.pi/verify-rules.txt`.
+
 ## Workspace layout
 
 | Crate | Role | Targets |
