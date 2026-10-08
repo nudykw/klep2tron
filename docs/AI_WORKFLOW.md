@@ -29,6 +29,26 @@ I (the AI) **CATEGORICALLY** do not have the right to execute `git commit`, `git
 * This rule helps avoid typos and naming errors that may occur when editing multiple files.
 * **Structured diagnostics**: for a compact, greppable list of compiler errors and warnings, use `scripts/diagnostics.sh` (a wrapper over `cargo check --workspace --message-format=json`; `CARGO_CMD=clippy` switches to clippy). It exits non-zero when there are errors.
 
+### 3.1. Convergence Check (before saying "done")
+
+1. Take the acceptance criteria `AC-N` from the plan (template: `docs/templates/PRODUCT_TEMPLATE.md` §7).
+2. For each `AC` record the **evidence** of the check you actually ran (the `verify` digest, `cargo test`
+   output, `/state` JSON, a screenshot path) — not a restatement of intent.
+3. Mark the verdict `verified | partial | failed`. For any `partial`/`failed` either finish it or move it
+   to the plan's **Outstanding** section with a reason.
+4. A task is not done while any `AC` is unmarked, or while the only evidence is your own prose.
+5. The convergence report (§9 of the Product template) lives in the plan itself and is filled in **before**
+   the plan header may say `> **Status:** ✅ DONE`.
+
+### 3.2. Bug Fix Verification
+
+For "broken behavior" tasks, capture the symptom BEFORE the fix and re-run it AFTER:
+
+1. **§0 Symptom (reproduction).** The exact steps/command that show the bug — template: `docs/templates/BUG_TEMPLATE.md`.
+2. **Body of the plan** — root cause + fix (worked example: `plans/Preview_RTT_Thumbnails_Bug.md`).
+3. **§N Fix verification.** The same symptom re-run after the change; verdict `verified | partial | failed`.
+   Without a re-run it is not a fixed bug — a missing verification does not count as success.
+
 ---
 
 ## 4. Documentation Maintenance Rule

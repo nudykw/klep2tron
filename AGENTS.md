@@ -56,6 +56,11 @@ candidates, delegate their classification to the `reviewer` subagent. The full w
 rule sources are in the user-level `verify-change` skill (`/skill:verify-change`); this repo's rule
 patterns live in `.pi/verify-rules.txt`.
 
+Then run the **Convergence Check** against the plan's numbered acceptance criteria (`AC-N`) —
+`docs/AI_WORKFLOW.md` §3.1: every `AC` gets a verdict (`verified | partial | failed`) backed by real
+evidence, and the convergence table in the plan is filled in before its header may say DONE.
+For "broken behavior" work use the bug format (symptom before → re-run after, §3.2).
+
 ## Workspace layout
 
 | Crate | Role | Targets |

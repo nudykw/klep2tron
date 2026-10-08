@@ -44,9 +44,9 @@ We describe how the program's behavior changes:
 ## 3. Mandatory Artifacts
 
 As a result of product planning, I (the AI) must provide:
-1.  **Acceptance Criteria:** A list of items by which you will verify that the task is completed.
+1.  **Acceptance Criteria:** A numbered list (`AC-1`, `AC-2`, …) by which you will verify that the task is completed. Each item must state *how* it is checked (command / control API / screenshot). The same numbers feed the convergence report (`docs/AI_WORKFLOW.md` §3.1).
 2.  **UI/UX Draft:** Description of button placement, tooltips, and visual effects (Wireframe or text description).
-3.  **Task Breakdown:** A list of small sub-tasks (e.g., 14.1, 14.2...) that can be performed independently.
+3.  **Task Breakdown:** A list of small sub-tasks (`T-1`, `T-2`, …), each referencing at least one `AC-N`, that can be performed independently.
 
 ---
 
